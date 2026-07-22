@@ -533,7 +533,7 @@ export default function TaskModal({
       <form
         id="task-form"
         onSubmit={onSubmit}
-        className="flex flex-col h-full min-h-0"
+        className="space-y-4"
       >
         <div className="flex-1 overflow-y-auto min-h-0 space-y-4 px-1">
           <div>
@@ -569,10 +569,11 @@ export default function TaskModal({
               />
             </div>
             <div>
-              <FormLabel>Priority</FormLabel>
+              <FormLabel required>Priority</FormLabel>
               <Select
                 {...getSelectProps({ isSearchable: false })}
                 placeholder="Priority"
+                required
                 options={TASK_PRIORITY_OPTIONS}
                 value={
                   formData.priority
@@ -588,10 +589,11 @@ export default function TaskModal({
 
           {isCreate && (
             <div>
-              <FormLabel>Status</FormLabel>
+              <FormLabel required>Status</FormLabel>
               <Select
                 {...getSelectProps({ isSearchable: false })}
                 placeholder="Status"
+                required
                 options={STATUSES.map((s) => ({ label: s, value: s }))}
                 value={
                   formData.status
@@ -607,10 +609,11 @@ export default function TaskModal({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <FormLabel>Due Date</FormLabel>
+              <FormLabel required>Due Date</FormLabel>
               <FormInput
                 type="date"
                 name="dueDate"
+                required
                 value={formData.dueDate}
                 onChange={onChange}
                 min={today}
@@ -647,7 +650,7 @@ export default function TaskModal({
           <div>
             <FormLabel>Scope</FormLabel>
             {permissions.canAssign ? (
-              <div className="flex items-center gap-4 mt-1">
+              <div className="flex items-center gap-20 mt-2">
                 <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
                   <input
                     type="radio"

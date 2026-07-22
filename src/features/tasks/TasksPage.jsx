@@ -313,6 +313,7 @@ export default function TasksPage() {
       reminderAt: formData.reminderAt || null,
       relatedToType: formData.relatedToType || undefined,
       relatedTo: formData.relatedTo || undefined,
+      link: formData.link || "",
     };
 
     if (mode === "create") {
