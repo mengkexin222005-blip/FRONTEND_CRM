@@ -12,8 +12,8 @@ export default function SidebarItem({ item, isCollapsed }) {
             isCollapsed ? "justify-center" : "gap-4 px-4"
           } py-3 rounded-md ${
             isActive
-              ? "bg-[#f8f9fa] font-medium text-red-600"
-              : "hover:bg-gray-100"
+              ? "bg-[#f8f9fa] text-red-600"
+              : "transition-colors hover:bg-red-50 hover:text-red-600"
           }`}
         >
           {isActive ? (

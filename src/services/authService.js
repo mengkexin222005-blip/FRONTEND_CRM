@@ -1,18 +1,22 @@
 import api from "./api";
 
-const unwrap=response=>response?.data??response;
+const unwrap = (response) =>
+  response?.data ?? response;
 
-export const login=async(emailOrPayload,password)=>{
-  const payload=
-    typeof emailOrPayload==="object"&&
-    emailOrPayload!==null
-      ?emailOrPayload
-      :{
-        email:emailOrPayload,
-        password,
-      };
+export const login = async (
+  emailOrPayload,
+  password,
+) => {
+  const payload =
+    typeof emailOrPayload === "object" &&
+    emailOrPayload !== null
+      ? emailOrPayload
+      : {
+          email: emailOrPayload,
+          password,
+        };
 
-  const response=await api.post(
+  const response = await api.post(
     "/api/auth/login",
     payload,
   );
@@ -20,32 +24,34 @@ export const login=async(emailOrPayload,password)=>{
   return unwrap(response);
 };
 
-export const refreshToken=async()=>{
-  const response=await api.post(
+export const refreshToken = async () => {
+  const response = await api.post(
     "/api/auth/refresh",
   );
 
   return unwrap(response);
 };
 
-export const logout=async()=>{
-  const response=await api.post(
+export const logout = async () => {
+  const response = await api.post(
     "/api/auth/logout",
   );
 
   return unwrap(response);
 };
 
-export const forgotPassword=async emailOrPayload=>{
-  const payload=
-    typeof emailOrPayload==="object"&&
-    emailOrPayload!==null
-      ?emailOrPayload
-      :{
-        email:emailOrPayload,
-      };
+export const forgotPassword = async (
+  emailOrPayload,
+) => {
+  const payload =
+    typeof emailOrPayload === "object" &&
+    emailOrPayload !== null
+      ? emailOrPayload
+      : {
+          email: emailOrPayload,
+        };
 
-  const response=await api.post(
+  const response = await api.post(
     "/api/auth/forgot-password",
     payload,
   );
@@ -53,20 +59,20 @@ export const forgotPassword=async emailOrPayload=>{
   return unwrap(response);
 };
 
-export const resetPassword=async(
+export const resetPassword = async (
   tokenOrPayload,
   newPassword,
-)=>{
-  const payload=
-    typeof tokenOrPayload==="object"&&
-    tokenOrPayload!==null
-      ?tokenOrPayload
-      :{
-        token:tokenOrPayload,
-        newPassword,
-      };
+) => {
+  const payload =
+    typeof tokenOrPayload === "object" &&
+    tokenOrPayload !== null
+      ? tokenOrPayload
+      : {
+          token: tokenOrPayload,
+          newPassword,
+        };
 
-  const response=await api.post(
+  const response = await api.post(
     "/api/auth/reset-password",
     payload,
   );

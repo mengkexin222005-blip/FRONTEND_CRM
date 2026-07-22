@@ -1,117 +1,222 @@
-import{ChevronRight,Filter}from"lucide-react";
-import{useNavigate}from"react-router-dom";
-import{PageBase,PageContentState}from"../../components/page";
-import{useDashboard}from"./hooks/useDashboard";
-import MyTasksTable from"./components/MyTaskTable";
-import MyMeetingsTable from"./components/MyMeetingTable";
+import { useMemo, useState } from "react";
+import { ChevronRight, CalendarDays, Clock } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 
-const TASKS_ROUTE="/tasks";
-const MEETINGS_ROUTE="/meetings";
+import { PageBase, PageContentState } from "../../components/page";
+import { useDashboard } from "./hooks/useDashboard";
+import MyTasksTable from "./components/MyTaskTable";
+import MyMeetingsTable from "./components/MyMeetingTable";
+import HeaderFilterDropdown from "./components/HeaderFilterDropdown"; 
 
-export default function DashboardPage(){
-const navigate=useNavigate();
-const{stats,loading,error}=useDashboard();
+const ROLE_BASE_PATHS = [
+  "/admin",
+  "/sales-manager",
+  "/sales-agent",
+  "/support-staff",
+];
 
-const tasks=stats?.tasks||[];
-const meetings=stats?.meetings||[];
+const getRoleBasePath = (pathname) => {
+  const matchedPath = ROLE_BASE_PATHS.find(
+    (basePath) => pathname === basePath || pathname.startsWith(`${basePath}/`),
+  );
+  return matchedPath || "";
+};
 
-return(
-<PageBase>
+// Helper function to extract strictly YYYY-MM-DD
+const formatDateKey = (value) => {
+  if (!value || value === "__no_date__") return "__no_date__";
+  const rawString = String(value).trim();
+  const cleanString = rawString.includes("T") ? rawString.split("T")[0] : rawString;
+  
+  const parsedDate = new Date(cleanString);
+  if (Number.isNaN(parsedDate.getTime())) return cleanString;
 
-<div className="mb-3 flex w-full min-w-0 shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+  const year = parsedDate.getFullYear();
+  const month = String(parsedDate.getMonth() + 1).padStart(2, "0");
+  const day = String(parsedDate.getDate()).padStart(2, "0");
 
-<div className="min-w-0">
-<h1 className="text-base font-semibold text-gray-800 sm:text-lg">
-Dashboard
-</h1>
+  return `${year}-${month}-${day}`;
+};
 
-<p className="truncate text-[11px] text-gray-400 sm:text-xs">
-Manage your tasks and meetings
-</p>
-</div>
+export default function DashboardPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { stats, loading, error } = useDashboard();
 
-<button
-type="button"
-className="flex w-full shrink-0 items-center justify-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-600 transition hover:border-red-200 hover:text-red-600 sm:w-auto sm:px-4 sm:text-xs"
->
-<Filter className="h-3.5 w-3.5"/>
-Filter
-</button>
+  const tasks = stats?.tasks || [];
+  const meetings = stats?.meetings || [];
 
-</div>
+  const roleBasePath = getRoleBasePath(location.pathname);
 
-{error&&(
-<div className="mb-2 rounded-md bg-red-50 px-3 py-2 text-[11px] text-red-600 sm:text-xs">
-{error}
-</div>
-)}
+  // Filter States
+  const [taskTimeFilter, setTaskTimeFilter] = useState("all");
+  const [meetingDateFilter, setMeetingDateFilter] = useState("all");
+  const [meetingTimeFilter, setMeetingTimeFilter] = useState("all");
 
-<PageContentState loading={loading}>
+  // Options Generators
+  const taskTimeOptions = useMemo(() => {
+    const times = Array.from(
+      new Set(tasks.map((t) => t.dueTime || t.time || "__no_time__")),
+    ).sort();
+    return [
+      { value: "all", label: "All Times" },
+      ...times.map((t) => ({
+        value: t,
+        label: t === "__no_time__" ? "No Time" : t,
+      })),
+    ];
+  }, [tasks]);
 
-<div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden pb-4 pr-1">
+  const meetingDateOptions = useMemo(() => {
+    // Map dates through formatDateKey so options are clean YYYY-MM-DD
+    const dates = Array.from(
+      new Set(meetings.map((m) => formatDateKey(m.meetingDate || m.date || "__no_date__"))),
+    ).sort((a, b) => {
+      if (a === "__no_date__") return 1;
+      if (b === "__no_date__") return -1;
+      return a.localeCompare(b);
+    });
 
-<section className="mt-3 w-full min-w-0 shrink-0 sm:mt-4">
+    return [
+      { value: "all", label: "All Dates" },
+      ...dates.map((d) => ({
+        value: d,
+        label: d === "__no_date__" ? "No Date" : d,
+      })),
+    ];
+  }, [meetings]);
 
-<div className="mb-2 flex w-full min-w-0 items-center justify-between gap-2 sm:mb-3">
+  const meetingTimeOptions = useMemo(() => {
+    const times = Array.from(
+      new Set(meetings.map((m) => m.startTime || m.time || "__no_time__")),
+    ).sort();
+    return [
+      { value: "all", label: "All Times" },
+      ...times.map((t) => ({
+        value: t,
+        label: t === "__no_time__" ? "No Time" : t,
+      })),
+    ];
+  }, [meetings]);
 
-<div className="flex min-w-0 items-center gap-2">
-<h2 className="truncate text-xs font-semibold text-gray-700 sm:text-sm">
-My Tasks
-</h2>
+  // Filtered Data
+  const filteredTasks = useMemo(() => {
+    return tasks.filter(
+      (t) =>
+        taskTimeFilter === "all" ||
+        (t.dueTime || t.time || "__no_time__") === taskTimeFilter,
+    );
+  }, [tasks, taskTimeFilter]);
 
-<span className="shrink-0 rounded-full bg-black/[0.05] px-2 py-0.5 text-[10px] text-black/50 sm:text-[11px]">
-{tasks.length}
-</span>
-</div>
+  const filteredMeetings = useMemo(() => {
+    return meetings.filter((m) => {
+      const dateKey = formatDateKey(m.meetingDate || m.date || "__no_date__");
+      const dateMatch =
+        meetingDateFilter === "all" || dateKey === meetingDateFilter;
+      const timeMatch =
+        meetingTimeFilter === "all" ||
+        (m.startTime || m.time || "__no_time__") === meetingTimeFilter;
+      return dateMatch && timeMatch;
+    });
+  }, [meetings, meetingDateFilter, meetingTimeFilter]);
 
-<button
-type="button"
-onClick={()=>navigate(TASKS_ROUTE)}
-className="mr-0 inline-flex shrink-0 items-center whitespace-nowrap text-[10px] font-medium text-black/50 transition hover:text-red-600 sm:mr-4 sm:text-xs lg:mr-8"
->
-<span>View more</span>
-<ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4"/>
-</button>
+  const handleViewTasks = () =>
+    roleBasePath && navigate(`${roleBasePath}/tasks`);
+  const handleViewMeetings = () =>
+    roleBasePath && navigate(`${roleBasePath}/meetings`);
 
-</div>
+  return (
+    <PageBase>
+      {error && (
+        <div className="mb-4 rounded-md border border-red-500/20 bg-red-500/[0.05] px-4 py-2 text-sm text-red-600">
+          {error}
+        </div>
+      )}
 
-<MyTasksTable tasks={tasks}/>
+      <PageContentState loading={loading}>
+        <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto pb-5">
+          
+          {/* MY TASKS SECTION */}
+          <section className="w-full min-w-0 shrink-0">
+            <div className="mb-4 flex w-full min-w-0 items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <h2 className="text-lg font-semibold text-gray-700">
+                  My Tasks
+                </h2>
+                <span className="inline-flex h-6 min-w-8 shrink-0 items-center justify-center rounded-md border border-black/[0.07] bg-black/[0.04] px-3 text-xs font-medium text-black/45">
+                  {filteredTasks.length}
+                </span>
+              </div>
 
-</section>
+              <div className="flex items-center gap-3">
+                <HeaderFilterDropdown
+                  icon={Clock}
+                  ariaLabel="Filter tasks by time"
+                  value={taskTimeFilter}
+                  options={taskTimeOptions}
+                  onChange={setTaskTimeFilter}
+                />
 
-<section className="mt-6 w-full min-w-0 shrink-0 sm:mt-8 lg:mt-auto lg:pt-8">
+                <button
+                  type="button"
+                  onClick={handleViewTasks}
+                  className="inline-flex shrink-0 items-center gap-px whitespace-nowrap rounded-md px-1 py-1 text-[clamp(11px,0.8vw,13px)] font-medium text-black/45 hover:text-red-600"
+                >
+                  <span>View more</span>
+                  <ChevronRight className="h-4 w-4" strokeWidth={2} />
+                </button>
+              </div>
+            </div>
 
-<div className="mb-2 flex w-full min-w-0 items-center justify-between gap-2 sm:mb-3">
+            <MyTasksTable tasks={filteredTasks} hideFilter />
+          </section>
 
-<div className="flex min-w-0 items-center gap-2">
-<h2 className="truncate text-xs font-semibold text-gray-700 sm:text-sm">
-My Meetings
-</h2>
+          {/* MY MEETINGS SECTION */}
+          <section className="mt-[clamp(32px,5vw,48px)] w-full min-w-0 shrink-0">
+            <div className="mb-4 flex w-full min-w-0 items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <h2 className="text-lg font-semibold text-gray-700">
+                  My Meetings
+                </h2>
+                <span className="inline-flex h-6 min-w-8 shrink-0 items-center justify-center rounded-md border border-black/[0.07] bg-black/[0.04] px-3 text-xs font-medium text-black/45">
+                  {filteredMeetings.length}
+                </span>
+              </div>
 
-<span className="shrink-0 rounded-full bg-black/[0.05] px-2 py-0.5 text-[10px] text-black/50 sm:text-[11px]">
-{meetings.length}
-</span>
-</div>
+              <div className="flex items-center gap-2.5">
+                <HeaderFilterDropdown
+                  icon={CalendarDays}
+                  ariaLabel="Filter meetings by date"
+                  value={meetingDateFilter}
+                  options={meetingDateOptions}
+                  onChange={setMeetingDateFilter}
+                  minimumWidth={150}
+                />
 
-<button
-type="button"
-onClick={()=>navigate(MEETINGS_ROUTE)}
-className="mr-0 inline-flex shrink-0 items-center whitespace-nowrap text-[10px] font-medium text-black/50 transition hover:text-red-600 sm:mr-4 sm:text-xs lg:mr-8"
->
-<span>View more</span>
-<ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4"/>
-</button>
+                <HeaderFilterDropdown
+                  icon={Clock}
+                  ariaLabel="Filter meetings by time"
+                  value={meetingTimeFilter}
+                  options={meetingTimeOptions}
+                  onChange={setMeetingTimeFilter}
+                />
 
-</div>
+                <button
+                  type="button"
+                  onClick={handleViewMeetings}
+                  className="inline-flex shrink-0 items-center gap-px whitespace-nowrap rounded-md px-1 py-1 text-[clamp(11px,0.8vw,13px)] font-medium text-black/45 hover:text-red-600"
+                >
+                  <span>View more</span>
+                  <ChevronRight className="h-4 w-4" strokeWidth={2} />
+                </button>
+              </div>
+            </div>
 
-<MyMeetingsTable meetings={meetings}/>
+            <MyMeetingsTable meetings={filteredMeetings} hideFilter />
+          </section>
 
-</section>
-
-</div>
-
-</PageContentState>
-
-</PageBase>
-);
+        </div>
+      </PageContentState>
+    </PageBase>
+  );
 }

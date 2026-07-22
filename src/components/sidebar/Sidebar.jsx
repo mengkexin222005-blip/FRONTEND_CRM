@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { ChevronRight, ChevronDown, Folder, Settings } from "lucide-react";
+import { ChevronRight, ChevronDown, Folder } from "lucide-react";
 import logo from "../../assets/intellicrm_logo.svg";
 import logoOnly from "../../assets/i7logo.svg";
 import { useAuth } from "../../context/AuthContext";
@@ -27,6 +27,7 @@ const MODULE_PAGES = [
 // Explicit Item Identification Helpers
 const isDashboardItem = (item) => item.key === "dashboard";
 const isReportsItem = (item) => item.key === "reports";
+const isSettingsItem = (item) => item.key === "settings";
 
 // Robust evaluation for plural, singular, keys, or URL segments
 const isCommunicationItem = (item) =>
@@ -50,7 +51,7 @@ export default function Sidebar() {
   const [moduleOpen, setModuleOpen] = useState(false);
 
   const baseRoute = ROLE_ROUTES[user?.role] || "";
-  const settingsPath = `${baseRoute}/users`;
+  // const settingsPath = `${baseRoute}/users`;
 
   // Filter and memoize nav list
   const navItems = useMemo(
@@ -64,6 +65,7 @@ export default function Sidebar() {
   const reportsItems = useMemo(() => navItems.filter(isReportsItem), [navItems]);
   const communicationItems = useMemo(() => navItems.filter(isCommunicationItem), [navItems]);
   const supportItems = useMemo(() => navItems.filter(isSupportItem), [navItems]);
+  const settingsItems = useMemo(() => navItems.filter(isSettingsItem), [navItems]);
 
   const shouldShowSettings = Boolean(baseRoute) && hasPermission(user, "Settings");
 
@@ -121,17 +123,33 @@ export default function Sidebar() {
                 }
                 setModuleOpen((prev) => !prev);
               }}
-              className={`flex w-full items-center rounded-md py-3 transition hover:bg-gray-100 ${
+              className={`group flex w-full items-center rounded-md py-3 transition-colors ${
                 isCollapsed ? "justify-center" : "justify-between px-4"
+              } ${
+                moduleOpen
+                  ? "bg-red-50 text-red-600 font-medium"
+                  : "text-gray-800 hover:bg-red-50 hover:text-red-600"
               }`}
             >
               <div className="flex items-center gap-4">
-                <Folder size={20} />
-                {!isCollapsed && <span>Module</span>}
+              <Folder
+                size={20}
+                strokeWidth={moduleOpen ? 2.5 : 1.5}
+                className={`shrink-0 transition-colors ${
+                  moduleOpen ? "text-red-600" : "group-hover:text-red-600"
+                }`}
+              />
+                {!isCollapsed && (
+                  <span className="text-base">
+                    Module
+                  </span>
+                )}
               </div>
 
               {!isCollapsed && (
-                moduleOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />
+                moduleOpen
+                  ? <ChevronDown size={18} className="text-red-600" />
+                  : <ChevronRight size={18} className="group-hover:text-red-600" />
               )}
             </button>
 
@@ -159,31 +177,15 @@ export default function Sidebar() {
           <SidebarItem key={item.to} item={item} isCollapsed={isCollapsed} />
         ))}
 
-        {/* Settings Toggle */}
-        {shouldShowSettings && (
-          <NavLink
-            to={settingsPath}
-            onClick={() => {
-              if (isCollapsed) {
-                setIsCollapsed(false);
-              }
-            }}
-            className={({ isActive }) =>
-              `flex w-full items-center rounded-md py-3 transition ${
-                isCollapsed ? "justify-center" : "px-4"
-              } ${
-                isActive
-                  ? "bg-gray-100 text-red-600"
-                  : "text-gray-900 hover:bg-gray-100"
-              }`
-            }
-          >
-            <div className="flex items-center gap-4">
-              <Settings size={20} />
-              {!isCollapsed && <span>Settings</span>}
-            </div>
-          </NavLink>
-        )}
+        {/* Settings */}
+        {shouldShowSettings &&
+          settingsItems.map((item) => (
+            <SidebarItem
+              key={item.to}
+              item={item}
+              isCollapsed={isCollapsed}
+            />
+          ))}
       </nav>
     </div>
   );
