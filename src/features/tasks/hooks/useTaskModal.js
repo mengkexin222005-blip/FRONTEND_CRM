@@ -9,6 +9,8 @@ const EMPTY_FORM = {
   priority: "Low",
   scope: "Personal",
   dueDate: "",
+  dueTime: "",
+  link: "",
   reminderAt: "",
   repeat: "None",
   assignedTo: "",
@@ -23,29 +25,37 @@ const mapTaskToForm = (task) => ({
   priority: task.priority || "Low",
   scope: task.scope || "Personal",
   dueDate: formatDateInput(task.dueDate),
-  reminderAt: formatDateInput(task.reminderAt),
+  dueTime: task.dueTime || task.time || "",
+  link: task.link || "",
   repeat: task.repeat || "None",
-  assignedTo: task.assignedTo?._id || "",
+  assignedTo:
+    typeof task.assignedTo === "object"
+      ? task.assignedTo?._id || ""
+      : task.assignedTo || "",
   relatedToType: task.relatedToType || "",
-  relatedTo: task.relatedTo?._id || "",
+  relatedTo:
+    typeof task.relatedTo === "object"
+      ? task.relatedTo?._id || ""
+      : task.relatedTo || "",
 });
 
 export function useTaskModal() {
   const [modalOpen, setModalOpen] = useState(false);
   const [mode, setMode] = useState("create"); // "create" | "view" | "edit"
-  const [origin, setOrigin] = useState("view"); // set wether the user enters edit mode from view modal or directly from the table
+  const [origin, setOrigin] = useState("view");
   const [activeTab, setActiveTab] = useState("Overview");
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [viewingTask, setViewingTask] = useState(null);
+
   const { activities, loading: activitiesLoading } = useActivities(
-    open && mode === "view" && viewingTask ? "Task" : null,
+    modalOpen && mode === "view" && viewingTask ? "Task" : null,
     viewingTask?._id,
   );
 
   const openCreate = useCallback((presetStatus) => {
     setFormData({
       ...EMPTY_FORM,
-      status: presetStatus || "To Do",
+      status: presetStatus || "Pending",
     });
     setViewingTask(null);
     setMode("create");
@@ -96,7 +106,6 @@ export function useTaskModal() {
   const handleSelectChange = useCallback((name, value) => {
     setFormData((prev) => {
       const next = { ...prev, [name]: value };
-      // Clear relatedTo when relatedToType changes
       if (name === "relatedToType") {
         next.relatedTo = "";
       }

@@ -2,12 +2,8 @@ import {
   Pencil,
   User,
   Calendar,
-  Magnet,
-  UserCheck,
-  FileText,
   TriangleAlert,
   ExternalLink,
-  Clock, // Added Clock icon for the creation date
 } from "lucide-react";
 
 import { useAuth } from "../../context/AuthContext";
@@ -25,7 +21,6 @@ import {
 
 import LoaderTables from "../../components/loader/TablesLazyLoader";
 import UserDisplayName from "../../components/UserDisplayName";
-import BaseBadge from "../../components/badge/BaseBadge";
 import StatusDropdown from "../../components/select/StatusDropdown";
 
 import {
@@ -49,12 +44,6 @@ const TASK_PRIORITY_TONE = {
   High: "red",
 };
 
-const RELATED_ICON = {
-  Lead: Magnet,
-  Client: UserCheck,
-  Quotation: FileText,
-};
-
 const normalizeTaskStatus = (status) => {
   if (status === "Pendinng") return "Pending";
   if (status === "To Do") return "Pending";
@@ -64,35 +53,13 @@ const normalizeTaskStatus = (status) => {
   return "Pending";
 };
 
-const getRelatedName = (task) => {
-  if (!task.relatedToType || !task.relatedTo) return null;
-
-  const ref = task.relatedTo;
-  const type = task.relatedToType;
-
-  if (type === "Lead" || type === "Client") {
-    return [ref.firstName, ref.lastName].filter(Boolean).join(" ") || "Unknown";
-  }
-
-  if (type === "Quotation") {
-    return ref.title || "Unknown";
-  }
-
-  return null;
-};
-
-const getResponsibleName = (task, currentUserId) => {
+const getResponsibleName = (task) => {
   const assigned = task.assignedTo;
   const createdBy = task.createdBy;
 
   if (task.scope === "Personal") {
-    const isOwn =
-      createdBy?._id === currentUserId || createdBy?.id === currentUserId;
-
     return {
-      label: isOwn ? (
-        "You"
-      ) : createdBy ? (
+      label: createdBy ? (
         <UserDisplayName user={createdBy}>
           {getDisplayName(createdBy, {
             includeMiddleInitial: true,
@@ -115,13 +82,8 @@ const getResponsibleName = (task, currentUserId) => {
     };
   }
 
-  const isOwn =
-    assigned?._id === currentUserId || assigned?.id === currentUserId;
-
   return {
-    label: isOwn ? (
-      "You"
-    ) : (
+    label: (
       <UserDisplayName user={assigned}>
         {getDisplayName(assigned, {
           includeMiddleInitial: true,
@@ -145,22 +107,36 @@ export default function TaskTable({
 }) {
   const { user: currentUser } = useAuth();
 
+  const currentUserId = currentUser?._id || currentUser?.id;
+
+  // --- TASK VISIBILITY FILTERING LOGIC ---
+  const visibleTasks = tasks.filter((task) => {
+    // Check creator ID
+    const creatorId = task.createdBy?._id || task.createdBy?.id || task.createdBy;
+    const isCreator = creatorId === currentUserId;
+
+    // Check assignee ID
+    const assigneeId = task.assignedTo?._id || task.assignedTo?.id || task.assignedTo;
+    const isAssignee = assigneeId === currentUserId;
+
+    // Show task if current user created it OR if it was assigned to them
+    return isCreator || isAssignee;
+  });
+
   const canEdit = permissions.canEdit !== false;
 
-  const normalizedTasks = tasks.map((task) => ({
+  const normalizedTasks = visibleTasks.map((task) => ({
     ...task,
     status: normalizeTaskStatus(task.status),
   }));
 
   const columns = [
     { label: "Title" },
+    { label: "Priority" },
     { label: "Task Owner" },
-    { label: "Related To" },
-    { label: "Link" }, 
-    { label: "Date Created" }, // New Column Header added after Link
+    { label: "Link" },
     { label: "Deadline" },
     { label: "Status" },
-    { label: "Priority" },
     ...(canEdit ? [{ label: "", align: "text-right" }] : []),
   ];
 
@@ -214,11 +190,8 @@ export default function TaskTable({
           const overdue = isOverdue(task.dueDate, normalizedStatus);
           const dueToday = isDueToday(task.dueDate, normalizedStatus);
 
-          const responsible = getResponsibleName(task, currentUser?.id);
+          const responsible = getResponsibleName(task);
           const responsiblePhoto = getProfileImage(responsible.user);
-
-          const relatedName = getRelatedName(task);
-          const RelatedIcon = RELATED_ICON[task.relatedToType];
 
           const canEditCurrentTask = canFullyEditTask(
             task,
@@ -232,10 +205,11 @@ export default function TaskTable({
             permissions,
           );
 
-          // Standardize link strings to make sure external targets work flawlessly
-          const taskUrl = task.link?.startsWith("http")
-            ? task.link
-            : `https://${task.link}`;
+          const taskUrl = task.link
+            ? task.link.startsWith("http")
+              ? task.link
+              : `https://${task.link}`
+            : null;
 
           return (
             <TableRow key={task._id} onClick={() => onView?.(task)}>
@@ -250,7 +224,7 @@ export default function TaskTable({
                       {task.subject}
                     </p>
 
-                    {task.description && !relatedName && (
+                    {task.description && (
                       <p className="text-xs text-gray-400 truncate mt-0.5">
                         {task.description}
                       </p>
@@ -259,7 +233,26 @@ export default function TaskTable({
                 </div>
               </TableCell>
 
-              {/* 2. TASK OWNER */}
+              {/* 2. PRIORITY DROPDOWN */}
+              <TableCell>
+                <div
+                  onClick={(event) => event.stopPropagation()}
+                  onMouseDown={(event) => event.stopPropagation()}
+                  onPointerDown={(event) => event.stopPropagation()}
+                >
+                  <StatusDropdown
+                    status={task.priority || "Medium"}
+                    statuses={TASK_PRIORITIES}
+                    toneMap={TASK_PRIORITY_TONE}
+                    disabled={!canEdit}
+                    onSelect={(newPriority) =>
+                      onUpdatePriority?.(task._id, newPriority)
+                    }
+                  />
+                </div>
+              </TableCell>
+
+              {/* 3. TASK OWNER */}
               <TableCell>
                 <div className="flex items-center gap-2">
                   {responsible.user ? (
@@ -284,38 +277,19 @@ export default function TaskTable({
                     {responsible.label}
                   </span>
 
-                  <BaseBadge
-                    shape="pill"
-                    tone={task.scope === "Personal" ? "indigo" : "teal"}
-                    className="shrink-0"
-                  >
-                    {task.scope === "Personal" ? "Personal" : "Assigned"}
-                  </BaseBadge>
+                  {/* BULLET DOT FOR SCOPE */}
+                  <span
+                    className={`w-2 h-2 rounded-full shrink-0 ${
+                      task.scope === "Personal" ? "bg-indigo-500" : "bg-teal-500"
+                    }`}
+                    title={task.scope === "Personal" ? "Personal" : "Assigned"}
+                  />
                 </div>
               </TableCell>
 
-              {/* 3. RELATED TO */}
+              {/* 4. LINK COLUMN */}
               <TableCell>
-                {relatedName && RelatedIcon ? (
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <RelatedIcon
-                      size={11}
-                      strokeWidth={2}
-                      className="text-gray-400 shrink-0"
-                    />
-
-                    <span className="text-xs text-gray-600 truncate">
-                      {relatedName} ({task.relatedToType})
-                    </span>
-                  </div>
-                ) : (
-                  <span className="text-sm text-gray-400">—</span>
-                )}
-              </TableCell>
-
-              {/* 4. LINK COLUMNS */}
-              <TableCell>
-                {task.link ? (
+                {taskUrl ? (
                   <a
                     href={taskUrl}
                     target="_blank"
@@ -329,18 +303,6 @@ export default function TaskTable({
                     <ExternalLink size={12} className="shrink-0" />
                     <span className="truncate">Open Link</span>
                   </a>
-                ) : (
-                  <span className="text-sm text-gray-400">—</span>
-                )}
-              </TableCell>
-
-              {/* NEW: 4.5 DATE CREATED */}
-              <TableCell>
-                {task.createdAt ? (
-                  <div className="flex items-center gap-1 text-sm text-gray-600 group-hover:text-[#ef4444]">
-                    <Clock size={12} className="text-gray-400 shrink-0" />
-                    <span>{formatDate(task.createdAt)}</span>
-                  </div>
                 ) : (
                   <span className="text-sm text-gray-400">—</span>
                 )}
@@ -399,26 +361,7 @@ export default function TaskTable({
                 </div>
               </TableCell>
 
-              {/* 7. PRIORITY DROPDOWN */}
-              <TableCell>
-                <div
-                  onClick={(event) => event.stopPropagation()}
-                  onMouseDown={(event) => event.stopPropagation()}
-                  onPointerDown={(event) => event.stopPropagation()}
-                >
-                  <StatusDropdown
-                    status={task.priority || "Medium"}
-                    statuses={TASK_PRIORITIES}
-                    toneMap={TASK_PRIORITY_TONE}
-                    disabled={!canEdit}
-                    onSelect={(newPriority) =>
-                      onUpdatePriority?.(task._id, newPriority)
-                    }
-                  />
-                </div>
-              </TableCell>
-
-              {/* 8. ACTIONS BUTTON */}
+              {/* 7. ACTIONS BUTTON */}
               {canEdit && (
                 <TableCell
                   title={!canEditCurrentTask ? editDisabledReason : ""}

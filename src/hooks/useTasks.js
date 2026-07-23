@@ -37,7 +37,6 @@ export function useTasks() {
   }, [fetchTasks]);
 
   // Websocket listeners
-
   useSocket(
     SOCKET_EVENTS.TASK_CREATED,
     useCallback(() => {
@@ -219,6 +218,8 @@ export function useTasks() {
         status: formData.status || "To Do",
         scope: formData.scope || "Personal",
         dueDate: formData.dueDate || null,
+        dueTime: formData.dueTime || "",
+        link: formData.link || "",
         reminderAt: formData.reminderAt || null,
         repeat: formData.repeat || "None",
         assignedTo: formData.assignedTo || null,
@@ -255,6 +256,8 @@ export function useTasks() {
         priority: formData.priority || "Medium",
         scope: formData.scope || "Personal",
         dueDate: formData.dueDate || null,
+        dueTime: formData.dueTime || "",
+        link: formData.link || "",
         reminderAt: formData.reminderAt || null,
         repeat: formData.repeat || "None",
         relatedToType: formData.relatedToType || null,
