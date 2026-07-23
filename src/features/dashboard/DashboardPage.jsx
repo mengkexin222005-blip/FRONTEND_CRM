@@ -62,16 +62,32 @@ const getTaskTypeCategory = (task) => {
   return "others";
 };
 
+// Helper function to extract normalized String IDs from various object structures
+const extractUserIds = (userOrArray) => {
+  if (!userOrArray) return [];
+  if (Array.isArray(userOrArray)) {
+    return userOrArray.map((item) => {
+      if (typeof item === "object") return String(item?._id || item?.id || item?.userId || "");
+      return String(item || "");
+    }).filter(Boolean);
+  }
+  if (typeof userOrArray === "object") {
+    const id = userOrArray?._id || userOrArray?.id || userOrArray?.userId;
+    return id ? [String(id)] : [];
+  }
+  return [String(userOrArray)];
+};
+
 export default function DashboardPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user: currentUser } = useAuth();
   const { stats, loading, error } = useDashboard();
 
-  const currentUserId = currentUser?._id || currentUser?.id;
+  const currentUserId = String(currentUser?._id || currentUser?.id || "");
 
   const rawTasks = stats?.tasks || [];
-  const meetings = stats?.meetings || [];
+  const rawMeetings = stats?.meetings || [];
 
   const roleBasePath = getRoleBasePath(location.pathname);
 
@@ -88,10 +104,10 @@ export default function DashboardPage() {
   const tasks = useMemo(() => {
     return rawTasks.filter((task) => {
       // 1. User Ownership/Assignment Check
-      const creatorId = task.createdBy?._id || task.createdBy?.id || task.createdBy;
+      const creatorId = String(task.createdBy?._id || task.createdBy?.id || task.createdBy || "");
       const isCreator = creatorId === currentUserId;
 
-      const assigneeId = task.assignedTo?._id || task.assignedTo?.id || task.assignedTo;
+      const assigneeId = String(task.assignedTo?._id || task.assignedTo?.id || task.assignedTo || "");
       const isAssignee = assigneeId === currentUserId;
 
       if (!isCreator && !isAssignee) {
@@ -108,6 +124,28 @@ export default function DashboardPage() {
       return !isCompleted && !isMeeting;
     });
   }, [rawTasks, currentUserId]);
+
+  // --- Meeting Visibility Filter ---
+  const meetings = useMemo(() => {
+    if (!currentUserId) return rawMeetings;
+
+    return rawMeetings.filter((meeting) => {
+      // Collect all user IDs associated with this meeting
+      const participants = [
+        ...extractUserIds(meeting.createdBy),
+        ...extractUserIds(meeting.organizer),
+        ...extractUserIds(meeting.host),
+        ...extractUserIds(meeting.assignedTo),
+        ...extractUserIds(meeting.user),
+        ...extractUserIds(meeting.attendees),
+        ...extractUserIds(meeting.participants),
+        ...extractUserIds(meeting.members),
+      ];
+
+      // Keep meeting if current user is found in any participant/ownership field
+      return participants.includes(currentUserId);
+    });
+  }, [rawMeetings, currentUserId]);
 
   const taskStatusOptions = [
     { value: "all", label: "All Statuses" },
@@ -325,7 +363,7 @@ export default function DashboardPage() {
                 />
 
                 <button
-                  type="button"g
+                  type="button"
                   onClick={handleViewMeetings}
                   className="inline-flex shrink-0 items-center gap-px whitespace-nowrap rounded-md px-1 py-1 text-[clamp(11px,0.8vw,13px)] font-medium text-black/45 hover:text-red-600"
                 >
