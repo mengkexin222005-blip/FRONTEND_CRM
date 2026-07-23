@@ -303,6 +303,7 @@ export default function TasksPage() {
   const handleSubmit = async (event) => {
     event.preventDefault();
 
+    // Guaranteed inclusion of dueTime and link in the API payload
     const payload = {
       ...formData,
       status: normalizeTaskStatus(formData.status),
@@ -310,10 +311,11 @@ export default function TasksPage() {
       assignedTo:
         formData.scope === "Personal" ? null : formData.assignedTo || null,
       dueDate: formData.dueDate || null,
+      dueTime: formData.dueTime || "",
+      link: formData.link || "",
       reminderAt: formData.reminderAt || null,
       relatedToType: formData.relatedToType || undefined,
       relatedTo: formData.relatedTo || undefined,
-      link: formData.link || "",
     };
 
     if (mode === "create") {
@@ -326,7 +328,12 @@ export default function TasksPage() {
       const updated = await updateTask(viewingTask._id, payload);
 
       if (updated) {
-        closeModal();
+        if (origin === "view") {
+          // Re-open in view mode with updated task data so details reflect immediately
+          openView(updated);
+        } else {
+          closeModal();
+        }
       }
     }
   };

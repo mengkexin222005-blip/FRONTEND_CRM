@@ -7,7 +7,6 @@ import {
 } from "react";
 
 import {
-  CalendarClock,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
@@ -17,6 +16,7 @@ import {
   MessageSquareText,
   Phone,
   UserRound,
+  Bell,
 } from "lucide-react";
 
 import HeaderFilterDropdown from "./HeaderFilterDropdown";
@@ -25,6 +25,21 @@ const VISIBLE_CARDS = 4;
 const CLONE_COUNT = 4;
 const ALL_TIMES = "all";
 const NO_TIME = "__no_time__";
+
+// Status weight ranking (Higher number = higher rank/urgency)
+const STATUS_ORDER = {
+  Overdue: 4,   // 1st: Immediate action required
+  "Due Soon": 3, // 2nd: Needs urgent attention
+  Pending: 2,   // 3rd: Backlog / To start
+  Ongoing: 1,   // 4th: Work in progress
+};
+
+// Priority weight ranking
+const PRIORITY_ORDER = {
+  high: 3,
+  medium: 2,
+  low: 1,
+};
 
 const clamp = (value, minimum, maximum) =>
   Math.min(maximum, Math.max(minimum, value));
@@ -54,7 +69,7 @@ const getTaskType = (task) => {
   if (type.includes("call") || type.includes("phone")) return "Call";
   if (type.includes("email") || type.includes("e-mail") || type.includes("mail")) return "Email";
   if (type.includes("message") || type.includes("chat") || type.includes("sms")) return "Message";
-  if (type.includes("meeting") || type.includes("appointment") || type.includes("reminder")) return "Meeting Reminder";
+  if (type.includes("reminder")) return "Reminder";
   return "Others";
 };
 
@@ -63,7 +78,7 @@ const getTaskTypeIcon = (task) => {
   if (taskType === "Call") return Phone;
   if (taskType === "Email") return Mail;
   if (taskType === "Message") return MessageSquareText;
-  if (taskType === "Meeting Reminder") return CalendarClock;
+  if (taskType === "Reminder") return Bell;
   return ListTodo;
 };
 
@@ -106,7 +121,10 @@ const getClientName = (task) => {
 };
 
 const getTaskDateValue = (task) =>
-  task?.dueDate || task?.date || task?.taskDate || task?.scheduledDate || task?.reminderDate || task?.startDate || null;
+  task?.dueDate || task?.date || task?.taskDate || task?.scheduledDate || task?.reminderDate || null;
+
+const getTaskStartDateValue = (task) =>
+  task?.startDate || task?.createdAt || task?.createdDate || null;
 
 const getTaskTimeValue = (task) =>
   task?.dueTime || task?.time || task?.taskTime || task?.scheduledTime || task?.reminderTime || task?.startTime || "";
@@ -200,6 +218,12 @@ const getTaskTimestamp = (task) => {
   return parsedDate.getTime();
 };
 
+const getTaskStartTimestamp = (task) => {
+  const parsedDate = parseDate(getTaskStartDateValue(task));
+  if (!parsedDate) return null;
+  return parsedDate.getTime();
+};
+
 const formatTaskDate = (task) => {
   const parsedDate = parseDate(getTaskDateValue(task));
   if (!parsedDate) return "No date";
@@ -210,41 +234,68 @@ const formatTaskTime = (task) => formatTimeKey(getTaskTimeKey(task));
 
 const normalizeStatus = (value) => {
   const normalizedStatus = String(value || "").trim().toLowerCase();
+  if (normalizedStatus === "due soon" || normalizedStatus === "due_soon") return "Due Soon";
   if (!normalizedStatus || normalizedStatus === "to do" || normalizedStatus === "todo" || normalizedStatus === "pending") return "Pending";
   if (normalizedStatus === "in progress" || normalizedStatus === "ongoing") return "Ongoing";
-  if (normalizedStatus === "completed" || normalizedStatus === "complete" || normalizedStatus === "done") return "Completed";
   if (normalizedStatus === "overdue") return "Overdue";
-  return value;
+  return "Pending";
 };
 
 const getTaskStatus = (task) => {
-  const normalizedStatus = normalizeStatus(task?.status);
-  if (normalizedStatus === "Completed") return "Completed";
-
   const timestamp = getTaskTimestamp(task);
-  if (timestamp !== Number.MAX_SAFE_INTEGER && timestamp < Date.now()) {
+  const startTimestamp = getTaskStartTimestamp(task);
+  const now = Date.now();
+
+  // 1. Overdue Check
+  if (timestamp !== Number.MAX_SAFE_INTEGER && timestamp < now) {
     return "Overdue";
   }
 
-  return normalizedStatus;
+  // 2. Length-based / Remaining Time "Due Soon" Check
+  if (timestamp !== Number.MAX_SAFE_INTEGER && timestamp >= now) {
+    const threeDaysInMs = 3 * 24 * 60 * 60 * 1000;
+
+    if (startTimestamp && !Number.isNaN(startTimestamp)) {
+      const totalTaskDuration = timestamp - startTimestamp;
+
+      // If the entire task duration is <= 3 days, flag as Due Soon immediately upon start
+      if (totalTaskDuration <= threeDaysInMs) {
+        return "Due Soon";
+      }
+    }
+
+    // Standard remaining-time check for longer tasks
+    if (timestamp - now <= threeDaysInMs) {
+      return "Due Soon";
+    }
+  }
+
+  return normalizeStatus(task?.status);
 };
 
 const getStatusClasses = (value) => {
   const status = normalizeStatus(value);
+  if (status === "Due Soon") return "border-orange-500 bg-orange-50 text-orange-700";
   if (status === "Pending") return "border-yellow-400 bg-yellow-50 text-yellow-700";
   if (status === "Ongoing") return "border-blue-400 bg-blue-50 text-blue-700";
-  if (status === "Completed") return "border-green-500 bg-green-50 text-green-700";
   if (status === "Overdue") return "border-red-500 bg-red-50 text-red-700";
   return "border-black/10 bg-black/[0.035] text-black/60";
 };
 
 const getStatusDotClasses = (value) => {
   const status = normalizeStatus(value);
+  if (status === "Due Soon") return "bg-orange-500";
   if (status === "Pending") return "bg-yellow-500";
   if (status === "Ongoing") return "bg-blue-500";
-  if (status === "Completed") return "bg-green-500";
   if (status === "Overdue") return "bg-red-500";
   return "bg-black/50";
+};
+
+const getPriorityClasses = (priority) => {
+  const p = String(priority || "medium").toLowerCase();
+  if (p === "high") return "bg-red-100 text-red-700 border-red-200";
+  if (p === "medium") return "bg-amber-100 text-amber-700 border-amber-200";
+  return "bg-gray-100 text-gray-600 border-gray-200";
 };
 
 export default function MyTasksTable({ tasks = [], hideFilter = false }) {
@@ -260,8 +311,20 @@ export default function MyTasksTable({ tasks = [], hideFilter = false }) {
 
   const [layout, setLayout] = useState({ cardWidth: 0, cardHeight: 194, gap: 16, scale: 1 });
 
+  const activeTasks = useMemo(() => {
+    return tasks.filter((task) => {
+      const status = String(task?.status || "").trim().toLowerCase();
+      const isCompleted = status === "completed" || status === "complete" || status === "done";
+      
+      const typeText = getTaskTypeText(task);
+      const isMeeting = typeText.includes("meeting") || typeText.includes("appointment");
+
+      return !isCompleted && !isMeeting;
+    });
+  }, [tasks]);
+
   const timeOptions = useMemo(() => {
-    const uniqueTimes = [...new Set(tasks.map((task) => getTaskTimeKey(task)))].sort((a, b) => {
+    const uniqueTimes = [...new Set(activeTasks.map((task) => getTaskTimeKey(task)))].sort((a, b) => {
       if (a === NO_TIME) return 1;
       if (b === NO_TIME) return -1;
       return a.localeCompare(b);
@@ -271,7 +334,7 @@ export default function MyTasksTable({ tasks = [], hideFilter = false }) {
       { value: ALL_TIMES, label: "All Times" },
       ...uniqueTimes.map((timeKey) => ({ value: timeKey, label: formatTimeKey(timeKey) })),
     ];
-  }, [tasks]);
+  }, [activeTasks]);
 
   useEffect(() => {
     const selectedStillExists = timeOptions.some((option) => option.value === selectedTime);
@@ -279,14 +342,38 @@ export default function MyTasksTable({ tasks = [], hideFilter = false }) {
   }, [selectedTime, timeOptions]);
 
   const filteredTasks = useMemo(() => {
-    if (hideFilter) return tasks;
-    return tasks.filter((task) => selectedTime === ALL_TIMES || getTaskTimeKey(task) === selectedTime);
-  }, [tasks, selectedTime, hideFilter]);
+    if (hideFilter) return activeTasks;
+    return activeTasks.filter((task) => selectedTime === ALL_TIMES || getTaskTimeKey(task) === selectedTime);
+  }, [activeTasks, selectedTime, hideFilter]);
 
+  // Priority and Urgency Sorting Implementation
   const sortedTasks = useMemo(() => {
     return [...filteredTasks].sort((a, b) => {
+      // 1. Resolve and compare Status weight (Overdue > Due Soon > Pending > Ongoing)
+      const statusA = getTaskStatus(a);
+      const statusB = getTaskStatus(b);
+      const statusWeightA = STATUS_ORDER[statusA] || 0;
+      const statusWeightB = STATUS_ORDER[statusB] || 0;
+
+      if (statusWeightA !== statusWeightB) {
+        return statusWeightB - statusWeightA;
+      }
+
+      // 2. Compare Priority weight (High > Medium > Low)
+      const priorityA = String(a?.priority || "medium").toLowerCase();
+      const priorityB = String(b?.priority || "medium").toLowerCase();
+      const priorityWeightA = PRIORITY_ORDER[priorityA] || 0;
+      const priorityWeightB = PRIORITY_ORDER[priorityB] || 0;
+
+      if (priorityWeightA !== priorityWeightB) {
+        return priorityWeightB - priorityWeightA;
+      }
+
+      // 3. Compare Due Date & Time (Earliest date/time first)
       const dateDiff = getTaskTimestamp(a) - getTaskTimestamp(b);
       if (dateDiff !== 0) return dateDiff;
+
+      // 4. Fallback alphabetical title comparison
       return getTaskTitle(a).localeCompare(getTaskTitle(b));
     });
   }, [filteredTasks]);
@@ -429,7 +516,7 @@ export default function MyTasksTable({ tasks = [], hideFilter = false }) {
 
       {!items.length ? (
         <div className="flex h-36 w-full items-center justify-center rounded-xl border border-black/10 bg-white text-sm text-black/40">
-          {tasks.length ? "No tasks match the selected time" : "No tasks available"}
+          {activeTasks.length ? "No tasks match the selected criteria" : "No tasks available"}
         </div>
       ) : (
         <div
@@ -501,6 +588,7 @@ export default function MyTasksTable({ tasks = [], hideFilter = false }) {
                 const taskType = getTaskType(task);
                 const clientName = getClientName(task);
                 const status = getTaskStatus(task);
+                const priority = task?.priority || "medium";
 
                 return (
                   <article
@@ -512,11 +600,20 @@ export default function MyTasksTable({ tasks = [], hideFilter = false }) {
 
                     <div className="flex h-full min-w-0 flex-col">
                       <div className="min-w-0">
-                        <div className="flex min-w-0 items-center" style={{ gap: `${clamp(7 * scale, 4, 7)}px` }}>
-                          <TaskTypeIcon size={iconSize} strokeWidth={2} className="shrink-0 text-red-600" />
-                          <p className="min-w-0 truncate font-semibold uppercase tracking-[0.05em] text-red-600" style={{ fontSize: `${typeSize}px`, lineHeight: 1 }}>
-                            {taskType}
-                          </p>
+                        <div className="flex min-w-0 items-center justify-between" style={{ gap: `${clamp(7 * scale, 4, 7)}px` }}>
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <TaskTypeIcon size={iconSize} strokeWidth={2} className="shrink-0 text-red-600" />
+                            <p className="min-w-0 truncate font-semibold uppercase tracking-[0.05em] text-red-600" style={{ fontSize: `${typeSize}px`, lineHeight: 1 }}>
+                              {taskType}
+                            </p>
+                          </div>
+
+                          <span
+                            className={`inline-flex shrink-0 items-center rounded-md border font-bold uppercase ${getPriorityClasses(priority)}`}
+                            style={{ fontSize: `${clamp(9 * scale, 6, 9)}px`, padding: `1px ${clamp(6 * scale, 3, 6)}px` }}
+                          >
+                            {priority}
+                          </span>
                         </div>
 
                         <h3 className="line-clamp-2 min-w-0 font-semibold text-black/85" style={{ marginTop: `${clamp(9 * scale, 5, 9)}px`, fontSize: `${titleSize}px`, lineHeight: 1.35 }}>

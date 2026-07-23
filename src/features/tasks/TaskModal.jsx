@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import Select from "react-select";
-import { DotLoader } from "react-spinners";
 import {
   Pencil,
   User,
@@ -15,15 +14,11 @@ import {
   Bell,
   Magnet,
   UserCheck,
-  ExternalLink, 
+  ExternalLink,
 } from "lucide-react";
 
 import { getSelectProps } from "../../components/select/selectConfig";
-import Modal from "../../components/modal/Modal";
-import { ModalField } from "../../components/modal/ModalField";
-
 import FormDrawer from "../../components/form/FormDrawer";
-import FormSection from "../../components/form/FormSection";
 import {
   FormLabel,
   FormInput,
@@ -72,18 +67,16 @@ const TASK_TYPE_LABELS = {
   Call: "Call",
   Email: "Email",
   Message: "Message",
-  Meeting: "Meeting",
-  Reminder: "Reminder",
   Other: "Other",
+  Others: "Others",
 };
 
 const TASK_TYPE_ICON = {
   Call: Phone,
   Email: Mail,
   Message: MessageCircle,
-  Meeting: CalendarDays,
-  Reminder: Bell,
   Other: FileText,
+  Others: FileText,
 };
 
 const RELATED_TYPE_ICON = {
@@ -104,12 +97,23 @@ const getRelatedLabel = (task) => {
   return null;
 };
 
+// Formats 24h string ("14:30") to 12h format ("2:30 PM")
+const formatTimeString = (timeStr) => {
+  if (!timeStr || typeof timeStr !== "string" || !timeStr.trim()) return "—";
+  const parts = timeStr.trim().split(":");
+  if (parts.length < 2) return timeStr;
+  const h = parseInt(parts[0], 10);
+  const minutes = parts[1];
+  if (isNaN(h)) return timeStr;
+  const period = h >= 12 ? "PM" : "AM";
+  const formattedHours = h % 12 || 12;
+  return `${formattedHours}:${minutes} ${period}`;
+};
+
 export default function TaskModal({
   open,
   mode,
   origin,
-  // activeTab,
-  // onTabChange,
   formData,
   viewingTask,
   activities = [],
@@ -180,7 +184,10 @@ export default function TaskModal({
     ? getTaskEditDisabledReason(currentTask, currentUser, permissions)
     : "";
 
-  // View Mode — split panel layout
+  const filteredTaskTypeOptions = TASK_TYPE_OPTIONS.filter(
+    (opt) => opt.value !== "Reminder" && opt.value !== "Meeting"
+  );
+
   const renderView = () => {
     const t = viewingTask;
     if (!t) return null;
@@ -206,12 +213,16 @@ export default function TaskModal({
     const TypeIcon = TASK_TYPE_ICON[t.taskType];
     const RelatedIcon = RELATED_TYPE_ICON[t.relatedToType];
 
-    // Formats reference link neatly to ensure it redirects externally safely
-    const taskUrl = t.link
-      ? t.link.startsWith("http")
-        ? t.link
-        : `https://${t.link}`
+    // Safely extract and format task link
+    const rawLink = t.link || "";
+    const taskUrl = rawLink
+      ? rawLink.startsWith("http://") || rawLink.startsWith("https://")
+        ? rawLink
+        : `https://${rawLink}`
       : null;
+
+    // Safely fallback to time or dueTime
+    const taskDueTime = t.dueTime || t.time || "";
 
     return (
       <div className="flex flex-row flex-1 min-h-0 h-full">
@@ -254,7 +265,6 @@ export default function TaskModal({
             )}
           </div>
 
-          {/* Description */}
           <div className="mb-6">
             <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">
               Description
@@ -268,7 +278,6 @@ export default function TaskModal({
             )}
           </div>
 
-          {/* Activity header row */}
           <div className="flex items-center gap-3 mb-4 flex-wrap">
             <span className="text-sm font-medium text-gray-700">Activity</span>
             <BaseBadge tone={STATUS_COLORS[t.status]} shape="pill">
@@ -276,7 +285,6 @@ export default function TaskModal({
             </BaseBadge>
           </div>
 
-          {/* Activity timeline  */}
           <div className="flex-1 min-h-0">
             <ActivityTimeline
               activities={activities}
@@ -285,15 +293,13 @@ export default function TaskModal({
           </div>
         </div>
 
-        {/* ── Divider ── */}
         <div className="w-px bg-gray-200 shrink-0" />
 
-        {/* ── Right sidebar ── */}
         <div className="w-56 shrink-0 pl-6 overflow-y-auto">
           <p className="text-sm font-semibold text-gray-800 mb-4">Details</p>
 
           <div className="flex flex-col gap-4">
-            {/* Link field display */}
+            {/* Link Field Display */}
             <div>
               <div className="flex items-center gap-1.5 mb-1">
                 <ExternalLink size={11} className="text-gray-400" />
@@ -308,17 +314,16 @@ export default function TaskModal({
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 
                     bg-blue-50 border border-blue-200 text-blue-600 rounded-md 
-                    hover:bg-blue-100 transition-colors w-full justify-center"
-                  title={t.link}
+                    hover:bg-blue-100 transition-colors w-full justify-center truncate"
+                  title={rawLink}
                 >
-                  Open Link <ExternalLink size={12} />
+                  Open Link <ExternalLink size={12} className="shrink-0" />
                 </a>
               ) : (
                 <p className="text-sm font-medium text-gray-400 italic">—</p>
               )}
             </div>
 
-            {/* Scope */}
             <div>
               <div className="flex items-center gap-1.5 mb-0.5">
                 <Telescope size={11} className="text-gray-400" />
@@ -335,7 +340,6 @@ export default function TaskModal({
               </p>
             </div>
 
-            {/* Created By */}
             <div>
               <div className="flex items-center gap-1.5 mb-0.5">
                 <User size={11} className="text-gray-400" />
@@ -354,7 +358,6 @@ export default function TaskModal({
               </p>
             </div>
 
-            {/* Date Created */}
             <div>
               <div className="flex items-center gap-1.5 mb-0.5">
                 <Clock size={11} className="text-gray-400" />
@@ -362,12 +365,11 @@ export default function TaskModal({
                   Date Created
                 </p>
               </div>
-              <p className="text-sm font-medium text-gray-7700">
+              <p className="text-sm font-medium text-gray-700">
                 {formatDateTime(t.createdAt) || "—"}
               </p>
             </div>
 
-            {/* Due Date */}
             <div>
               <div className="flex items-center gap-1.5 mb-0.5">
                 <Calendar size={11} className="text-gray-400" />
@@ -395,22 +397,19 @@ export default function TaskModal({
               )}
             </div>
 
-            {/* Reminder */}
-            {t.reminderAt && (
-              <div>
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <Clock size={11} className="text-gray-400" />
-                  <p className="text-[10px] text-gray-400 uppercase tracking-wider">
-                    Reminder
-                  </p>
-                </div>
-                <p className="text-sm font-medium text-gray-700">
-                  {formatDateTime(t.reminderAt)}
+            {/* Time Field Display */}
+            <div>
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <Clock size={11} className="text-gray-400" />
+                <p className="text-[10px] text-gray-400 uppercase tracking-wider">
+                  Due Time
                 </p>
               </div>
-            )}
+              <p className="text-sm font-medium text-gray-700">
+                {formatTimeString(taskDueTime)}
+              </p>
+            </div>
 
-            {/* Assigned To */}
             <div>
               <div className="flex items-center gap-1.5 mb-0.5">
                 <User size={11} className="text-gray-400" />
@@ -433,49 +432,6 @@ export default function TaskModal({
                 <p className="text-xs text-gray-400">{t.assignedTo.role}</p>
               )}
             </div>
-
-            {/* Completed At */}
-            {t.completedAt && (
-              <div>
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <Calendar size={11} className="text-gray-400" />
-                  <p className="text-[10px] text-gray-400 uppercase tracking-wider">
-                    Completed At
-                  </p>
-                </div>
-                <p className="text-sm font-medium text-gray-700">
-                  {formatDateTime(t.completedAt)}
-                </p>
-              </div>
-            )}
-
-            {/* Updated At */}
-            {t.updatedAt && (
-              <div>
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <Clock size={11} className="text-gray-400" />
-                  <p className="text-[10px] text-gray-400 uppercase tracking-wider">
-                    Updated At
-                  </p>
-                </div>
-                <p className="text-sm font-medium text-gray-700">
-                  {formatDateTime(t.updatedAt)}
-                </p>
-              </div>
-            )}
-
-            {/* Repeat */}
-            {t.repeat && t.repeat !== "None" && (
-              <div>
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <Bell size={11} className="text-gray-400" />
-                  <p className="text-[10px] text-gray-400 uppercase tracking-wider">
-                    Repeat
-                  </p>
-                </div>
-                <p className="text-sm font-medium text-gray-700">{t.repeat}</p>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -520,28 +476,21 @@ export default function TaskModal({
     );
   };
 
-  // Create / Edit Form
   const renderForm = () => {
     const selectedAgent =
       assigneeOptions.find((o) => o.value === formData.assignedTo) || null;
     const selectedRelated =
       relatedOptions.find((o) => o.value === formData.relatedTo) || null;
 
-    const today = new Date().toISOString().split("T")[0];
-
     return (
-      <form
-        id="task-form"
-        onSubmit={onSubmit}
-        className="space-y-4"
-      >
+      <form id="task-form" onSubmit={onSubmit} className="space-y-4">
         <div className="flex-1 overflow-y-auto min-h-0 space-y-4 px-1">
           <div>
             <FormLabel required>Subject</FormLabel>
             <FormInput
               type="text"
               name="subject"
-              value={formData.subject}
+              value={formData.subject || ""}
               onChange={onChange}
               placeholder="e.g. Follow up with client"
               required
@@ -554,11 +503,15 @@ export default function TaskModal({
               <Select
                 {...getSelectProps({ isSearchable: false })}
                 placeholder="Select type..."
-                options={TASK_TYPE_OPTIONS}
+                options={filteredTaskTypeOptions}
                 value={
-                  formData.taskType
+                  formData.taskType &&
+                  formData.taskType !== "Reminder" &&
+                  formData.taskType !== "Meeting"
                     ? {
-                        label: TASK_TYPE_LABELS[formData.taskType],
+                        label:
+                          TASK_TYPE_LABELS[formData.taskType] ||
+                          formData.taskType,
                         value: formData.taskType,
                       }
                     : null
@@ -614,20 +567,18 @@ export default function TaskModal({
                 type="date"
                 name="dueDate"
                 required
-                value={formData.dueDate}
+                value={formData.dueDate || ""}
                 onChange={onChange}
-                min={today}
               />
             </div>
+            {/* Due Time Input */}
             <div>
-              <FormLabel>Reminder</FormLabel>
+              <FormLabel>Due Time</FormLabel>
               <FormInput
-                type="date"
-                name="reminderAt"
-                value={formData.reminderAt}
+                type="time"
+                name="dueTime"
+                value={formData.dueTime ?? formData.time ?? ""}
                 onChange={onChange}
-                min={today}
-                max={formData.dueDate || undefined}
               />
             </div>
           </div>
@@ -752,7 +703,7 @@ export default function TaskModal({
             </div>
           </div>
 
-          {/* Link input field */}
+          {/* Link Input */}
           <div>
             <FormLabel>Link</FormLabel>
             <FormInput
@@ -768,7 +719,7 @@ export default function TaskModal({
             <FormLabel>Description</FormLabel>
             <FormTextarea
               name="description"
-              value={formData.description}
+              value={formData.description || ""}
               onChange={onChange}
               rows={4}
               placeholder="Add any relevant notes..."

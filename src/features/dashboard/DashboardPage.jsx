@@ -1,12 +1,12 @@
 import { useMemo, useState } from "react";
-import { ChevronRight, CalendarDays, Clock } from "lucide-react";
+import { ChevronRight, CalendarDays, Clock, AlertCircle, Tag, CheckCircle2 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { PageBase, PageContentState } from "../../components/page";
 import { useDashboard } from "./hooks/useDashboard";
 import MyTasksTable from "./components/MyTaskTable";
 import MyMeetingsTable from "./components/MyMeetingTable";
-import HeaderFilterDropdown from "./components/HeaderFilterDropdown"; 
+import HeaderFilterDropdown from "./components/HeaderFilterDropdown";
 
 const ROLE_BASE_PATHS = [
   "/admin",
@@ -22,7 +22,6 @@ const getRoleBasePath = (pathname) => {
   return matchedPath || "";
 };
 
-// Helper function to extract strictly YYYY-MM-DD
 const formatDateKey = (value) => {
   if (!value || value === "__no_date__") return "__no_date__";
   const rawString = String(value).trim();
@@ -38,37 +37,86 @@ const formatDateKey = (value) => {
   return `${year}-${month}-${day}`;
 };
 
+const getTaskTypeCategory = (task) => {
+  const text = [
+    task?.taskType,
+    task?.type,
+    task?.category,
+    task?.activityType,
+    task?.subject,
+    task?.title,
+    task?.taskTitle,
+    task?.name,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .trim()
+    .toLowerCase();
+
+  if (text.includes("call") || text.includes("phone")) return "call";
+  if (text.includes("email") || text.includes("e-mail") || text.includes("mail")) return "email";
+  if (text.includes("message") || text.includes("chat") || text.includes("sms")) return "message";
+  if (text.includes("meeting") || text.includes("appointment")) return "meeting";
+  if (text.includes("reminder")) return "reminder";
+  return "others";
+};
+
 export default function DashboardPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { stats, loading, error } = useDashboard();
 
-  const tasks = stats?.tasks || [];
+  const rawTasks = stats?.tasks || [];
   const meetings = stats?.meetings || [];
 
   const roleBasePath = getRoleBasePath(location.pathname);
 
-  // Filter States
-  const [taskTimeFilter, setTaskTimeFilter] = useState("all");
+  // --- Task Filter States ---
+  const [taskStatusFilter, setTaskStatusFilter] = useState("all");
+  const [taskTypeFilter, setTaskTypeFilter] = useState("all");
+  const [taskPriorityFilter, setTaskPriorityFilter] = useState("all");
+
+  // --- Meeting Filter States ---
   const [meetingDateFilter, setMeetingDateFilter] = useState("all");
   const [meetingTimeFilter, setMeetingTimeFilter] = useState("all");
 
-  // Options Generators
-  const taskTimeOptions = useMemo(() => {
-    const times = Array.from(
-      new Set(tasks.map((t) => t.dueTime || t.time || "__no_time__")),
-    ).sort();
-    return [
-      { value: "all", label: "All Times" },
-      ...times.map((t) => ({
-        value: t,
-        label: t === "__no_time__" ? "No Time" : t,
-      })),
-    ];
-  }, [tasks]);
+  // --- Exclude completed tasks AND meeting tasks from dashboard list ---
+  const tasks = useMemo(() => {
+    return rawTasks.filter((task) => {
+      const rawStatus = String(task.status || "").trim().toLowerCase();
+      const isCompleted = rawStatus === "completed" || rawStatus === "complete" || rawStatus === "done";
+      
+      const typeCategory = getTaskTypeCategory(task);
+      const isMeeting = typeCategory === "meeting";
+
+      return !isCompleted && !isMeeting;
+    });
+  }, [rawTasks]);
+
+  const taskStatusOptions = [
+    { value: "all", label: "All Statuses" },
+    { value: "pending", label: "Pending" },
+    { value: "ongoing", label: "Ongoing" },
+    { value: "due_soon", label: "Due Soon" },
+    { value: "overdue", label: "Overdue" },
+  ];
+
+  const taskTypeOptions = [
+    { value: "all", label: "All Types" },
+    { value: "call", label: "Call" },
+    { value: "email", label: "Email" },
+    { value: "message", label: "Message" },
+    { value: "others", label: "Others" },
+  ];
+
+  const taskPriorityOptions = [
+    { value: "all", label: "All Priorities" },
+    { value: "high", label: "High" },
+    { value: "medium", label: "Medium" },
+    { value: "low", label: "Low" },
+  ];
 
   const meetingDateOptions = useMemo(() => {
-    // Map dates through formatDateKey so options are clean YYYY-MM-DD
     const dates = Array.from(
       new Set(meetings.map((m) => formatDateKey(m.meetingDate || m.date || "__no_date__"))),
     ).sort((a, b) => {
@@ -99,31 +147,78 @@ export default function DashboardPage() {
     ];
   }, [meetings]);
 
-  // Filtered Data
   const filteredTasks = useMemo(() => {
-    return tasks.filter(
-      (t) =>
-        taskTimeFilter === "all" ||
-        (t.dueTime || t.time || "__no_time__") === taskTimeFilter,
-    );
-  }, [tasks, taskTimeFilter]);
+    const today = new Date().toISOString().split("T")[0];
+    const now = Date.now();
+    const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+
+    return tasks.filter((task) => {
+      const rawDueDate = task.dueDate || task.date;
+      const rawStartDate = task.startDate || task.createdAt;
+
+      const dueTimestamp = rawDueDate ? new Date(rawDueDate).getTime() : null;
+      const startTimestamp = rawStartDate ? new Date(rawStartDate).getTime() : null;
+
+      const taskDate = rawDueDate ? new Date(rawDueDate).toISOString().split("T")[0] : null;
+
+      const rawStatus = String(task.status || "pending").toLowerCase();
+      const isOngoing = rawStatus === "in progress" || rawStatus === "ongoing";
+      const isOverdue = taskDate && taskDate < today;
+
+      // Dynamic length-based Due Soon logic
+      let isDueSoon = false;
+      if (dueTimestamp && dueTimestamp >= now) {
+        if (startTimestamp && !Number.isNaN(startTimestamp)) {
+          const totalDuration = dueTimestamp - startTimestamp;
+          // Short-term task (<= 3 days duration): Due soon right away upon starting
+          if (totalDuration <= threeDaysMs) {
+            isDueSoon = true;
+          } else {
+            // Long-term task: Due soon when 3 or fewer days remaining
+            isDueSoon = dueTimestamp - now <= threeDaysMs;
+          }
+        } else {
+          // Fallback if no start date available
+          isDueSoon = dueTimestamp - now <= threeDaysMs;
+        }
+      }
+
+      // Status Filter logic
+      if (taskStatusFilter !== "all") {
+        if (taskStatusFilter === "pending" && (isOngoing || isOverdue)) return false;
+        if (taskStatusFilter === "ongoing" && !isOngoing) return false;
+        if (taskStatusFilter === "due_soon" && !isDueSoon) return false;
+        if (taskStatusFilter === "overdue" && !isOverdue) return false;
+        if (taskStatusFilter === "upcoming" && (!taskDate || taskDate <= today)) return false;
+      }
+
+      // Task Type Filter
+      if (taskTypeFilter !== "all") {
+        const typeCategory = getTaskTypeCategory(task);
+        if (typeCategory !== taskTypeFilter) return false;
+      }
+
+      // Priority Filter
+      if (taskPriorityFilter !== "all") {
+        const priority = String(task.priority || "medium").toLowerCase();
+        if (priority !== taskPriorityFilter) return false;
+      }
+
+      return true;
+    });
+  }, [tasks, taskStatusFilter, taskTypeFilter, taskPriorityFilter]);
 
   const filteredMeetings = useMemo(() => {
     return meetings.filter((m) => {
       const dateKey = formatDateKey(m.meetingDate || m.date || "__no_date__");
-      const dateMatch =
-        meetingDateFilter === "all" || dateKey === meetingDateFilter;
-      const timeMatch =
-        meetingTimeFilter === "all" ||
-        (m.startTime || m.time || "__no_time__") === meetingTimeFilter;
+      const dateMatch = meetingDateFilter === "all" || dateKey === meetingDateFilter;
+      const timeMatch = meetingTimeFilter === "all" || (m.startTime || m.time || "__no_time__") === meetingTimeFilter;
       return dateMatch && timeMatch;
     });
   }, [meetings, meetingDateFilter, meetingTimeFilter]);
 
-  const handleViewTasks = () =>
-    roleBasePath && navigate(`${roleBasePath}/tasks`);
-  const handleViewMeetings = () =>
-    roleBasePath && navigate(`${roleBasePath}/meetings`);
+  const handleViewTasks = () => roleBasePath && navigate(`${roleBasePath}/tasks`);
+  const handleViewMeetings = () => roleBasePath && navigate(`${roleBasePath}/meetings`);
 
   return (
     <PageBase>
@@ -138,7 +233,7 @@ export default function DashboardPage() {
           
           {/* MY TASKS SECTION */}
           <section className="w-full min-w-0 shrink-0">
-            <div className="mb-4 flex w-full min-w-0 items-center justify-between gap-3">
+            <div className="mb-4 flex w-full min-w-0 flex-wrap items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2">
                 <h2 className="text-lg font-semibold text-gray-700">
                   My Tasks
@@ -148,13 +243,32 @@ export default function DashboardPage() {
                 </span>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2.5">
                 <HeaderFilterDropdown
-                  icon={Clock}
-                  ariaLabel="Filter tasks by time"
-                  value={taskTimeFilter}
-                  options={taskTimeOptions}
-                  onChange={setTaskTimeFilter}
+                  icon={CheckCircle2}
+                  ariaLabel="Filter tasks by status"
+                  value={taskStatusFilter}
+                  options={taskStatusOptions}
+                  onChange={setTaskStatusFilter}
+                  minimumWidth={140}
+                />
+
+                <HeaderFilterDropdown
+                  icon={Tag}
+                  ariaLabel="Filter tasks by task type"
+                  value={taskTypeFilter}
+                  options={taskTypeOptions}
+                  onChange={setTaskTypeFilter}
+                  minimumWidth={130}
+                />
+
+                <HeaderFilterDropdown
+                  icon={AlertCircle}
+                  ariaLabel="Filter tasks by priority"
+                  value={taskPriorityFilter}
+                  options={taskPriorityOptions}
+                  onChange={setTaskPriorityFilter}
+                  minimumWidth={130}
                 />
 
                 <button
