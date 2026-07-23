@@ -1,5 +1,23 @@
 import { useMemo, useState, useEffect } from "react";
-import { ArrowLeft, ArrowRight, Check, CheckCircle2, Expand, Minimize2, X } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  Download,
+  Expand,
+  FileText,
+  Layers3,
+  Lightbulb,
+  Minimize2,
+  Pencil,
+  Plus,
+  Printer,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
 
 import BaseModal from "../../../components/modal/BaseModal";
 import TemplateBuilder from "../Builder/TemplateBuilder";
@@ -12,10 +30,6 @@ import {
   createQuotationNumber,
   toDateInput,
 } from "../utils/quotationCalculations";
-
-// Modular Component Imports
-import QuotationForm from "./QuotationForm";
-import { ChooseTemplateStep, ReviewStep } from "./QuotationRenderer";
 
 function Stepper({ step }) {
   const steps = ["Choose Template", "Fill Quotation Details", "Review & Preview"];
@@ -149,11 +163,13 @@ function ChooseTemplateStep({
   return (
     <div className="min-h-0 flex-1 overflow-y-auto px-8 py-5">
       <div>
-        <FieldLabel>Quotation Title</FieldLabel>
+        <label className="block text-xs font-semibold text-slate-700 mb-1">
+          Quotation Title
+        </label>
         <input
           value={quotationTitle}
           onChange={(event) => setQuotationTitle(event.target.value)}
-          className={`${FIELD_CLASS} py-3`}
+          className="w-full rounded-md border border-slate-200 px-3 py-3 text-xs outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400"
           placeholder="Untitled Quotation Document Title..."
         />
       </div>
@@ -175,14 +191,14 @@ function ChooseTemplateStep({
           <input
             value={search}
             onChange={(event) => onSearchChange(event.target.value)}
-            className={`${FIELD_CLASS} pl-9`}
+            className="w-full rounded-md border border-slate-200 py-2 pl-9 pr-3 text-xs outline-none focus:border-red-400"
             placeholder="Search templates..."
           />
         </label>
       </div>
 
       <div className="mt-5 flex flex-wrap gap-3">
-        {TEMPLATE_CATEGORIES.map((item) => (
+        {["All", "Standard", "Services", "Custom"].map((item) => (
           <button
             key={item}
             type="button"
@@ -282,7 +298,7 @@ function SelectedTemplatePanel({ template, onChangeTemplate }) {
               className="flex items-center gap-2 text-[10px] text-slate-600"
             >
               <CheckCircle2 size={14} className="text-emerald-500" />
-              {TEMPLATE_SECTIONS[section]?.label || section}
+              {section}
             </div>
           ))}
         </div>
@@ -333,7 +349,7 @@ function ItemEditor({ currency, items, onAdd, onRemove, onUpdate }) {
           )}
         </div>
         {items.map((item, index) => {
-          const amount = toNumber(item.quantity) * toNumber(item.unitPrice);
+          const amount = (parseFloat(item.quantity) || 0) * (parseFloat(item.unitPrice) || 0);
           return (
             <div
               key={item.id}
@@ -370,7 +386,7 @@ function ItemEditor({ currency, items, onAdd, onRemove, onUpdate }) {
                 placeholder="0.00"
               />
               <span className="px-3 font-medium text-slate-700">
-                {formatCurrency(amount, currency)}
+                {currency} {amount.toFixed(2)}
               </span>
               <button
                 type="button"
@@ -400,6 +416,7 @@ function DetailsStep({
   selectedTemplate,
 }) {
   const hasSection = (section) => selectedTemplate.sections.includes(section);
+  const fieldClass = "w-full rounded-md border border-slate-200 px-3 py-2 text-xs outline-none focus:border-red-400";
 
   return (
     <div className="flex min-h-0 flex-1 gap-5 p-6">
@@ -420,61 +437,49 @@ function DetailsStep({
             <SectionHeading>Quotation Basic Information</SectionHeading>
             <div className="mt-4 grid grid-cols-2 gap-4">
               <div>
-                <FieldLabel required>Quotation Number</FieldLabel>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Quotation Number *</label>
                 <input
                   value={details.quotationNumber}
-                  onChange={(event) =>
-                    onUpdate("quotationNumber", event.target.value)
-                  }
-                  className={FIELD_CLASS}
+                  onChange={(event) => onUpdate("quotationNumber", event.target.value)}
+                  className={fieldClass}
                 />
               </div>
               <div>
-                <FieldLabel required>Quotation Date</FieldLabel>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Quotation Date *</label>
                 <input
                   type="date"
                   value={details.quotationDate}
-                  onChange={(event) =>
-                    onUpdate("quotationDate", event.target.value)
-                  }
-                  className={FIELD_CLASS}
+                  onChange={(event) => onUpdate("quotationDate", event.target.value)}
+                  className={fieldClass}
                 />
               </div>
               <div>
-                <FieldLabel>Valid Until</FieldLabel>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Valid Until</label>
                 <input
                   type="date"
                   value={details.validUntil}
-                  onChange={(event) =>
-                    onUpdate("validUntil", event.target.value)
-                  }
-                  className={FIELD_CLASS}
+                  onChange={(event) => onUpdate("validUntil", event.target.value)}
+                  className={fieldClass}
                 />
               </div>
               <div>
-                <FieldLabel required>Currency</FieldLabel>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Currency *</label>
                 <select
                   value={details.currency}
-                  onChange={(event) =>
-                    onUpdate("currency", event.target.value)
-                  }
-                  className={FIELD_CLASS}
+                  onChange={(event) => onUpdate("currency", event.target.value)}
+                  className={fieldClass}
                 >
-                  {CURRENCIES.map((currency) => (
-                    <option key={currency.value} value={currency.value}>
-                      {currency.label}
-                    </option>
-                  ))}
+                  <option value="PHP">PHP - Philippine Peso</option>
+                  <option value="USD">USD - US Dollar</option>
+                  <option value="EUR">EUR - Euro</option>
                 </select>
               </div>
               <div className="col-span-2">
-                <FieldLabel required>Subject / Title</FieldLabel>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Subject / Title *</label>
                 <input
                   value={details.quotationTitle}
-                  onChange={(event) =>
-                    onUpdate("quotationTitle", event.target.value)
-                  }
-                  className={FIELD_CLASS}
+                  onChange={(event) => onUpdate("quotationTitle", event.target.value)}
+                  className={fieldClass}
                   placeholder="e.g. Supply of Office Equipment"
                 />
               </div>
@@ -486,44 +491,36 @@ function DetailsStep({
               <SectionHeading>Company Information</SectionHeading>
               <div className="mt-4 grid grid-cols-2 gap-4">
                 <div>
-                  <FieldLabel required>Company Name</FieldLabel>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Company Name *</label>
                   <input
                     value={details.companyName}
-                    onChange={(event) =>
-                      onUpdate("companyName", event.target.value)
-                    }
-                    className={FIELD_CLASS}
+                    onChange={(event) => onUpdate("companyName", event.target.value)}
+                    className={fieldClass}
                   />
                 </div>
                 <div>
-                  <FieldLabel required>Email</FieldLabel>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Email *</label>
                   <input
                     type="email"
                     value={details.companyEmail}
-                    onChange={(event) =>
-                      onUpdate("companyEmail", event.target.value)
-                    }
-                    className={FIELD_CLASS}
+                    onChange={(event) => onUpdate("companyEmail", event.target.value)}
+                    className={fieldClass}
                   />
                 </div>
                 <div>
-                  <FieldLabel>Phone</FieldLabel>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Phone</label>
                   <input
                     value={details.companyPhone}
-                    onChange={(event) =>
-                      onUpdate("companyPhone", event.target.value)
-                    }
-                    className={FIELD_CLASS}
+                    onChange={(event) => onUpdate("companyPhone", event.target.value)}
+                    className={fieldClass}
                   />
                 </div>
                 <div>
-                  <FieldLabel>Address</FieldLabel>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Address</label>
                   <input
                     value={details.companyAddress}
-                    onChange={(event) =>
-                      onUpdate("companyAddress", event.target.value)
-                    }
-                    className={FIELD_CLASS}
+                    onChange={(event) => onUpdate("companyAddress", event.target.value)}
+                    className={fieldClass}
                   />
                 </div>
               </div>
@@ -535,11 +532,11 @@ function DetailsStep({
               <SectionHeading>Client Information</SectionHeading>
               <div className="mt-4 grid grid-cols-2 gap-4">
                 <div className="col-span-2">
-                  <FieldLabel required>Client Record</FieldLabel>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Client Record *</label>
                   <select
                     value={details.clientId}
                     onChange={(event) => onChangeClient(event.target.value)}
-                    className={FIELD_CLASS}
+                    className={fieldClass}
                   >
                     <option value="">Select a client...</option>
                     {clients.map((client) => (
@@ -551,47 +548,39 @@ function DetailsStep({
                   </select>
                 </div>
                 <div>
-                  <FieldLabel required>Client Name</FieldLabel>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Client Name *</label>
                   <input
                     value={details.clientName}
-                    onChange={(event) =>
-                      onUpdate("clientName", event.target.value)
-                    }
-                    className={FIELD_CLASS}
+                    onChange={(event) => onUpdate("clientName", event.target.value)}
+                    className={fieldClass}
                     placeholder="Enter client name"
                   />
                 </div>
                 <div>
-                  <FieldLabel required>Email</FieldLabel>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Email *</label>
                   <input
                     type="email"
                     value={details.clientEmail}
-                    onChange={(event) =>
-                      onUpdate("clientEmail", event.target.value)
-                    }
-                    className={FIELD_CLASS}
+                    onChange={(event) => onUpdate("clientEmail", event.target.value)}
+                    className={fieldClass}
                     placeholder="Enter email"
                   />
                 </div>
                 <div>
-                  <FieldLabel>Phone</FieldLabel>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Phone</label>
                   <input
                     value={details.clientPhone}
-                    onChange={(event) =>
-                      onUpdate("clientPhone", event.target.value)
-                    }
-                    className={FIELD_CLASS}
+                    onChange={(event) => onUpdate("clientPhone", event.target.value)}
+                    className={fieldClass}
                     placeholder="Enter phone number"
                   />
                 </div>
                 <div>
-                  <FieldLabel>Address</FieldLabel>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Address</label>
                   <input
                     value={details.clientAddress}
-                    onChange={(event) =>
-                      onUpdate("clientAddress", event.target.value)
-                    }
-                    className={FIELD_CLASS}
+                    onChange={(event) => onUpdate("clientAddress", event.target.value)}
+                    className={fieldClass}
                     placeholder="Enter client address"
                   />
                 </div>
@@ -604,11 +593,9 @@ function DetailsStep({
               <SectionHeading>Introduction</SectionHeading>
               <textarea
                 value={details.introduction}
-                onChange={(event) =>
-                  onUpdate("introduction", event.target.value)
-                }
+                onChange={(event) => onUpdate("introduction", event.target.value)}
                 rows={3}
-                className={`${FIELD_CLASS} mt-4 resize-none`}
+                className={`${fieldClass} mt-4 resize-none`}
                 placeholder="Add a short introduction for this quotation..."
               />
             </section>
@@ -629,29 +616,25 @@ function DetailsStep({
               <SectionHeading>Pricing Summary</SectionHeading>
               <div className="mt-4 grid grid-cols-2 gap-4">
                 <div>
-                  <FieldLabel>Discount Amount</FieldLabel>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Discount Amount</label>
                   <input
                     type="number"
                     min="0"
                     step="0.01"
                     value={details.discount}
-                    onChange={(event) =>
-                      onUpdate("discount", event.target.value)
-                    }
-                    className={FIELD_CLASS}
+                    onChange={(event) => onUpdate("discount", event.target.value)}
+                    className={fieldClass}
                   />
                 </div>
                 <div>
-                  <FieldLabel>Tax Rate (%)</FieldLabel>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Tax Rate (%)</label>
                   <input
                     type="number"
                     min="0"
                     step="0.01"
                     value={details.taxRate}
-                    onChange={(event) =>
-                      onUpdate("taxRate", event.target.value)
-                    }
-                    className={FIELD_CLASS}
+                    onChange={(event) => onUpdate("taxRate", event.target.value)}
+                    className={fieldClass}
                   />
                 </div>
               </div>
@@ -665,7 +648,7 @@ function DetailsStep({
                 value={details.terms}
                 onChange={(event) => onUpdate("terms", event.target.value)}
                 rows={5}
-                className={`${FIELD_CLASS} mt-4 resize-none`}
+                className={`${fieldClass} mt-4 resize-none`}
               />
             </section>
           )}
@@ -677,7 +660,7 @@ function DetailsStep({
                 value={details.notes}
                 onChange={(event) => onUpdate("notes", event.target.value)}
                 rows={4}
-                className={`${FIELD_CLASS} mt-4 resize-none`}
+                className={`${fieldClass} mt-4 resize-none`}
                 placeholder="Add a note for the client..."
               />
             </section>
@@ -688,23 +671,19 @@ function DetailsStep({
               <SectionHeading>Signature</SectionHeading>
               <div className="mt-4 grid grid-cols-2 gap-4">
                 <div>
-                  <FieldLabel>Prepared By</FieldLabel>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Prepared By</label>
                   <input
                     value={details.preparedBy}
-                    onChange={(event) =>
-                      onUpdate("preparedBy", event.target.value)
-                    }
-                    className={FIELD_CLASS}
+                    onChange={(event) => onUpdate("preparedBy", event.target.value)}
+                    className={fieldClass}
                   />
                 </div>
                 <div>
-                  <FieldLabel>Position</FieldLabel>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Position</label>
                   <input
                     value={details.preparedByRole}
-                    onChange={(event) =>
-                      onUpdate("preparedByRole", event.target.value)
-                    }
-                    className={FIELD_CLASS}
+                    onChange={(event) => onUpdate("preparedByRole", event.target.value)}
+                    className={fieldClass}
                   />
                 </div>
               </div>
@@ -718,27 +697,18 @@ function DetailsStep({
 
 function QuotationDocument({ details, selectedTemplate, totals }) {
   const visibleItems = details.items.filter(
-    (item) => item.description || toNumber(item.unitPrice) > 0,
+    (item) => item.description || (parseFloat(item.unitPrice) || 0) > 0
   );
 
   return (
     <article className="mx-auto min-h-[650px] w-full max-w-2xl bg-white px-8 py-7 text-[9px] text-slate-700 shadow-sm">
       <div className="flex items-start justify-between border-b border-red-100 pb-5">
         <div>
-          <img
-            src={intellicrmLogo}
-            alt="IntelliCRM"
-            className="h-10 w-auto object-contain object-left"
-          />
           <p className="mt-1 font-medium">{details.companyName}</p>
         </div>
         <div className="text-right">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-            QUOTATION
-          </h1>
-          <p className="mt-2">
-            Quotation #: <strong>{details.quotationNumber}</strong>
-          </p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">QUOTATION</h1>
+          <p className="mt-2">Quotation #: <strong>{details.quotationNumber}</strong></p>
           <p>Date: {details.quotationDate}</p>
           <p>Valid Until: {details.validUntil}</p>
         </div>
@@ -763,29 +733,22 @@ function QuotationDocument({ details, selectedTemplate, totals }) {
       </div>
 
       <div className="py-4">
-        <p className="font-semibold uppercase text-red-500">
-          Subject / Title
-        </p>
+        <p className="font-semibold uppercase text-red-500">Subject / Title</p>
         <p className="mt-2 font-medium">{details.quotationTitle}</p>
-        {selectedTemplate.sections.includes("text") &&
-          details.introduction && (
-            <p className="mt-3 leading-5 text-slate-500">
-              {details.introduction}
-            </p>
-          )}
+        {selectedTemplate.sections.includes("text") && details.introduction && (
+          <p className="mt-3 leading-5 text-slate-500">{details.introduction}</p>
+        )}
       </div>
 
       {selectedTemplate.sections.includes("items") && (
         <div>
           <div className="grid grid-cols-[36px_1fr_70px_110px_110px] border-y border-red-100 bg-red-50/40 font-semibold uppercase text-red-500">
             {["#", "Description", "Qty", "Unit Price", "Amount"].map((label) => (
-              <span key={label} className="px-2 py-2">
-                {label}
-              </span>
+              <span key={label} className="px-2 py-2">{label}</span>
             ))}
           </div>
           {visibleItems.map((item, index) => {
-            const amount = toNumber(item.quantity) * toNumber(item.unitPrice);
+            const amount = (parseFloat(item.quantity) || 0) * (parseFloat(item.unitPrice) || 0);
             return (
               <div
                 key={item.id}
@@ -794,12 +757,8 @@ function QuotationDocument({ details, selectedTemplate, totals }) {
                 <span className="px-2 py-2">{index + 1}</span>
                 <span className="px-2 py-2">{item.description}</span>
                 <span className="px-2 py-2">{item.quantity}</span>
-                <span className="px-2 py-2">
-                  {formatCurrency(item.unitPrice, details.currency)}
-                </span>
-                <span className="px-2 py-2 text-right font-medium">
-                  {formatCurrency(amount, details.currency)}
-                </span>
+                <span className="px-2 py-2">{details.currency} {(parseFloat(item.unitPrice) || 0).toFixed(2)}</span>
+                <span className="px-2 py-2 text-right font-medium">{details.currency} {amount.toFixed(2)}</span>
               </div>
             );
           })}
@@ -807,23 +766,21 @@ function QuotationDocument({ details, selectedTemplate, totals }) {
           <div className="ml-auto mt-3 w-64">
             <div className="flex justify-between py-1">
               <span>Subtotal</span>
-              <span>{formatCurrency(totals.subtotal, details.currency)}</span>
+              <span>{details.currency} {(totals.subtotal || 0).toFixed(2)}</span>
             </div>
             {totals.discountAmount > 0 && (
               <div className="flex justify-between py-1">
                 <span>Discount</span>
-                <span>
-                  -{formatCurrency(totals.discountAmount, details.currency)}
-                </span>
+                <span>-{details.currency} {(totals.discountAmount || 0).toFixed(2)}</span>
               </div>
             )}
             <div className="flex justify-between py-1">
               <span>VAT ({details.taxRate || 0}%)</span>
-              <span>{formatCurrency(totals.taxAmount, details.currency)}</span>
+              <span>{details.currency} {(totals.taxAmount || 0).toFixed(2)}</span>
             </div>
             <div className="mt-1 flex justify-between border-t border-red-100 bg-red-50/50 px-2 py-2 text-sm font-bold text-red-500">
               <span>Total</span>
-              <span>{formatCurrency(totals.total, details.currency)}</span>
+              <span>{details.currency} {(totals.total || 0).toFixed(2)}</span>
             </div>
           </div>
         </div>
@@ -833,20 +790,14 @@ function QuotationDocument({ details, selectedTemplate, totals }) {
         <div>
           {selectedTemplate.sections.includes("terms") && (
             <>
-              <p className="font-semibold uppercase text-red-500">
-                Terms &amp; Conditions
-              </p>
-              <p className="mt-2 whitespace-pre-line leading-5 text-slate-500">
-                {details.terms || "—"}
-              </p>
+              <p className="font-semibold uppercase text-red-500">Terms &amp; Conditions</p>
+              <p className="mt-2 whitespace-pre-line leading-5 text-slate-500">{details.terms || "—"}</p>
             </>
           )}
           {selectedTemplate.sections.includes("notes") && details.notes && (
             <div className="mt-5">
               <p className="font-semibold uppercase text-red-500">Notes</p>
-              <p className="mt-2 whitespace-pre-line leading-5 text-slate-500">
-                {details.notes}
-              </p>
+              <p className="mt-2 whitespace-pre-line leading-5 text-slate-500">{details.notes}</p>
             </div>
           )}
         </div>
@@ -894,12 +845,9 @@ function QuotationSummary({ details, selectedTemplate, totals }) {
           </div>
           <div className="mt-3 space-y-2.5 pl-1">
             {selectedTemplate.sections.map((section) => (
-              <p
-                key={section}
-                className="flex items-center gap-2 text-[10px] text-slate-600"
-              >
+              <p key={section} className="flex items-center gap-2 text-[10px] text-slate-600">
                 <CheckCircle2 size={13} className="text-emerald-500" />
-                {TEMPLATE_SECTIONS[section]?.label || section}
+                {section}
               </p>
             ))}
           </div>
@@ -908,7 +856,7 @@ function QuotationSummary({ details, selectedTemplate, totals }) {
         <div className="border-t border-slate-100 pt-4">
           <p className="text-[10px] text-slate-500">Total Amount</p>
           <p className="mt-1 text-lg font-bold text-red-500">
-            {formatCurrency(totals.total, details.currency)}
+            {details.currency} {(totals.total || 0).toFixed(2)}
           </p>
         </div>
 
@@ -917,8 +865,7 @@ function QuotationSummary({ details, selectedTemplate, totals }) {
             <Lightbulb size={14} className="text-red-500" />
             Tip
           </div>
-          Review the quotation preview. You can return to edit details if
-          needed.
+          Review the quotation preview. You can return to edit details if needed.
         </div>
       </div>
     </aside>
@@ -934,46 +881,36 @@ function FormDataPanel({ details, totals }) {
     ["Quotation Date", details.quotationDate],
     ["Valid Until", details.validUntil],
     ["Currency", details.currency],
-    ["Subtotal", formatCurrency(totals.subtotal, details.currency)],
-    ["Tax", formatCurrency(totals.taxAmount, details.currency)],
-    ["Total", formatCurrency(totals.total, details.currency)],
+    ["Subtotal", `${details.currency} ${(totals.subtotal || 0).toFixed(2)}`],
+    ["Tax", `${details.currency} ${(totals.taxAmount || 0).toFixed(2)}`],
+    ["Total", `${details.currency} ${(totals.total || 0).toFixed(2)}`],
   ];
 
   return (
     <div className="grid grid-cols-2 gap-4 rounded-lg border border-slate-200 bg-white p-6">
       {rows.map(([label, value]) => (
         <div key={label} className="rounded-md bg-slate-50 p-4">
-          <p className="text-[10px] uppercase tracking-wide text-slate-400">
-            {label}
-          </p>
-          <p className="mt-1 text-xs font-medium text-slate-800">
-            {value || "—"}
-          </p>
+          <p className="text-[10px] uppercase tracking-wide text-slate-400">{label}</p>
+          <p className="mt-1 text-xs font-medium text-slate-800">{value || "—"}</p>
         </div>
       ))}
     </div>
   );
 }
 
-function SettingsPanel({
-  details,
-  onUpdate,
-  permissions,
-  salesAgents,
-  stages,
-}) {
+function SettingsPanel({ details, onUpdate, permissions, salesAgents, stages }) {
+  const fieldClass = "w-full rounded-md border border-slate-200 px-3 py-2 text-xs outline-none focus:border-red-400";
+
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-6">
-      <h3 className="text-sm font-semibold text-slate-900">
-        Quotation Settings
-      </h3>
+      <h3 className="text-sm font-semibold text-slate-900">Quotation Settings</h3>
       <div className="mt-5 grid grid-cols-2 gap-4">
         <div>
-          <FieldLabel>Pipeline Stage</FieldLabel>
+          <label className="block text-xs font-semibold text-slate-700 mb-1">Pipeline Stage</label>
           <select
             value={details.stage}
             onChange={(event) => onUpdate("stage", event.target.value)}
-            className={FIELD_CLASS}
+            className={fieldClass}
           >
             {stages.map((stage) => (
               <option key={stage} value={stage}>
@@ -984,11 +921,11 @@ function SettingsPanel({
         </div>
         {permissions.canAssign && (
           <div>
-            <FieldLabel>Assigned To</FieldLabel>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Assigned To</label>
             <select
               value={details.assignedTo}
               onChange={(event) => onUpdate("assignedTo", event.target.value)}
-              className={FIELD_CLASS}
+              className={fieldClass}
             >
               <option value="">Unassigned</option>
               {salesAgents.map((agent) => (
@@ -1000,12 +937,12 @@ function SettingsPanel({
           </div>
         )}
         <div className="col-span-2">
-          <FieldLabel>Internal Notes</FieldLabel>
+          <label className="block text-xs font-semibold text-slate-700 mb-1">Internal Notes</label>
           <textarea
             value={details.notes}
             onChange={(event) => onUpdate("notes", event.target.value)}
             rows={5}
-            className={`${FIELD_CLASS} resize-none`}
+            className={`${fieldClass} resize-none`}
             placeholder="Add notes for this quotation..."
           />
         </div>
@@ -1026,11 +963,17 @@ function ReviewStep({
   stages,
   totals,
 }) {
+  const previewTabs = [
+    { id: "preview", label: "Document Preview", icon: FileText },
+    { id: "data", label: "Form Data", icon: Layers3 },
+    { id: "settings", label: "Settings", icon: Pencil },
+  ];
+
   return (
     <div className="flex min-h-0 flex-1 flex-col px-6 pb-5">
       <div className="flex shrink-0 items-center justify-between border-b border-slate-200">
         <div className="flex">
-          {PREVIEW_TABS.map((tab) => {
+          {previewTabs.map((tab) => {
             const Icon = tab.icon;
             return (
               <button
@@ -1067,8 +1010,7 @@ function ReviewStep({
                 <FileText size={13} />
               </span>
               <span>
-                Template:{" "}
-                <strong>{selectedTemplate.name} Template</strong>
+                Template: <strong>{selectedTemplate.name} Template</strong>
               </span>
             </div>
             <div className="flex items-center gap-3">
@@ -1153,7 +1095,6 @@ function WizardFooter({
 
   return (
     <div className="flex shrink-0 items-center justify-between border-t border-slate-200 bg-white px-6 py-4">
-      {/* TEMPLATE TEXT */}
       <div className="hidden items-center gap-2 md:flex">
         {step === 1 && selectedTemplate && (
           <div className="flex items-center gap-2 rounded-full bg-slate-50 px-4 py-1.5 border border-slate-100">
@@ -1250,20 +1191,17 @@ const createInitialDetails = (formData = {}, clients = [], currentUser = null, v
   const rawValidUntil = source.expectedCloseDate || source.validUntil;
 
   return {
-    // Basic Info
     quotationNumber: source.quotationNumber || createQuotationNumber(),
     quotationDate: source.quotationDate ? toDateInput(source.quotationDate) : toDateInput(now),
     validUntil: rawValidUntil ? toDateInput(rawValidUntil) : "", 
     quotationTitle: source.title || source.quotationTitle || "",
     currency: source.currency || "PHP",
 
-    // Company Info
     companyName: currentUser?.company || source.companyName || "",
     companyEmail: currentUser?.email || source.companyEmail || "",
     companyPhone: currentUser?.phone || source.companyPhone || "",
     companyAddress: companyAddress === "—" ? "" : companyAddress,
 
-    // Client Info
     clientId: source.client || source.clientId || "",
     ...getClientDetails(selectedClient),
     introduction:
@@ -1311,7 +1249,7 @@ export default function QuotationWizard({
   const [search, setSearch] = useState("");
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(
-    QUOTATION_TEMPLATES.find((t) => t.id === "product"),
+    QUOTATION_TEMPLATES.find((t) => t.id === "product")
   );
   const [quotationTitle, setQuotationTitle] = useState(formData.title || viewingQuotation?.title || "");
   const [details, setDetails] = useState(() => createInitialDetails(formData, clients, currentUser, viewingQuotation));
@@ -1321,8 +1259,7 @@ export default function QuotationWizard({
 
   useEffect(() => {
     if (!open) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setDetails (createInitialDetails(formData, clients, currentUser, viewingQuotation));
+    setDetails(createInitialDetails(formData, clients, currentUser, viewingQuotation));
     setQuotationTitle(formData.title || viewingQuotation?.title || "");
     setStep(1);
     setError("");
@@ -1379,56 +1316,6 @@ export default function QuotationWizard({
     setDetails((curr) => ({
       ...curr,
       items: curr.items.filter((item) => item.id !== itemId),
-    }));
-  };
-
-  const addRow = (listKey, row) => {
-    setDetails((curr) => ({
-      ...curr,
-      [listKey]: [...(curr[listKey] || []), { ...row, id: `${listKey}-${Date.now()}` }],
-    }));
-  };
-
-  const updateRow = (listKey, rowId, name, value) => {
-    setDetails((curr) => ({
-      ...curr,
-      [listKey]: (curr[listKey] || []).map((row) => (row.id === rowId ? { ...row, [name]: value } : row)),
-    }));
-  };
-
-  const removeRow = (listKey, rowId) => {
-    setDetails((curr) => ({
-      ...curr,
-      [listKey]: (curr[listKey] || []).filter((row) => row.id !== rowId),
-    }));
-  };
-
-  const addRow = (listKey, row) => {
-    setDetails((current) => ({
-      ...current,
-      [listKey]: [
-        ...current[listKey],
-        { ...row, id: `${listKey}-${Date.now()}` },
-      ],
-    }));
-  };
-
-  const updateRow = (listKey, rowId, name, value) => {
-    setDetails((current) => ({
-      ...current,
-      [listKey]: current[listKey].map((row) =>
-        row.id === rowId ? { ...row, [name]: value } : row,
-      ),
-    }));
-  };
-
-  const removeRow = (listKey, rowId) => {
-    setDetails((current) => ({
-      ...current,
-      [listKey]:
-        current[listKey].length === 1
-          ? current[listKey]
-          : current[listKey].filter((row) => row.id !== rowId),
     }));
   };
 
