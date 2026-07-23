@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { ChevronRight, CalendarDays, Clock, AlertCircle, Tag, CheckCircle2 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
+import { useAuth } from "../../context/AuthContext";
 import { PageBase, PageContentState } from "../../components/page";
 import { useDashboard } from "./hooks/useDashboard";
 import MyTasksTable from "./components/MyTaskTable";
@@ -64,7 +65,10 @@ const getTaskTypeCategory = (task) => {
 export default function DashboardPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user: currentUser } = useAuth();
   const { stats, loading, error } = useDashboard();
+
+  const currentUserId = currentUser?._id || currentUser?.id;
 
   const rawTasks = stats?.tasks || [];
   const meetings = stats?.meetings || [];
@@ -80,9 +84,21 @@ export default function DashboardPage() {
   const [meetingDateFilter, setMeetingDateFilter] = useState("all");
   const [meetingTimeFilter, setMeetingTimeFilter] = useState("all");
 
-  // --- Exclude completed tasks AND meeting tasks from dashboard list ---
+  // --- Task Visibility & Incomplete Filter ---
   const tasks = useMemo(() => {
     return rawTasks.filter((task) => {
+      // 1. User Ownership/Assignment Check
+      const creatorId = task.createdBy?._id || task.createdBy?.id || task.createdBy;
+      const isCreator = creatorId === currentUserId;
+
+      const assigneeId = task.assignedTo?._id || task.assignedTo?.id || task.assignedTo;
+      const isAssignee = assigneeId === currentUserId;
+
+      if (!isCreator && !isAssignee) {
+        return false;
+      }
+
+      // 2. Status & Type Exclusions
       const rawStatus = String(task.status || "").trim().toLowerCase();
       const isCompleted = rawStatus === "completed" || rawStatus === "complete" || rawStatus === "done";
       
@@ -91,7 +107,7 @@ export default function DashboardPage() {
 
       return !isCompleted && !isMeeting;
     });
-  }, [rawTasks]);
+  }, [rawTasks, currentUserId]);
 
   const taskStatusOptions = [
     { value: "all", label: "All Statuses" },
@@ -165,25 +181,20 @@ export default function DashboardPage() {
       const isOngoing = rawStatus === "in progress" || rawStatus === "ongoing";
       const isOverdue = taskDate && taskDate < today;
 
-      // Dynamic length-based Due Soon logic
       let isDueSoon = false;
       if (dueTimestamp && dueTimestamp >= now) {
         if (startTimestamp && !Number.isNaN(startTimestamp)) {
           const totalDuration = dueTimestamp - startTimestamp;
-          // Short-term task (<= 3 days duration): Due soon right away upon starting
           if (totalDuration <= threeDaysMs) {
             isDueSoon = true;
           } else {
-            // Long-term task: Due soon when 3 or fewer days remaining
             isDueSoon = dueTimestamp - now <= threeDaysMs;
           }
         } else {
-          // Fallback if no start date available
           isDueSoon = dueTimestamp - now <= threeDaysMs;
         }
       }
 
-      // Status Filter logic
       if (taskStatusFilter !== "all") {
         if (taskStatusFilter === "pending" && (isOngoing || isOverdue)) return false;
         if (taskStatusFilter === "ongoing" && !isOngoing) return false;
@@ -192,13 +203,11 @@ export default function DashboardPage() {
         if (taskStatusFilter === "upcoming" && (!taskDate || taskDate <= today)) return false;
       }
 
-      // Task Type Filter
       if (taskTypeFilter !== "all") {
         const typeCategory = getTaskTypeCategory(task);
         if (typeCategory !== taskTypeFilter) return false;
       }
 
-      // Priority Filter
       if (taskPriorityFilter !== "all") {
         const priority = String(task.priority || "medium").toLowerCase();
         if (priority !== taskPriorityFilter) return false;
