@@ -1,117 +1,383 @@
-import{ChevronRight,Filter}from"lucide-react";
-import{useNavigate}from"react-router-dom";
-import{PageBase,PageContentState}from"../../components/page";
-import{useDashboard}from"./hooks/useDashboard";
-import MyTasksTable from"./components/MyTaskTable";
-import MyMeetingsTable from"./components/MyMeetingTable";
+import { useMemo, useState } from "react";
+import { ChevronRight, CalendarDays, Clock, AlertCircle, Tag, CheckCircle2 } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 
-const TASKS_ROUTE="/tasks";
-const MEETINGS_ROUTE="/meetings";
+import { useAuth } from "../../context/AuthContext";
+import { PageBase, PageContentState } from "../../components/page";
+import { useDashboard } from "./hooks/useDashboard";
+import MyTasksTable from "./components/MyTaskTable";
+import MyMeetingsTable from "./components/MyMeetingTable";
+import HeaderFilterDropdown from "./components/HeaderFilterDropdown";
 
-export default function DashboardPage(){
-const navigate=useNavigate();
-const{stats,loading,error}=useDashboard();
+const ROLE_BASE_PATHS = [
+  "/admin",
+  "/sales-manager",
+  "/sales-agent",
+  "/support-staff",
+];
 
-const tasks=stats?.tasks||[];
-const meetings=stats?.meetings||[];
+const getRoleBasePath = (pathname) => {
+  const matchedPath = ROLE_BASE_PATHS.find(
+    (basePath) => pathname === basePath || pathname.startsWith(`${basePath}/`),
+  );
+  return matchedPath || "";
+};
 
-return(
-<PageBase>
+const formatDateKey = (value) => {
+  if (!value || value === "__no_date__") return "__no_date__";
+  const rawString = String(value).trim();
+  const cleanString = rawString.includes("T") ? rawString.split("T")[0] : rawString;
+  
+  const parsedDate = new Date(cleanString);
+  if (Number.isNaN(parsedDate.getTime())) return cleanString;
 
-<div className="mb-3 flex w-full min-w-0 shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+  const year = parsedDate.getFullYear();
+  const month = String(parsedDate.getMonth() + 1).padStart(2, "0");
+  const day = String(parsedDate.getDate()).padStart(2, "0");
 
-<div className="min-w-0">
-<h1 className="text-base font-semibold text-gray-800 sm:text-lg">
-Dashboard
-</h1>
+  return `${year}-${month}-${day}`;
+};
 
-<p className="truncate text-[11px] text-gray-400 sm:text-xs">
-Manage your tasks and meetings
-</p>
-</div>
+const getTaskTypeCategory = (task) => {
+  const text = [
+    task?.taskType,
+    task?.type,
+    task?.category,
+    task?.activityType,
+    task?.subject,
+    task?.title,
+    task?.taskTitle,
+    task?.name,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .trim()
+    .toLowerCase();
 
-<button
-type="button"
-className="flex w-full shrink-0 items-center justify-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-600 transition hover:border-red-200 hover:text-red-600 sm:w-auto sm:px-4 sm:text-xs"
->
-<Filter className="h-3.5 w-3.5"/>
-Filter
-</button>
+  if (text.includes("call") || text.includes("phone")) return "call";
+  if (text.includes("email") || text.includes("e-mail") || text.includes("mail")) return "email";
+  if (text.includes("message") || text.includes("chat") || text.includes("sms")) return "message";
+  if (text.includes("meeting") || text.includes("appointment")) return "meeting";
+  if (text.includes("reminder")) return "reminder";
+  return "others";
+};
 
-</div>
+// Helper function to extract normalized String IDs from various object structures
+const extractUserIds = (userOrArray) => {
+  if (!userOrArray) return [];
+  if (Array.isArray(userOrArray)) {
+    return userOrArray.map((item) => {
+      if (typeof item === "object") return String(item?._id || item?.id || item?.userId || "");
+      return String(item || "");
+    }).filter(Boolean);
+  }
+  if (typeof userOrArray === "object") {
+    const id = userOrArray?._id || userOrArray?.id || userOrArray?.userId;
+    return id ? [String(id)] : [];
+  }
+  return [String(userOrArray)];
+};
 
-{error&&(
-<div className="mb-2 rounded-md bg-red-50 px-3 py-2 text-[11px] text-red-600 sm:text-xs">
-{error}
-</div>
-)}
+export default function DashboardPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user: currentUser } = useAuth();
+  const { stats, loading, error } = useDashboard();
 
-<PageContentState loading={loading}>
+  const currentUserId = String(currentUser?._id || currentUser?.id || "");
 
-<div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden pb-4 pr-1">
+  const rawTasks = stats?.tasks || [];
+  const rawMeetings = stats?.meetings || [];
 
-<section className="mt-3 w-full min-w-0 shrink-0 sm:mt-4">
+  const roleBasePath = getRoleBasePath(location.pathname);
 
-<div className="mb-2 flex w-full min-w-0 items-center justify-between gap-2 sm:mb-3">
+  // --- Task Filter States ---
+  const [taskStatusFilter, setTaskStatusFilter] = useState("all");
+  const [taskTypeFilter, setTaskTypeFilter] = useState("all");
+  const [taskPriorityFilter, setTaskPriorityFilter] = useState("all");
 
-<div className="flex min-w-0 items-center gap-2">
-<h2 className="truncate text-xs font-semibold text-gray-700 sm:text-sm">
-My Tasks
-</h2>
+  // --- Meeting Filter States ---
+  const [meetingDateFilter, setMeetingDateFilter] = useState("all");
+  const [meetingTimeFilter, setMeetingTimeFilter] = useState("all");
 
-<span className="shrink-0 rounded-full bg-black/[0.05] px-2 py-0.5 text-[10px] text-black/50 sm:text-[11px]">
-{tasks.length}
-</span>
-</div>
+  // --- Task Visibility & Incomplete Filter ---
+  const tasks = useMemo(() => {
+    return rawTasks.filter((task) => {
+      // 1. User Ownership/Assignment Check
+      const creatorId = String(task.createdBy?._id || task.createdBy?.id || task.createdBy || "");
+      const isCreator = creatorId === currentUserId;
 
-<button
-type="button"
-onClick={()=>navigate(TASKS_ROUTE)}
-className="mr-0 inline-flex shrink-0 items-center whitespace-nowrap text-[10px] font-medium text-black/50 transition hover:text-red-600 sm:mr-4 sm:text-xs lg:mr-8"
->
-<span>View more</span>
-<ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4"/>
-</button>
+      const assigneeId = String(task.assignedTo?._id || task.assignedTo?.id || task.assignedTo || "");
+      const isAssignee = assigneeId === currentUserId;
 
-</div>
+      if (!isCreator && !isAssignee) {
+        return false;
+      }
 
-<MyTasksTable tasks={tasks}/>
+      // 2. Status & Type Exclusions
+      const rawStatus = String(task.status || "").trim().toLowerCase();
+      const isCompleted = rawStatus === "completed" || rawStatus === "complete" || rawStatus === "done";
+      
+      const typeCategory = getTaskTypeCategory(task);
+      const isMeeting = typeCategory === "meeting";
 
-</section>
+      return !isCompleted && !isMeeting;
+    });
+  }, [rawTasks, currentUserId]);
 
-<section className="mt-6 w-full min-w-0 shrink-0 sm:mt-8 lg:mt-auto lg:pt-8">
+  // --- Meeting Visibility Filter ---
+  const meetings = useMemo(() => {
+    if (!currentUserId) return rawMeetings;
 
-<div className="mb-2 flex w-full min-w-0 items-center justify-between gap-2 sm:mb-3">
+    return rawMeetings.filter((meeting) => {
+      // Collect all user IDs associated with this meeting
+      const participants = [
+        ...extractUserIds(meeting.createdBy),
+        ...extractUserIds(meeting.organizer),
+        ...extractUserIds(meeting.host),
+        ...extractUserIds(meeting.assignedTo),
+        ...extractUserIds(meeting.user),
+        ...extractUserIds(meeting.attendees),
+        ...extractUserIds(meeting.participants),
+        ...extractUserIds(meeting.members),
+      ];
 
-<div className="flex min-w-0 items-center gap-2">
-<h2 className="truncate text-xs font-semibold text-gray-700 sm:text-sm">
-My Meetings
-</h2>
+      // Keep meeting if current user is found in any participant/ownership field
+      return participants.includes(currentUserId);
+    });
+  }, [rawMeetings, currentUserId]);
 
-<span className="shrink-0 rounded-full bg-black/[0.05] px-2 py-0.5 text-[10px] text-black/50 sm:text-[11px]">
-{meetings.length}
-</span>
-</div>
+  const taskStatusOptions = [
+    { value: "all", label: "All Statuses" },
+    { value: "pending", label: "Pending" },
+    { value: "ongoing", label: "Ongoing" },
+    { value: "due_soon", label: "Due Soon" },
+    { value: "overdue", label: "Overdue" },
+  ];
 
-<button
-type="button"
-onClick={()=>navigate(MEETINGS_ROUTE)}
-className="mr-0 inline-flex shrink-0 items-center whitespace-nowrap text-[10px] font-medium text-black/50 transition hover:text-red-600 sm:mr-4 sm:text-xs lg:mr-8"
->
-<span>View more</span>
-<ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4"/>
-</button>
+  const taskTypeOptions = [
+    { value: "all", label: "All Types" },
+    { value: "call", label: "Call" },
+    { value: "email", label: "Email" },
+    { value: "message", label: "Message" },
+    { value: "others", label: "Others" },
+  ];
 
-</div>
+  const taskPriorityOptions = [
+    { value: "all", label: "All Priorities" },
+    { value: "high", label: "High" },
+    { value: "medium", label: "Medium" },
+    { value: "low", label: "Low" },
+  ];
 
-<MyMeetingsTable meetings={meetings}/>
+  const meetingDateOptions = useMemo(() => {
+    const dates = Array.from(
+      new Set(meetings.map((m) => formatDateKey(m.meetingDate || m.date || "__no_date__"))),
+    ).sort((a, b) => {
+      if (a === "__no_date__") return 1;
+      if (b === "__no_date__") return -1;
+      return a.localeCompare(b);
+    });
 
-</section>
+    return [
+      { value: "all", label: "All Dates" },
+      ...dates.map((d) => ({
+        value: d,
+        label: d === "__no_date__" ? "No Date" : d,
+      })),
+    ];
+  }, [meetings]);
 
-</div>
+  const meetingTimeOptions = useMemo(() => {
+    const times = Array.from(
+      new Set(meetings.map((m) => m.startTime || m.time || "__no_time__")),
+    ).sort();
+    return [
+      { value: "all", label: "All Times" },
+      ...times.map((t) => ({
+        value: t,
+        label: t === "__no_time__" ? "No Time" : t,
+      })),
+    ];
+  }, [meetings]);
 
-</PageContentState>
+  const filteredTasks = useMemo(() => {
+    const today = new Date().toISOString().split("T")[0];
+    const now = Date.now();
+    const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
 
-</PageBase>
-);
+    return tasks.filter((task) => {
+      const rawDueDate = task.dueDate || task.date;
+      const rawStartDate = task.startDate || task.createdAt;
+
+      const dueTimestamp = rawDueDate ? new Date(rawDueDate).getTime() : null;
+      const startTimestamp = rawStartDate ? new Date(rawStartDate).getTime() : null;
+
+      const taskDate = rawDueDate ? new Date(rawDueDate).toISOString().split("T")[0] : null;
+
+      const rawStatus = String(task.status || "pending").toLowerCase();
+      const isOngoing = rawStatus === "in progress" || rawStatus === "ongoing";
+      const isOverdue = taskDate && taskDate < today;
+
+      let isDueSoon = false;
+      if (dueTimestamp && dueTimestamp >= now) {
+        if (startTimestamp && !Number.isNaN(startTimestamp)) {
+          const totalDuration = dueTimestamp - startTimestamp;
+          if (totalDuration <= threeDaysMs) {
+            isDueSoon = true;
+          } else {
+            isDueSoon = dueTimestamp - now <= threeDaysMs;
+          }
+        } else {
+          isDueSoon = dueTimestamp - now <= threeDaysMs;
+        }
+      }
+
+      if (taskStatusFilter !== "all") {
+        if (taskStatusFilter === "pending" && (isOngoing || isOverdue)) return false;
+        if (taskStatusFilter === "ongoing" && !isOngoing) return false;
+        if (taskStatusFilter === "due_soon" && !isDueSoon) return false;
+        if (taskStatusFilter === "overdue" && !isOverdue) return false;
+        if (taskStatusFilter === "upcoming" && (!taskDate || taskDate <= today)) return false;
+      }
+
+      if (taskTypeFilter !== "all") {
+        const typeCategory = getTaskTypeCategory(task);
+        if (typeCategory !== taskTypeFilter) return false;
+      }
+
+      if (taskPriorityFilter !== "all") {
+        const priority = String(task.priority || "medium").toLowerCase();
+        if (priority !== taskPriorityFilter) return false;
+      }
+
+      return true;
+    });
+  }, [tasks, taskStatusFilter, taskTypeFilter, taskPriorityFilter]);
+
+  const filteredMeetings = useMemo(() => {
+    return meetings.filter((m) => {
+      const dateKey = formatDateKey(m.meetingDate || m.date || "__no_date__");
+      const dateMatch = meetingDateFilter === "all" || dateKey === meetingDateFilter;
+      const timeMatch = meetingTimeFilter === "all" || (m.startTime || m.time || "__no_time__") === meetingTimeFilter;
+      return dateMatch && timeMatch;
+    });
+  }, [meetings, meetingDateFilter, meetingTimeFilter]);
+
+  const handleViewTasks = () => roleBasePath && navigate(`${roleBasePath}/tasks`);
+  const handleViewMeetings = () => roleBasePath && navigate(`${roleBasePath}/meetings`);
+
+  return (
+    <PageBase>
+      {error && (
+        <div className="mb-4 rounded-md border border-red-500/20 bg-red-500/[0.05] px-4 py-2 text-sm text-red-600">
+          {error}
+        </div>
+      )}
+
+      <PageContentState loading={loading}>
+        <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto pb-5">
+          
+          {/* MY TASKS SECTION */}
+          <section className="w-full min-w-0 shrink-0">
+            <div className="mb-4 flex w-full min-w-0 flex-wrap items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <h2 className="text-lg font-semibold text-gray-700">
+                  My Tasks
+                </h2>
+                <span className="inline-flex h-6 min-w-8 shrink-0 items-center justify-center rounded-md border border-black/[0.07] bg-black/[0.04] px-3 text-xs font-medium text-black/45">
+                  {filteredTasks.length}
+                </span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5">
+                <HeaderFilterDropdown
+                  icon={CheckCircle2}
+                  ariaLabel="Filter tasks by status"
+                  value={taskStatusFilter}
+                  options={taskStatusOptions}
+                  onChange={setTaskStatusFilter}
+                  minimumWidth={140}
+                />
+
+                <HeaderFilterDropdown
+                  icon={Tag}
+                  ariaLabel="Filter tasks by task type"
+                  value={taskTypeFilter}
+                  options={taskTypeOptions}
+                  onChange={setTaskTypeFilter}
+                  minimumWidth={130}
+                />
+
+                <HeaderFilterDropdown
+                  icon={AlertCircle}
+                  ariaLabel="Filter tasks by priority"
+                  value={taskPriorityFilter}
+                  options={taskPriorityOptions}
+                  onChange={setTaskPriorityFilter}
+                  minimumWidth={130}
+                />
+
+                <button
+                  type="button"
+                  onClick={handleViewTasks}
+                  className="inline-flex shrink-0 items-center gap-px whitespace-nowrap rounded-md px-1 py-1 text-[clamp(11px,0.8vw,13px)] font-medium text-black/45 hover:text-red-600"
+                >
+                  <span>View more</span>
+                  <ChevronRight className="h-4 w-4" strokeWidth={2} />
+                </button>
+              </div>
+            </div>
+
+            <MyTasksTable tasks={filteredTasks} hideFilter />
+          </section>
+
+          {/* MY MEETINGS SECTION */}
+          <section className="mt-[clamp(32px,5vw,48px)] w-full min-w-0 shrink-0">
+            <div className="mb-4 flex w-full min-w-0 items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <h2 className="text-lg font-semibold text-gray-700">
+                  My Meetings
+                </h2>
+                <span className="inline-flex h-6 min-w-8 shrink-0 items-center justify-center rounded-md border border-black/[0.07] bg-black/[0.04] px-3 text-xs font-medium text-black/45">
+                  {filteredMeetings.length}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                <HeaderFilterDropdown
+                  icon={CalendarDays}
+                  ariaLabel="Filter meetings by date"
+                  value={meetingDateFilter}
+                  options={meetingDateOptions}
+                  onChange={setMeetingDateFilter}
+                  minimumWidth={150}
+                />
+
+                <HeaderFilterDropdown
+                  icon={Clock}
+                  ariaLabel="Filter meetings by time"
+                  value={meetingTimeFilter}
+                  options={meetingTimeOptions}
+                  onChange={setMeetingTimeFilter}
+                />
+
+                <button
+                  type="button"
+                  onClick={handleViewMeetings}
+                  className="inline-flex shrink-0 items-center gap-px whitespace-nowrap rounded-md px-1 py-1 text-[clamp(11px,0.8vw,13px)] font-medium text-black/45 hover:text-red-600"
+                >
+                  <span>View more</span>
+                  <ChevronRight className="h-4 w-4" strokeWidth={2} />
+                </button>
+              </div>
+            </div>
+
+            <MyMeetingsTable meetings={filteredMeetings} hideFilter />
+          </section>
+
+        </div>
+      </PageContentState>
+    </PageBase>
+  );
 }

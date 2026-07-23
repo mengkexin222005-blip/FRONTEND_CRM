@@ -1,230 +1,415 @@
-import{useCallback,useEffect,useState}from"react";
-import api from"../../../services/api";
+import {
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 
-const MIN_ITEMS=10;
-const DAY=86400000;
+import api from "../../../services/api";
 
-const defaultTasks=[
-{
-subject:"Follow up with client",
-taskType:"Follow Up",
-priority:"High",
-status:"To Do"
-},
-{
-subject:"Prepare quotation",
-taskType:"Sales",
-priority:"Medium",
-status:"In Progress"
-},
-{
-subject:"Review sales report",
-taskType:"Sales",
-priority:"Low",
-status:"To Do"
-},
-{
-subject:"Call new prospect",
-taskType:"Follow Up",
-priority:"High",
-status:"To Do"
-},
-{
-subject:"Update customer details",
-taskType:"Sales",
-priority:"Medium",
-status:"In Progress"
-},
-{
-subject:"Send proposal",
-taskType:"Follow Up",
-priority:"High",
-status:"In Progress"
-},
-{
-subject:"Schedule client meeting",
-taskType:"Sales",
-priority:"Medium",
-status:"To Do"
-},
-{
-subject:"Check pending invoice",
-taskType:"Follow Up",
-priority:"High",
-status:"In Progress"
-},
-{
-subject:"Prepare weekly report",
-taskType:"Sales",
-priority:"Low",
-status:"To Do"
-},
-{
-subject:"Complete CRM update",
-taskType:"Follow Up",
-priority:"Medium",
-status:"In Progress"
-}
-].map((task,index)=>({
-_id:`default-task-${index+1}`,
-...task,
-dueDate:new Date(Date.now()+((index+1)*DAY)).toISOString()
-}));
-
-const defaultMeetings=[
-{
-meetingTitle:"Sales Strategy Meeting",
-startTime:"9:00 AM",
-endTime:"10:00 AM"
-},
-{
-meetingTitle:"Client Presentation",
-startTime:"10:00 AM",
-endTime:"11:00 AM"
-},
-{
-meetingTitle:"Team Discussion",
-startTime:"11:00 AM",
-endTime:"12:00 PM"
-},
-{
-meetingTitle:"Project Review",
-startTime:"1:00 PM",
-endTime:"2:00 PM"
-},
-{
-meetingTitle:"Marketing Sync",
-startTime:"2:00 PM",
-endTime:"3:00 PM"
-},
-{
-meetingTitle:"Budget Planning",
-startTime:"3:00 PM",
-endTime:"4:00 PM"
-},
-{
-meetingTitle:"Customer Demo",
-startTime:"9:30 AM",
-endTime:"10:30 AM"
-},
-{
-meetingTitle:"Weekly Catch Up",
-startTime:"10:30 AM",
-endTime:"11:30 AM"
-},
-{
-meetingTitle:"Contract Discussion",
-startTime:"1:30 PM",
-endTime:"2:30 PM"
-},
-{
-meetingTitle:"Performance Review",
-startTime:"3:30 PM",
-endTime:"4:30 PM"
-}
-].map((meeting,index)=>({
-_id:`default-meeting-${index+1}`,
-...meeting,
-date:new Date(Date.now()+((index+1)*DAY)).toISOString()
-}));
-
-const isCompletedTask=task=>{
-const taskStatus=String(task?.status||"")
-.trim()
-.toLowerCase();
-
-return taskStatus==="completed";
-};
-
-const removeCompletedTasks=tasks=>{
-if(!Array.isArray(tasks))return[];
-
-return tasks.filter(task=>!isCompletedTask(task));
-};
-
-const fillMinimum=(records,defaults)=>{
-const validRecords=Array.isArray(records)?records:[];
-
-if(validRecords.length>=MIN_ITEMS){
-return validRecords;
-}
-
-const existingIds=new Set(
-validRecords.map(item=>String(item?._id||""))
-);
-
-const availableDefaults=defaults.filter(
-item=>!existingIds.has(String(item._id))
-);
-
-return[
-...validRecords,
-...availableDefaults.slice(
-0,
-MIN_ITEMS-validRecords.length
-)
-];
-};
-
-export function useDashboard(){
-const[stats,setStats]=useState({
-tasks:defaultTasks,
-meetings:defaultMeetings
+const createEmptyDashboardStats = () => ({
+  kpi: {},
+  charts: {},
+  tasks: [],
+  meetings: [],
+  recentActivity: [],
+  topPerformers: null,
 });
 
-const[loading,setLoading]=useState(true);
-const[error,setError]=useState(null);
+/*
+|--------------------------------------------------------------------------
+| API response helpers
+|--------------------------------------------------------------------------
+| Supports common backend response structures:
+|
+| []
+| { tasks: [] }
+| { meetings: [] }
+| { data: [] }
+| { data: { tasks: [] } }
+| { data: { meetings: [] } }
+| { items: [] }
+| { results: [] }
+|--------------------------------------------------------------------------
+*/
 
-const fetchStats=useCallback(async()=>{
-setLoading(true);
-setError(null);
+const getNestedPayloads = (payload) => {
+  const payloads = [];
 
-try{
-const{data}=await api.get("/api/dashboard/stats");
+  if (payload !== undefined && payload !== null) {
+    payloads.push(payload);
+  }
 
-const activeTasks=removeCompletedTasks(
-data?.tasksList
-);
+  if (
+    payload?.data !== undefined &&
+    payload?.data !== null
+  ) {
+    payloads.push(payload.data);
+  }
 
-setStats({
-tasks:fillMinimum(
-activeTasks,
-defaultTasks
-),
-meetings:fillMinimum(
-data?.meetings,
-defaultMeetings
-)
-});
-}catch(err){
-console.error(
-"Dashboard fetch error:",
-err
-);
+  if (
+    payload?.data?.data !== undefined &&
+    payload?.data?.data !== null
+  ) {
+    payloads.push(payload.data.data);
+  }
 
-setStats({
-tasks:defaultTasks,
-meetings:defaultMeetings
-});
-
-setError(
-err?.response?.data?.error||""
-);
-}finally{
-setLoading(false);
-}
-},[]);
-
-useEffect(()=>{
-fetchStats();
-},[fetchStats]);
-
-return{
-stats,
-loading,
-error,
-refetch:fetchStats
+  return payloads;
 };
+
+const extractCollection = (
+  response,
+  possibleKeys,
+) => {
+  const payloads = getNestedPayloads(
+    response?.data,
+  );
+
+  for (const payload of payloads) {
+    if (Array.isArray(payload)) {
+      return payload;
+    }
+
+    if (
+      !payload ||
+      typeof payload !== "object"
+    ) {
+      continue;
+    }
+
+    for (const key of possibleKeys) {
+      if (Array.isArray(payload[key])) {
+        return payload[key];
+      }
+    }
+  }
+
+  return [];
+};
+
+const normalizeDashboardStats = (response) => {
+  const responseData =
+    response?.data &&
+    typeof response.data === "object"
+      ? response.data
+      : {};
+
+  const dashboardData =
+    responseData?.data &&
+    !Array.isArray(responseData.data) &&
+    typeof responseData.data === "object"
+      ? responseData.data
+      : responseData;
+
+  return {
+    kpi:
+      dashboardData?.kpi &&
+      typeof dashboardData.kpi === "object"
+        ? dashboardData.kpi
+        : {},
+
+    charts:
+      dashboardData?.charts &&
+      typeof dashboardData.charts ===
+        "object"
+        ? dashboardData.charts
+        : {},
+
+    tasks: extractCollection(response, [
+      "tasks",
+      "tasksList",
+    ]),
+
+    meetings: extractCollection(response, [
+      "meetings",
+      "meetingsList",
+    ]),
+
+    recentActivity: Array.isArray(
+      dashboardData?.recentActivity,
+    )
+      ? dashboardData.recentActivity
+      : [],
+
+    topPerformers:
+      dashboardData?.topPerformers ??
+      null,
+  };
+};
+
+const getRequestErrorMessage = (
+  result,
+  fallbackMessage,
+) => {
+  if (result.status !== "rejected") {
+    return "";
+  }
+
+  const requestError = result.reason;
+
+  if (
+    requestError?.name ===
+      "CanceledError" ||
+    requestError?.name === "AbortError" ||
+    requestError?.code ===
+      "ERR_CANCELED"
+  ) {
+    return "";
+  }
+
+  return (
+    requestError?.response?.data?.error ||
+    requestError?.response?.data
+      ?.message ||
+    requestError?.message ||
+    fallbackMessage
+  );
+};
+
+export function useDashboard() {
+  const [stats, setStats] = useState(
+    createEmptyDashboardStats,
+  );
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState("");
+
+  const fetchDashboard = useCallback(
+    async ({
+      signal,
+      showLoading = true,
+    } = {}) => {
+      try {
+        if (showLoading) {
+          setLoading(true);
+        }
+
+        setError("");
+
+        /*
+         * Dashboard summary:
+         * GET /api/dashboard/stats
+         *
+         * Same task records as the main Tasks page:
+         * GET /api/tasks
+         *
+         * Same meeting records as the main Meetings page:
+         * GET /api/meetings
+         */
+        const [
+          dashboardResult,
+          tasksResult,
+          meetingsResult,
+        ] = await Promise.allSettled([
+          api.get(
+            "/api/dashboard/stats",
+            {
+              signal,
+            },
+          ),
+
+          api.get("/api/tasks", {
+            signal,
+          }),
+
+          api.get("/api/meetings", {
+            signal,
+          }),
+        ]);
+
+        if (signal?.aborted) {
+          return;
+        }
+
+        const dashboardStats =
+          dashboardResult.status ===
+          "fulfilled"
+            ? normalizeDashboardStats(
+                dashboardResult.value,
+              )
+            : createEmptyDashboardStats();
+
+        /*
+         * Prefer the exact collections returned by
+         * the same endpoints used by the main pages.
+         */
+        const tasks =
+          tasksResult.status ===
+          "fulfilled"
+            ? extractCollection(
+                tasksResult.value,
+                [
+                  "tasks",
+                  "tasksList",
+                  "items",
+                  "results",
+                  "records",
+                ],
+              )
+            : dashboardStats.tasks;
+
+        const meetings =
+          meetingsResult.status ===
+          "fulfilled"
+            ? extractCollection(
+                meetingsResult.value,
+                [
+                  "meetings",
+                  "meetingsList",
+                  "items",
+                  "results",
+                  "records",
+                ],
+              )
+            : dashboardStats.meetings;
+
+        setStats({
+          ...dashboardStats,
+          tasks,
+          meetings,
+        });
+
+        const requestErrors = [
+          getRequestErrorMessage(
+            dashboardResult,
+            "Unable to load dashboard statistics.",
+          ),
+
+          getRequestErrorMessage(
+            tasksResult,
+            "Unable to load tasks.",
+          ),
+
+          getRequestErrorMessage(
+            meetingsResult,
+            "Unable to load meetings.",
+          ),
+        ].filter(Boolean);
+
+        if (requestErrors.length > 0) {
+          console.error(
+            "Dashboard request errors:",
+            requestErrors,
+          );
+
+          setError(
+            requestErrors.join(" "),
+          );
+        }
+      } catch (requestError) {
+        const requestWasCanceled =
+          requestError?.name ===
+            "CanceledError" ||
+          requestError?.name ===
+            "AbortError" ||
+          requestError?.code ===
+            "ERR_CANCELED";
+
+        if (requestWasCanceled) {
+          return;
+        }
+
+        console.error(
+          "Dashboard fetch error:",
+          requestError,
+        );
+
+        setStats(
+          createEmptyDashboardStats(),
+        );
+
+        setError(
+          requestError?.response?.data
+            ?.error ||
+            requestError?.response?.data
+              ?.message ||
+            requestError?.message ||
+            "Unable to load dashboard data.",
+        );
+      } finally {
+        if (!signal?.aborted) {
+          setLoading(false);
+        }
+      }
+    },
+    [],
+  );
+
+  /*
+   * Load current MongoDB records when the
+   * dashboard opens.
+   */
+  useEffect(() => {
+    const controller =
+      new AbortController();
+
+    fetchDashboard({
+      signal: controller.signal,
+    });
+
+    return () => {
+      controller.abort();
+    };
+  }, [fetchDashboard]);
+
+  /*
+   * Reload after returning from the main
+   * Tasks or Meetings page.
+   */
+  useEffect(() => {
+    const refreshWithoutLoader = () => {
+      fetchDashboard({
+        showLoading: false,
+      });
+    };
+
+    const handleVisibilityChange = () => {
+      if (
+        document.visibilityState ===
+        "visible"
+      ) {
+        refreshWithoutLoader();
+      }
+    };
+
+    window.addEventListener(
+      "focus",
+      refreshWithoutLoader,
+    );
+
+    document.addEventListener(
+      "visibilitychange",
+      handleVisibilityChange,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "focus",
+        refreshWithoutLoader,
+      );
+
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange,
+      );
+    };
+  }, [fetchDashboard]);
+
+  const refreshDashboard =
+    useCallback(() => {
+      return fetchDashboard({
+        showLoading: false,
+      });
+    }, [fetchDashboard]);
+
+  return {
+    stats,
+    loading,
+    error,
+    refreshDashboard,
+  };
 }
 
 export default useDashboard;

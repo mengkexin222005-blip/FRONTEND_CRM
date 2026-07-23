@@ -483,11 +483,7 @@ export default function TaskModal({
       relatedOptions.find((o) => o.value === formData.relatedTo) || null;
 
     return (
-      <form
-        id="task-form"
-        onSubmit={onSubmit}
-        className="flex flex-col h-full min-h-0"
-      >
+      <form id="task-form" onSubmit={onSubmit} className="space-y-4">
         <div className="flex-1 overflow-y-auto min-h-0 space-y-4 px-1">
           <div>
             <FormLabel required>Subject</FormLabel>
@@ -570,7 +566,8 @@ export default function TaskModal({
               <FormInput
                 type="date"
                 name="dueDate"
-                value={formData.dueDate}
+                required
+                value={formData.dueDate || ""}
                 onChange={onChange}
               />
             </div>
