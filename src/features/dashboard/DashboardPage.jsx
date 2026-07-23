@@ -325,7 +325,7 @@ export default function DashboardPage() {
                 />
 
                 <button
-                  type="button"
+                  type="button"g
                   onClick={handleViewMeetings}
                   className="inline-flex shrink-0 items-center gap-px whitespace-nowrap rounded-md px-1 py-1 text-[clamp(11px,0.8vw,13px)] font-medium text-black/45 hover:text-red-600"
                 >
