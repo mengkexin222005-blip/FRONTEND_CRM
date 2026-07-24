@@ -40,7 +40,7 @@ export default function ClientsPage() {
   const { user: currentUser } = useAuth();
   const isCurrentAgent = currentUser.role === "Sales Agent";
 
-  const { users: salesAgents = [] } = useUsers({
+  const { users = [] } = useUsers({
     skip: !permissions.canAssign,
     mode: "assignable",
     resource: "client",
@@ -168,11 +168,7 @@ export default function ClientsPage() {
       <div className="flex items-center justify-between mb-4">
         <PageHeader
           title="Clients"
-          subtitle={
-            isCurrentAgent
-              ? "Clients assigned to you or converted from your leads"
-              : "View and manage clients across your team"
-          }
+          subtitle={"Clients assigned to you or converted from your leads"}
         />
 
         <PageToolbar
@@ -220,7 +216,7 @@ export default function ClientsPage() {
                   <p className="text-xs text-gray-400 mb-1">Assigned To</p>
                   <Select
                     {...getSelectProps({ variant: "filter" })}
-                    placeholder="All agents"
+                    placeholder="All handling officers"
                     options={agentFilterOptions}
                     value={
                       agentFilterOptions.find(
@@ -263,7 +259,7 @@ export default function ClientsPage() {
       <ClientView
         open={viewPaneOpen}
         client={viewingClient}
-        salesAgents={salesAgents}
+        users={users}
         permissions={permissions}
         onClose={closeViewPane}
         onEdit={(client) => {
@@ -278,7 +274,7 @@ export default function ClientsPage() {
           open={showSidePane}
           editingClient={editingClient}
           formData={formData}
-          salesAgents={salesAgents}
+          users={users}
           addressCodes={addressCodes}
           permissions={permissions}
           preview={preview}

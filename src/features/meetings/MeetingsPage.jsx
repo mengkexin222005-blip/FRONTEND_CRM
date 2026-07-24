@@ -1,18 +1,22 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Filter, Plus, XCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 
 import { PageBase, PageHeader } from '../../components/page';
-import StatCard from '../../components/card/StatCard';
 import { useMeetings } from './hooks/useMeetings';
 import MeetingCalendar from './MeetingCalendar';
 import MeetingDetails from './MeetingDetails';
 import MeetingForm from './MeetingForm';
 import MeetingDayDrawer from './MeetingDayDrawer';
+
+// Shared Filter Components
+import FilterPopover from '../../components/filters/FilterPopover'; 
+import { useFilterPopover } from '../../components/filters/useFilterPopover'; 
+
 import { formatMonthYear } from './utils/calendarUtils';
 
 export default function MeetingsPage() {
   const {
-    meetings,
+    meetings = [],
     selectedMeeting,
     setSelectedMeeting,
     currentMonth,
@@ -23,10 +27,10 @@ export default function MeetingsPage() {
     meetingToEdit,
     activeView,
     setActiveView,
-    filterPreset,
-    setFilterPreset,
-    isFilterOpen,
-    setIsFilterOpen,
+    filters = { date: '', type: 'all', status: 'all' },
+    setFilters,
+    resetFilters,
+    filterOptions = { types: [] },
     openCreateMeeting,
     openEditMeeting,
     closeMeetingForm,
@@ -34,17 +38,31 @@ export default function MeetingsPage() {
     handleDeleteMeeting,
   } = useMeetings();
 
+  // Safely map filters for popover hook count
+  const activeFilters = {
+    date: filters?.date || null,
+    type: filters?.type && filters.type !== 'all' ? filters.type : null,
+    status: filters?.status && filters.status !== 'all' ? filters.status : null,
+  };
+
+  const {
+    filterOpen,
+    setFilterOpen,
+    filterRef,
+    activeFilterCount,
+    clearAllFilters,
+  } = useFilterPopover(activeFilters, resetFilters);
+
   const [selectedDay, setSelectedDay] = useState(null);
   const [selectedDayMeetings, setSelectedDayMeetings] = useState([]);
   const [isDayDrawerOpen, setIsDayDrawerOpen] = useState(false);
+  const searchInputRef = useRef(null);
 
-  const handleDayClick = (date, meetings) => {
+  const handleDayClick = (date, dayMeetings) => {
     setSelectedDay(date);
-    setSelectedDayMeetings(meetings);
+    setSelectedDayMeetings(dayMeetings);
     setIsDayDrawerOpen(true);
   };  
-
-  const searchInputRef = useRef(null);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -71,45 +89,70 @@ export default function MeetingsPage() {
             ref={searchInputRef}
             type="text"
             placeholder="Search meetings..."
-            value={searchQuery}
+            value={searchQuery || ''}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-56 rounded-md border border-gray-300 px-3 py-1.75 text-sm text-gray-700 placeholder-gray-400 focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-100"
           />
 
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setIsFilterOpen((prev) => !prev)}
-              className="flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.75 text-sm text-gray-600 transition-colors hover:bg-gray-50"
-            >
-              <Filter size={14} />
-              Filter
-            </button>
-            {isFilterOpen && (
-              <div className="absolute right-0 z-20 mt-2 w-44 rounded-md border border-gray-200 bg-white p-2 shadow-lg">
-                {['all', 'upcoming', 'completed', 'cancelled'].map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => {
-                      setFilterPreset(option);
-                      setIsFilterOpen(false);
-                    }}
-                    className={`block w-full rounded-md px-2 py-1.5 text-left text-sm capitalize transition-colors ${
-                      filterPreset === option ? 'bg-red-50 text-red-600' : 'text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    {option === 'all' ? 'All meetings' : option}
-                  </button>
-                ))}
+          {/* Reusable Filter Popover Component */}
+          <FilterPopover
+            filterRef={filterRef}
+            filterOpen={filterOpen}
+            onToggle={() => setFilterOpen((prev) => !prev)}
+            activeFilterCount={activeFilterCount}
+            onClearAll={clearAllFilters}
+          >
+            <div className="space-y-3">
+              {/* 1. Date */}
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">Date</label>
+                <input
+                  type="date"
+                  value={filters?.date || ''}
+                  onChange={(e) => setFilters((prev) => ({ ...(prev || {}), date: e.target.value }))}
+                  className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-700 focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-100 cursor-pointer"
+                />
               </div>
-            )}
-          </div>
+
+              {/* 2. Meeting Type */}
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">Meeting Type</label>
+                <select
+                  value={filters?.type || 'all'}
+                  onChange={(e) => setFilters((prev) => ({ ...(prev || {}), type: e.target.value }))}
+                  className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-700 focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-100 cursor-pointer"
+                >
+                  <option value="all">All meeting types</option>
+                  {(filterOptions?.types || []).map((type) => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 3. Status */}
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">Status</label>
+                <select
+                  value={filters?.status || 'all'}
+                  onChange={(e) => setFilters((prev) => ({ ...(prev || {}), status: e.target.value }))}
+                  className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-700 focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-100 cursor-pointer"
+                >
+                  <option value="all">All statuses</option>
+                  <option value="Scheduled">Scheduled</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Cancelled">Cancelled</option>
+                  <option value="Rescheduled">Rescheduled</option>
+                  <option value="No Show">No Show</option>
+                </select>
+              </div>
+            </div>
+          </FilterPopover>
 
           <button
             type="button"
             onClick={openCreateMeeting}
-            className="flex items-center gap-1.5 rounded-md bg-red-500 px-3 py-1.75 text-sm font-medium text-white transition-colors hover:bg-red-600"
+            className="flex items-center gap-1.5 rounded-md bg-red-500 px-3 py-1.75 text-sm font-medium text-white transition-colors hover:bg-red-600 cursor-pointer"
           >
             <Plus size={14} />
             Add Meeting
@@ -126,14 +169,14 @@ export default function MeetingsPage() {
                 <button
                   type="button"
                   onClick={() => setCurrentMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
-                  className="rounded-md border border-gray-200 p-1.5 text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700"
+                  className="rounded-md border border-gray-200 p-1.5 text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700 cursor-pointer"
                 >
                   <ChevronLeft size={14} />
                 </button>
                 <button
                   type="button"
                   onClick={() => setCurrentMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
-                  className="rounded-md border border-gray-200 p-1.5 text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700"
+                  className="rounded-md border border-gray-200 p-1.5 text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700 cursor-pointer"
                 >
                   <ChevronRight size={14} />
                 </button>
@@ -149,7 +192,7 @@ export default function MeetingsPage() {
                     key={mode}
                     type="button"
                     onClick={() => setActiveView(mode)}
-                    className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
+                    className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
                       activeView === mode
                         ? 'bg-red-500 text-white shadow-sm'
                         : 'text-gray-500 hover:text-gray-700'
@@ -166,7 +209,7 @@ export default function MeetingsPage() {
                 currentMonth={currentMonth}
                 meetings={meetings}
                 onSelectMeeting={setSelectedMeeting}
-                activeMeetingId={selectedMeeting?._id}
+                activeMeetingId={selectedMeeting?._id || selectedMeeting?.id}
                 activeView={activeView}
                 onSelectDay={handleDayClick}
               />
@@ -179,7 +222,7 @@ export default function MeetingsPage() {
             meeting={selectedMeeting}
             onClose={() => setSelectedMeeting(null)}
             onEdit={() => openEditMeeting(selectedMeeting)}
-            onDelete={() => handleDeleteMeeting(selectedMeeting?.id)}
+            onDelete={() => handleDeleteMeeting(selectedMeeting?.id || selectedMeeting?._id)}
           />
         )}
       </div>

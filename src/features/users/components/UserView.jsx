@@ -2,22 +2,22 @@ import { useState } from "react";
 import { FiX } from "react-icons/fi";
 import { Pencil } from "lucide-react";
 
-import ViewDrawer from "../../components/view/ViewDrawer";
-import ViewTabs from "../../components/view/ViewTabs";
-import ViewProfileHero from "../../components/view/ViewProfileHero";
-import { Field, SectionBlock } from "../../components/view/ViewField";
-import TeamCard from "../../components/card/TeamCard";
-import StatusBadge from "../../components/badge/StatusBadge";
+import ViewDrawer from "../../../components/view/ViewDrawer";
+import ViewTabs from "../../../components/view/ViewTabs";
+import ViewProfileHero from "../../../components/view/ViewProfileHero";
+import { Field, SectionBlock } from "../../../components/view/ViewField";
+import TeamCard from "../../../components/card/TeamCard";
+import StatusBadge from "../../../components/badge/StatusBadge";
 
-import UserLeadsTab from "./tabs/UserLeadsTab";
-import UserClientsTab from "./tabs/UserClientsTab";
-import UserQuotationsTab from "./tabs/UserQuotationsTab";
-import UserTasksTab from "./tabs/UserTasksTab";
+import UserLeadsTab from "../tabs/UserLeadsTab";
+import UserClientsTab from "../tabs/UserClientsTab";
+import UserQuotationsTab from "../tabs/UserQuotationsTab";
+import UserTasksTab from "../tabs/UserTasksTab";
 
-import { buildFullAddress } from "../../utils/buildFullAddress";
-import { formatDate, formatDateTime } from "../../utils/date";
-import { formatPhone } from "../../utils/format";
-import { getDisplayName } from "../../utils/name";
+import { buildFullAddress } from "../../../utils/buildFullAddress";
+import { formatDate, formatDateTime } from "../../../utils/date";
+import { formatPhone } from "../../../utils/format";
+import { getDisplayName } from "../../../utils/name";
 
 const TABS = ["Overview", "Leads", "Clients", "Quotations", "Tasks"];
 

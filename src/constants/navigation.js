@@ -1,8 +1,6 @@
 import {
   LayoutDashboard,
   Users,
-  Network,
-  UsersRound,
   Magnet,
   UserCheck,
   BarChart2,
@@ -13,9 +11,10 @@ import {
   FileText,
   Headset,
   MessageSquareDot,
+  Settings,
 } from "lucide-react";
 
-const createIcon = Icon => ({
+const createIcon = (Icon) => ({
   default: Icon,
   active: Icon,
 });
@@ -25,59 +24,75 @@ export const BASE_NAV = {
     icon: createIcon(LayoutDashboard),
     label: "Dashboard",
   },
+
   users: {
     icon: createIcon(Users),
     label: "Users",
   },
+
   reports: {
     icon: createIcon(BarChart2),
     label: "Reports",
   },
+
   module: {
     label: "Modules",
     type: "group",
   },
+
   prospects: {
     icon: createIcon(Briefcase),
     label: "Prospects",
   },
+
   leads: {
     icon: createIcon(Magnet),
     label: "Leads",
   },
+
   clients: {
     icon: createIcon(UserCheck),
     label: "Clients",
   },
+
   quotations: {
     icon: createIcon(FileText),
     label: "Quotations",
   },
+
   tasks: {
     icon: createIcon(ListTodo),
     label: "Tasks",
   },
+
   meetings: {
     icon: createIcon(CalendarDays),
     label: "Meetings",
   },
+
   calls: {
     icon: createIcon(Phone),
     label: "Calls",
   },
-  support: {
-    icon: createIcon(Headset),
-    label: "Support",
-  },
-  // Single system key with custom display label
+
   communications: {
     icon: createIcon(MessageSquareDot),
     label: "Messages",
   },
+
+  support: {
+    icon: createIcon(Headset),
+    label: "Support",
+  },
+
+  settings: {
+    icon: createIcon(Settings),
+    label: "Settings",
+  },
 };
 
 export const ROLE_ROUTES = {
-  "Admin": [
+  Admin: [
     "dashboard",
     "users",
     "teams",
@@ -91,8 +106,10 @@ export const ROLE_ROUTES = {
     "meetings",
     "calls",
     "communications",
-    "support"
+    "support",
+    "settings",
   ],
+
   "Sales Manager": [
     "dashboard",
     "team",
@@ -106,8 +123,10 @@ export const ROLE_ROUTES = {
     "meetings",
     "calls",
     "communications",
-    "support"
+    "support",
+    "settings",
   ],
+
   "Sales Agent": [
     "dashboard",
     "reports",
@@ -120,12 +139,14 @@ export const ROLE_ROUTES = {
     "meetings",
     "calls",
     "communications",
-    "support"
+    "support",
+    "settings",
   ],
+
   "Support Staff": [
     "dashboard",
     "communications",
-    "support"
+    "support",
   ],
 };
 

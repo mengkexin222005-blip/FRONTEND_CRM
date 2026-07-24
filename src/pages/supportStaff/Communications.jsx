@@ -1,5 +1,5 @@
 import CommunicationPage from "../../features/communications/CommunicationPage";
 
-export default function SupportCommunication() {
+export default function SupportStaffCommunication() {
   return <CommunicationPage />;
 }

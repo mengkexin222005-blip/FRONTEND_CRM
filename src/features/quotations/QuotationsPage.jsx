@@ -1,6 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
 import { FaPlus } from "react-icons/fa";
-import { useNavigate } from "react-router-dom";
 import Select from "react-select";
 
 import {
@@ -13,25 +12,24 @@ import {
 import FilterPopover from "../../components/filters/FilterPopover";
 import { useFilterPopover } from "../../components/filters/useFilterPopover";
 import { getSelectProps } from "../../components/select/selectConfig";
-
 import { getDisplayName } from "../../utils/name";
 
 import { usePermissions } from "../../permissions/usePermissions";
 import { useAuth } from "../../context/AuthContext";
 import { useQuotations } from "./hooks/useQuotations";
-import { useQuotationModal } from "./hooks/useQuotationModal";
+import { useQuotationWizard } from "./hooks/useQuotationWizard"; 
+import QuotationWizard from "./components/QuotationWizard";
 import { useClients } from "../clients/hooks/useClients";
 import { useUsers } from "../users/hooks/useUsers";
 
 import QuotationKanban from "./QuotationKanban";
 import QuotationTable from "./QuotationTable";
-import QuotationModal from "./QuotationModal";
 
 export default function QuotationsPage() {
   const permissions = usePermissions("quotations");
   const { user: currentUser } = useAuth();
-  const isCurrentAgent = currentUser.role === "Sales Agent";
-  const navigate = useNavigate();
+  
+  const isCurrentAgent = currentUser?.role === "Sales Agent";
 
   const { clients = [] } = useClients();
 
@@ -55,7 +53,6 @@ export default function QuotationsPage() {
     reorderQuotations,
     createQuotation,
     updateQuotation,
-    deleteQuotation,
     updateQuotationStage,
     STAGES,
   } = useQuotations();
@@ -63,24 +60,13 @@ export default function QuotationsPage() {
   const {
     modalOpen,
     mode,
-    origin,
-    activeTab,
-    setActiveTab,
     formData,
     viewingQuotation,
-    activities,
-    activitiesLoading,
-    tasks,
-    tasksLoading,
     openCreate,
     openView,
     openEdit,
-    switchToEdit,
-    switchToView,
     closeModal,
-    handleChange,
-    handleSelectChange,
-  } = useQuotationModal();
+  } = useQuotationWizard();
 
   const [view, setView] = useState("table");
   const [search, setSearch] = useState("");
@@ -211,7 +197,7 @@ export default function QuotationsPage() {
   };
 
   const handleSubmit = async (e, submittedFormData = formData) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     if (mode === "create") {
       const created = await createQuotation(submittedFormData);
       if (created) closeModal();
@@ -222,24 +208,6 @@ export default function QuotationsPage() {
       );
       if (updated) closeModal();
     }
-  };
-
-  const handleDelete = async (quotationId) => {
-    const deleted = await deleteQuotation(quotationId);
-    if (deleted) closeModal();
-  };
-
-  // Derive the tasks path based on the current user's role
-  const tasksPath =
-    currentUser.role === "Admin"
-      ? "/admin/tasks"
-      : currentUser.role === "Sales Manager"
-        ? "/sales-manager/tasks"
-        : "/sales-agent/tasks";
-
-  const handleAddTask = () => {
-    closeModal();
-    navigate(tasksPath, { state: { openCreate: true } });
   };
 
   return (
@@ -303,7 +271,7 @@ export default function QuotationsPage() {
             permissions.canCreate && (
               <button
                 onClick={() => openCreate()}
-                className="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-md cursor-pointer"
+                className="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-md cursor-pointer transition-colors"
               >
                 <span className="flex items-center gap-2 text-sm">
                   <FaPlus size={11} /> Add Quotation
@@ -321,7 +289,7 @@ export default function QuotationsPage() {
             stages={STAGES}
             permissions={permissions}
             onDragEnd={handleDragEnd}
-            onAddQuotation={(stage) => openCreate(stage)}
+            onAddQuotation={(stage) => openCreate({ stage })}
             onCardClick={(quotation) => openView(quotation)}
             isLoading={loading}
           />
@@ -336,32 +304,19 @@ export default function QuotationsPage() {
         )}
       </PageContentState>
 
-      <QuotationModal
+      <QuotationWizard
         stages={STAGES}
         open={modalOpen}
         mode={mode}
-        origin={origin}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
         formData={formData}
         viewingQuotation={viewingQuotation}
-        activities={activities}
-        activitiesLoading={activitiesLoading}
-        tasks={tasks}
-        tasksLoading={tasksLoading}
         clients={clients}
         currentUser={currentUser}
         salesAgents={salesAgents}
         permissions={permissions}
         loading={submitting}
-        onChange={handleChange}
-        onSelectChange={handleSelectChange}
-        onSwitchToEdit={switchToEdit}
-        onSwitchToView={switchToView}
         onSubmit={handleSubmit}
-        onDelete={handleDelete}
         onClose={closeModal}
-        onAddTask={handleAddTask}
       />
     </PageBase>
   );

@@ -213,6 +213,7 @@ export function AuthProvider({ children }) {
 
       throw error;
     } finally {
+      
       refreshInProgressRef.current = false;
     }
   }, [applyAuth]);

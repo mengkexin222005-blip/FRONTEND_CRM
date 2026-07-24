@@ -9,6 +9,8 @@ import {
   PageContentState,
 } from "../../../components/page";
 
+import { useUsers } from "../../users/hooks/useUsers";
+
 import FilterPopover from "../../../components/filters/FilterPopover";
 import { useFilterPopover } from "../../../components/filters/useFilterPopover";
 import { getSelectProps } from "../../../components/select/selectConfig";
@@ -44,6 +46,11 @@ export default function ProspectPage() {
     removeProspect,
     markAsContacted,
   } = useProspect();
+
+  const { users = [] } = useUsers({
+    mode: "assignable",
+    resource: "prospect",
+  });
 
   const [viewMode, setViewMode] = useState("table");
   const [search, setSearch] = useState("");
@@ -221,6 +228,7 @@ export default function ProspectPage() {
       <ProspectForm
         open={formOpen}
         editingProspect={editingProspect}
+        users={users}
         onSubmit={handleSubmit}
         onClose={handleCloseForm}
         onCancel={handleCloseForm}

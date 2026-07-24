@@ -42,7 +42,7 @@ const btnOutlineBase =
 export default function ClientView({
   open,
   client,
-  salesAgents = [],
+  users = [],
   permissions = {},
   onClose,
   onEdit,
@@ -56,7 +56,7 @@ export default function ClientView({
   );
 
   const addr = client?.address ?? {};
-  const hasOwner = Boolean(client?.assignedTo);
+  const hasOwner = Boolean(client?.handlingOfficer);
 
   const status = clientsStatusConfig[client?.status] ?? {
     text: client?.status || "Unknown",
@@ -100,7 +100,7 @@ export default function ClientView({
                     onClick={() => setReassignModalOpen(true)}
                     className={`${btnOutlineBase} border-sky-600 text-sky-800 hover:bg-sky-50`}
                   >
-                    <FiUserCheck size={14} /> {hasOwner ? "Reassign" : "Assign"}
+                    <FiUserCheck size={14} /> {hasOwner ? "Reassign Handling Officer" : "Assign Handling Officer"}
                   </button>
                   <span
                     title={
@@ -147,15 +147,15 @@ export default function ClientView({
                 <SectionBlock title="Relationship">
                   <div className="col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <UserCard user={client.createdBy} label="Created by" />
-                    {client.assignedTo ? (
+                    {client.handlingOfficer ? (
                       <UserCard
-                        user={client.assignedTo}
-                        label="Account owner"
+                        user={client.handlingOfficer}
+                        label="Handling Officer"
                       />
                     ) : (
                       <div className="flex items-center p-3 bg-gray-50 rounded-md">
                         <p className="text-sm text-gray-400 italic">
-                          No account owner assigned
+                             No handling officer assigned
                         </p>
                       </div>
                     )}
@@ -266,15 +266,21 @@ export default function ClientView({
       {/* Reassign modal */}
       <AssignAgentModal
         open={open && reassignModalOpen && Boolean(client)}
-        currentAssignee={client?.assignedTo}
-        salesAgents={salesAgents}
-        title={hasOwner ? "Reassign client" : "Assign account owner"}
-        subtitle="Choose who owns this client record."
-        currentLabel="Current"
-        selectLabel={
-          hasOwner ? "New account owner (Sales Agent)" : "Account owner"
+        currentAssignee={client?.handlingOfficer}
+        users={users}
+        title={
+          hasOwner
+            ? "Reassign Handling Officer"
+            : "Assign Handling Officer"
         }
-        confirmLabel={hasOwner ? "Save reassignment" : "Save"}
+        subtitle="Choose the handling officer for this client."
+        currentLabel="Current Handling Officer"
+        selectLabel={
+          hasOwner
+            ? "New Handling Officer"
+            : "Handling Officer"
+        }
+        confirmLabel={hasOwner ? "Save Reassignment" : "Assign"}
         confirmingLabel="Saving…"
         onConfirm={(agentId) => onReassignClient?.(client._id, agentId)}
         onClose={() => setReassignModalOpen(false)}

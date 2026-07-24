@@ -1,13 +1,13 @@
 import {useEffect,useMemo,useState} from "react";
 import {FaEye,FaEyeSlash} from "react-icons/fa";
 import Select from "react-select";
-import api from "../../services/api";
-import {getSelectProps} from "../../components/select/selectConfig";
-import FormDrawer from "../../components/form/FormDrawer";
-import FormSection from "../../components/form/FormSection";
-import AvatarUploader from "../../components/form/AvatarUploader";
-import PhAddressFields from "../../components/form/PhAddressFields";
-import {FormLabel,FormInput} from "../../components/form/FormField";
+import api from "../../../services/api";
+import {getSelectProps} from "../../../components/select/selectConfig";
+import FormDrawer from "../../../components/form/FormDrawer";
+import FormSection from "../../../components/form/FormSection";
+import AvatarUploader from "../../../components/form/AvatarUploader";
+import PhAddressFields from "../../../components/form/PhAddressFields";
+import {FormLabel,FormInput} from "../../../components/form/FormField";
 
 const ROLE_OPTIONS=[
   {label:"Sales Manager",value:"Sales Manager"},

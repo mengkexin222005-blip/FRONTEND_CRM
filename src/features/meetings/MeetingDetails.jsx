@@ -8,6 +8,7 @@ import {
   Pencil,
   UserRound,
   Users,
+  Activity,
 } from "lucide-react";
 
 const formatDate = (value) => {
@@ -19,6 +20,24 @@ const formatDate = (value) => {
     day: "numeric",
     year: "numeric",
   });
+};
+
+const getStatusBadge = (status = "Scheduled") => {
+  switch (status) {
+    case "Completed":
+      return { indicator: "🟢", bg: "bg-green-50 text-green-700 border-green-200" };
+    case "In Progress":
+      return { indicator: "🔵", bg: "bg-blue-50 text-blue-700 border-blue-200" };
+    case "Cancelled":
+      return { indicator: "🔴", bg: "bg-red-50 text-red-700 border-red-200" };
+    case "Rescheduled":
+      return { indicator: "🟡", bg: "bg-yellow-50 text-yellow-700 border-yellow-200" };
+    case "No Show":
+      return { indicator: "⚪", bg: "bg-gray-100 text-gray-700 border-gray-200" };
+    case "Scheduled":
+    default:
+      return { indicator: "🟣", bg: "bg-purple-50 text-purple-700 border-purple-200" };
+  }
 };
 
 export default function MeetingDetails({
@@ -35,7 +54,19 @@ export default function MeetingDetails({
     );
   }
 
+  const statusBadge = getStatusBadge(meeting.status);
+
   const details = [
+    {
+      icon: <Activity size={11} />,
+      label: "Status",
+      value: (
+        <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold ${statusBadge.bg}`}>
+          <span>{statusBadge.indicator}</span>
+          <span>{meeting.status || "Scheduled"}</span>
+        </span>
+      ),
+    },
     {
       icon: <Building2 size={11} />,
       label: "Client",
@@ -113,9 +144,9 @@ export default function MeetingDetails({
                   {item.label}
                 </p>
 
-                <p className="truncate text-[10px] font-medium text-gray-800">
+                <div className="truncate text-[10px] font-medium text-gray-800">
                   {item.value}
-                </p>
+                </div>
               </div>
             </div>
           ))}

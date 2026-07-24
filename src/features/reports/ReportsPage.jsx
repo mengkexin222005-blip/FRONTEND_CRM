@@ -2,14 +2,17 @@ import { useEffect, useMemo, useState } from "react";
 import { FaPlus } from "react-icons/fa";
 import Select from "react-select";
 import Swal from "sweetalert2";
-import api from "../../../services/api"; 
-import { PageBase, PageHeader, PageToolbar } from "../../../components/page"; 
-import FilterPopover from "../../../components/filters/FilterPopover"; 
-import { useFilterPopover } from "../../../components/filters/useFilterPopover"; 
-import { getSelectProps } from "../../../components/select/selectConfig"; 
-import { TablePagination, useTablePagination } from "../../../components/table"; 
-import ReportTable from "../components/ReportTable"; 
-import ReportModal from "../components/ReportModal"; 
+
+import api from "../../services/api";
+
+import { PageBase, PageHeader, PageToolbar } from "../../components/page";
+import FilterPopover from "../../components/filters/FilterPopover";
+import { useFilterPopover } from "../../components/filters/useFilterPopover";
+import { getSelectProps } from "../../components/select/selectConfig";
+import { TablePagination, useTablePagination } from "../../components/table";
+
+import ReportTable from "./components/ReportTable";
+import ReportModal from "./components/ReportModal";
 
 const emptyForm = { 
   title: "", 
@@ -39,26 +42,15 @@ export default function ReportsPage({
   const [formData, setFormData] = useState(emptyForm); 
   const [submitting, setSubmitting] = useState(false); 
 
-  useEffect(() => {
-    const fetchReports = async () => {
-      try {
-        setLoading(true); 
-        const { data } = await api.get("/api/reports"); 
-        setReports(Array.isArray(data) ? data : []); 
-      } catch (error) {
-        console.error("Fetch reports error:", error); 
-        Swal.fire({
-          icon: "error",
-          title: "Connection Error",
-          text: error.response?.data?.message || "Could not load reports from the server.",
-        });
-      } finally {
-        setLoading(false); 
-      }
-    };
-
-    fetchReports();
-  }, []);
+    useEffect(() => {
+      setLoading(true);
+    
+        localStorage.getItem("crm_reports");
+    
+      setReports([]);
+      setLoading(false);
+    }, []);
+  
 
   const categoryOptions = useMemo(() => {
     const categories = [ 

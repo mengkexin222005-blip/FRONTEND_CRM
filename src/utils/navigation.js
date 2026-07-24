@@ -102,5 +102,15 @@ export const filterNavItems = (items, user) => {
     );
   });
 
-  return removeEmptyGroups(permissionFiltered);
+  const uniqueItems = permissionFiltered.filter(
+    (item, index, self) =>
+      index ===
+      self.findIndex(
+        (candidate) =>
+          candidate.key === item.key &&
+          candidate.to === item.to
+      )
+  );
+  
+  return removeEmptyGroups(uniqueItems);
 };

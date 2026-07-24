@@ -34,21 +34,7 @@ export default function QuotationCard({ quotation, index, isLast, onClick }) {
       isLast={isLast}
       onClick={() => onClick(quotation)}
     >
-      {/* Title + Probability */}
-      {/* <div className="flex items-start justify-between gap-2 mb-2">
-        <h4 className="text-sm font-medium text-gray-500 leading-tight line-clamp-2">
-          {quotation.title}
-        </h4> */}
-        {/* <BaseBadge
-          tone={getProbabilityTone(quotation.probability).tone}
-          size="xs"
-          shape="pill"
-          title={`${quotation.probability}% probability`}
-        >
-          {quotation.probability}%
-        </BaseBadge> */}
-      {/* </div> */}
-
+      
       {/* Value */}
       <div className="flex items-center gap-1.5 text-lg font-bold text-gray-600 mb-2.5">
         {formatCurrencyCompact(quotation.value, quotation.currency)}

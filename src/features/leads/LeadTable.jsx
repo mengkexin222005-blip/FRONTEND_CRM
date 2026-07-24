@@ -17,9 +17,8 @@ import UserDisplayName from "../../components/UserDisplayName";
 import StatusDropdown from "../../components/select/StatusDropdown";
 import LeadActionConfirmModal from "./LeadActionConfirmModal";
 
-const STATUSES = ["New", "Contacted", "Qualified", "Converted", "Lost"];
+const STATUSES = ["Contacted", "Qualified", "Converted", "Lost"];
 const STATUS_TONE = {
-  New: "gray",
   Contacted: "blue",
   Qualified: "amber",
   Converted: "green",

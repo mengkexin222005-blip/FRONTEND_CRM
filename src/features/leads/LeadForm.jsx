@@ -27,7 +27,7 @@ export default function LeadForm({
   editingLead,
   formData,
   addressCodes,
-  salesAgents = [],
+  users = [],
   permissions = {},
   preview,
   loading,
@@ -41,7 +41,7 @@ export default function LeadForm({
   followUpTask,
   onFollowUpChange,
 }) {
-  const agentOptions = salesAgents.map((u) => ({
+  const handlingOfficerOptions = users.map((u) => ({
     label: `${getDisplayName(u, { includeSuffix: true })} — ${u.role}`,
     value: u._id,
     user: u,
@@ -67,29 +67,31 @@ export default function LeadForm({
           onClearAvatar={onClearAvatar}
         />
 
-        {/* Assignment */}
+        {/* Handling Officer */}
         {!editingLead && permissions.canAssign && (
           <FormSection title="Assignment">
             <div>
-              <FormLabel>Assign to Agent (optional)</FormLabel>
+              <FormLabel>Handling Officer</FormLabel>
+
               <Select
                 {...getSelectProps({ isClearable: true })}
-                options={agentOptions}
+                options={handlingOfficerOptions}
                 value={
-                  agentOptions.find(
+                  handlingOfficerOptions.find(
                     (o) =>
-                      String(o.value) === String(formData.leadAssignee || ""),
+                      String(o.value) ===
+                      String(formData.handlingOfficer || "")
                   ) || null
                 }
                 onChange={(opt) =>
                   onChange({
                     target: {
-                      name: "leadAssignee",
-                      value: opt?.value ? String(opt.value) : "",
+                      name: "handlingOfficer",
+                      value: opt?.value || "",
                     },
                   })
                 }
-                placeholder="Select agent to assign..."
+                placeholder="Select handling officer..."
                 formatOptionLabel={({ user }) => (
                   <div className="flex items-center gap-2">
                     <img
@@ -97,7 +99,15 @@ export default function LeadForm({
                       alt="avatar"
                       className="w-6 h-6 rounded-full object-cover border"
                     />
-                    <span>{getDisplayName(user, { includeSuffix: true })}</span>
+
+                    <div className="flex flex-col">
+                      <span className="font-medium">
+                        {getDisplayName(user, { includeSuffix: true })}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {user.role}
+                      </span>
+                    </div>
                   </div>
                 )}
               />
@@ -358,11 +368,11 @@ export default function LeadForm({
                   <FormLabel>
                     <span className="flex items-center gap-1">
                       Assign Task To
-                      {permissions.canAssign && !formData.leadAssignee && (
+                      {permissions.canAssign && !formData.handlingOfficer && (
                         <span className="relative group">
                           <Info className="w-3.5 h-3.5 text-gray-400 cursor-help" />
                           <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-52 text-xs text-white bg-gray-700 rounded-md px-2.5 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 text-center leading-snug">
-                            Assign an agent to this lead above to delegate this
+                            Assign a handling officer to this lead above to delegate this
                             task
                           </span>
                         </span>
@@ -372,18 +382,18 @@ export default function LeadForm({
 
                   <div
                     className={`flex items-center gap-2 px-3 py-2 border rounded-md min-h-9.5 ${
-                      permissions.canAssign && !formData.leadAssignee
+                      permissions.canAssign && !formData.handlingOfficer
                         ? "bg-amber-50 border-amber-200"
                         : "bg-gray-50 border-gray-200"
                     }`}
                   >
                     {permissions.canAssign ? (
                       // Admin/Manager — show assigned agent or warning
-                      formData.leadAssignee ? (
+                      formData.handlingOfficer ? (
                         (() => {
-                          const agent = agentOptions.find(
+                          const agent = handlingOfficerOptions.find(
                             (o) =>
-                              String(o.value) === String(formData.leadAssignee),
+                              String(o.value) === String(formData.handlingOfficer),
                           );
                           return agent ? (
                             <>
@@ -404,7 +414,7 @@ export default function LeadForm({
                         <div className="flex items-center gap-1.5">
                           <UserRound className="w-4 h-4 text-amber-400 shrink-0" />
                           <span className="text-sm text-amber-600">
-                            Personal task — assign an agent above to delegate
+                            Personal task — assign an handling officer above to delegate
                           </span>
                         </div>
                       )
@@ -421,8 +431,8 @@ export default function LeadForm({
 
                   <p className="text-xs text-gray-400 mt-1">
                     {permissions.canAssign
-                      ? formData.leadAssignee
-                        ? "Automatically assigned to the selected lead agent."
+                      ? formData.handlingOfficer
+                        ? "Automatically assigned to the selected lead handling officer."
                         : "This task will be saved under your personal tasks."
                       : "This task will be assigned to you."}
                   </p>

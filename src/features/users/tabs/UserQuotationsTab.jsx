@@ -1,7 +1,7 @@
 import { useUserRecords } from "../hooks/useUserRecords";
 import UserRecordList from "./UserRecordList";
-import ViewMoreButton from "./ViewMoreButton";
-import TabToolbar from "./TabToolbar";
+import ViewMoreButton from "../components/ViewMoreButton";
+import TabToolbar from "../components/TabToolbar";
 
 const STAGE_OPTIONS = [
   "New",

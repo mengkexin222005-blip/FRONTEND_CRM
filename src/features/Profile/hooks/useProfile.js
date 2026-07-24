@@ -12,7 +12,7 @@
   });
 
 
-  export function useSettings() {
+  export function useProfile() {
     const [settings, setSettings] = useState(null);
     const [loading, setLoading]   = useState(true);
 

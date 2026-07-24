@@ -3,6 +3,11 @@
 import FormDrawer from "../../../components/form/FormDrawer";
 import FormSection from "../../../components/form/FormSection";
 
+import Select from "react-select";
+import { getSelectProps } from "../../../components/select/selectConfig";
+import { getDisplayName } from "../../../utils/name";
+import { getProfileImage } from "../../../utils/avatar";
+
 import {
   FormInput,
   FormLabel,
@@ -13,6 +18,7 @@ import {
 const FORM_ID = "prospect-form";
 
 const initialFormData = {
+  handlingOfficer: "",
   companyName: "",
   businessAddress: {
     houseNumber: "",
@@ -49,6 +55,7 @@ const initialFormData = {
 export default function ProspectForm({
   open,
   editingProspect,
+  users = [],
   onSubmit,
   onClose,
   onCancel,
@@ -62,6 +69,8 @@ export default function ProspectForm({
     if (editingProspect) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData({
+        handlingOfficer: editingProspect.handlingOfficer?._id || "",
+
         companyName: editingProspect.companyName || "",
         businessAddress: {
           houseNumber: editingProspect.businessAddress?.houseNumber || "",
@@ -124,6 +133,12 @@ export default function ProspectForm({
     await onSubmit(formData);
   };
 
+  const handlingOfficerOptions = users.map((u) => ({
+    label: `${getDisplayName(u, { includeSuffix: true })} — ${u.role}`,
+    value: u._id,
+    user: u,
+  }));
+
   return (
     <FormDrawer
       open={open}
@@ -134,6 +149,7 @@ export default function ProspectForm({
       onCancel={onCancel}
     >
       <form id={FORM_ID} onSubmit={handleSubmit} className="space-y-5">
+
         <FormSection title="Company Profile">
           <div>
             <FormLabel required>Company Name</FormLabel>
@@ -187,6 +203,41 @@ export default function ProspectForm({
               placeholder="e.g. 1-10, 50+, 100+"
             />
           </div>
+        </FormSection>
+
+        <FormSection title="Assignment">
+            <div>
+              <FormLabel>Handling Officer</FormLabel>
+
+              <Select
+                {...getSelectProps({ isClearable: true })}
+                options={handlingOfficerOptions}
+                value={
+                  handlingOfficerOptions.find(
+                    (o) => o.value === formData.handlingOfficer
+                  ) || null
+                }
+                onChange={(option) =>
+                  handleChange({
+                    target: {
+                      name: "handlingOfficer",
+                      value: option?.value || "",
+                    },
+                  })
+                }
+                placeholder="Select handling officer..."
+                formatOptionLabel={({ user }) => (
+                  <div className="flex items-center gap-2">
+                    <img
+                      src={getProfileImage(user)}
+                      alt=""
+                      className="w-6 h-6 rounded-full border object-cover"
+                    />
+                    <span>{getDisplayName(user, { includeSuffix: true })}</span>
+                  </div>
+                )}
+              />
+            </div>
         </FormSection>
 
         <FormSection title="Business Address">

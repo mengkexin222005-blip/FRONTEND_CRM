@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import Select from "react-select";
 
 import { getSelectProps } from "../../components/select/selectConfig";
@@ -12,12 +13,18 @@ import { getDisplayName } from "../../utils/name";
 
 import { LEAD_SOURCE_OPTIONS } from "../../constants/options";
 
+const STATUS_OPTIONS = [
+  { label: "Active", value: "Active" },
+  { label: "Inactive", value: "Inactive" },
+  { label: "Lost", value: "Lost" },
+];
+
 export default function ClientForm({
   open,
   editingClient,
   formData,
   addressCodes,
-  salesAgents = [],
+  users = [],
   permissions = {},
   preview,
   loading,
@@ -29,11 +36,15 @@ export default function ClientForm({
   onClose,
   onCancel,
 }) {
-  const agentOptions = salesAgents.map((u) => ({
-    label: `${getDisplayName(u, { includeSuffix: true })} — ${u.role}`,
-    value: u._id,
-    user: u,
-  }));
+  const handlingOfficerOptions = useMemo(
+    () =>
+      users.map((u) => ({
+        label: `${getDisplayName(u, { includeSuffix: true })} — ${u.role}`,
+        value: u._id,
+        user: u,
+      })),
+    [users]
+  );
 
   return (
     <FormDrawer
@@ -55,14 +66,13 @@ export default function ClientForm({
         {!editingClient && permissions.canAssign && (
           <FormSection title="Assignment">
             <div>
-              <FormLabel>Account owner (optional)</FormLabel>
+              <FormLabel>Handling Officer (optional)</FormLabel>
               <Select
                 {...getSelectProps({ isClearable: true })}
-                options={agentOptions}
+                options={handlingOfficerOptions}
                 value={
-                  agentOptions.find(
-                    (o) =>
-                      String(o.value) === String(formData.assignedTo || ""),
+                  handlingOfficerOptions.find(
+                    (o) => String(o.value) === String(formData.assignedTo || "")
                   ) || null
                 }
                 onChange={(opt) =>
@@ -73,7 +83,7 @@ export default function ClientForm({
                     },
                   })
                 }
-                placeholder="Select sales agent…"
+                placeholder="Select handling officer…"
                 formatOptionLabel={({ user }) => (
                   <div className="flex items-center gap-2">
                     <img
@@ -111,7 +121,7 @@ export default function ClientForm({
             ))}
           </div>
 
-          {/* 3-Column Grid for Demographics (Text Inputs for Suffix & Gender) */}
+          {/* 3-Column Grid for Demographics */}
           <div className="grid grid-cols-3 gap-3 mt-3">
             <div>
               <FormLabel>Suffix (Optional)</FormLabel>
@@ -144,7 +154,7 @@ export default function ClientForm({
             </div>
           </div>
 
-          {/* Clean 2-Column Grid for Company and Metadata */}
+          {/* 2-Column Grid for Company and Metadata */}
           <div className="grid grid-cols-2 gap-3 mt-3">
             <div>
               <FormLabel required>Company</FormLabel>
@@ -160,11 +170,7 @@ export default function ClientForm({
               <FormLabel required>Status</FormLabel>
               <Select
                 {...getSelectProps({ isSearchable: false })}
-                options={[
-                  { label: "Active", value: "Active" },
-                  { label: "Inactive", value: "Inactive" },
-                  { label: "Lost", value: "Lost" },
-                ]}
+                options={STATUS_OPTIONS}
                 value={
                   formData.status
                     ? { label: formData.status, value: formData.status }
@@ -206,19 +212,6 @@ export default function ClientForm({
                 required
               />
             </div>
-
-            <div className="col-span-2">
-              <FormLabel>Notes</FormLabel>
-              <textarea
-                name="notes"
-                value={formData.notes ?? ""}
-                onChange={onChange}
-                rows={3}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm
-                           focus:outline-none focus:ring-2 focus:ring-red-300"
-                placeholder="Internal notes…"
-              />
-            </div>
           </div>
         </FormSection>
 
@@ -257,6 +250,21 @@ export default function ClientForm({
                 required
               />
             </div>
+          </div>
+        </FormSection>
+
+        {/* Additional Notes */}
+        <FormSection title="Additional Notes">
+          <div>
+            <FormLabel>Notes</FormLabel>
+            <textarea
+              name="notes"
+              value={formData.notes ?? ""}
+              onChange={onChange}
+              rows={3}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-300"
+              placeholder="Internal notes…"
+            />
           </div>
         </FormSection>
       </form>

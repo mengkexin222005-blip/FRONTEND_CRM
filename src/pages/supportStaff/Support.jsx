@@ -1,5 +1,5 @@
 import SupportPage from "../../features/support/SupportPage";
 
-export default function SalesManagerSupport() {
+export default function SupportStaffSupport() {
     return <SupportPage />;
 }

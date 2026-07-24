@@ -1,5 +1,5 @@
-import SettingsPage from "../../features/settings/SettingsPage";
+import UserManagementPage from "../../features/users/UserManagementPage";
 
 export default function AdminSettings() {
-    return <SettingsPage />;
+  return <UserManagementPage />;
 }

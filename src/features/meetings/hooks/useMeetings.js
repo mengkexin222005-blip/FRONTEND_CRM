@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import api from '../../../services/api';
 import Swal from 'sweetalert2';
+import { getAutoMeetingStatus } from '../utils/meetingUtils';
 
 const Toast = Swal.mixin({
   toast: true,
@@ -14,8 +15,6 @@ const Toast = Swal.mixin({
 const getMeetingColor = (type = "") => {
   switch (type.trim().toLowerCase()) {
     case "client consultation":
-      return "bg-blue-50 text-blue-600 border-blue-200";
-
     case "client meeting":
       return "bg-blue-50 text-blue-600 border-blue-200";
 
@@ -39,44 +38,52 @@ const getMeetingColor = (type = "") => {
   }
 };
 
-const mapMeeting = (meeting) => ({
-  id: meeting._id,
-  title: meeting.meetingTitle,
-  type: meeting.meetingType,
-  date: new Date(meeting.date).toISOString().split("T")[0],
-  startTime: meeting.startTime,
-  endTime: meeting.endTime,
-  time: `${meeting.startTime} - ${meeting.endTime}`,
-  client: meeting.client || "",
-  location: meeting.location || "",
-  locationScope: meeting.locationScope,
-  organizer: meeting.host || "",
-  host: meeting.host || "",
-  notes: meeting.notes || "",
-  participants: meeting.participants || [],
-  color: getMeetingColor(meeting.meetingType),
-});
+const mapMeeting = (meeting) => {
+  const currentStatus = getAutoMeetingStatus(meeting);
+
+  return {
+    id: meeting._id,
+    _id: meeting._id,
+    title: meeting.meetingTitle,
+    type: meeting.meetingType,
+    status: currentStatus,
+    date: meeting.date ? new Date(meeting.date).toISOString().split("T")[0] : "",
+    startTime: meeting.startTime,
+    endTime: meeting.endTime,
+    time: `${meeting.startTime} - ${meeting.endTime}`,
+    client: meeting.client || "",
+    location: meeting.location || "",
+    locationScope: meeting.locationScope || "Inside the Philippines",
+    organizer: meeting.host || "",
+    host: meeting.host || "",
+    notes: meeting.notes || "",
+    participants: meeting.participants || [],
+    color: getMeetingColor(meeting.meetingType),
+  };
+};
+
+const initialFilters = {
+  date: '',
+  type: 'all',
+  status: 'all',
+};
 
 export function useMeetings() {
-  const [meetings, setMeetings] = useState([]);
+  const [allMeetings, setAllMeetings] = useState([]);
   const [selectedMeeting, setSelectedMeeting] = useState(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [searchQuery, setSearchQuery] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [meetingToEdit, setMeetingToEdit] = useState(null);
   const [activeView, setActiveView] = useState('Month');
-  const [filterPreset, setFilterPreset] = useState('all');
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [filters, setFilters] = useState(initialFilters);
 
   const fetchMeetings = async () => {
     try {
       const { data } = await api.get("/api/meetings");
-      setMeetings(data.map(mapMeeting));
-      console.log("Meetings from API:", data);
-      console.log("Mapped meetings:", data.map(mapMeeting));
+      setAllMeetings((data || []).map(mapMeeting));
     } catch (error) {
       console.error(error);
-  
       Toast.fire({
         icon: "error",
         title: "Unable to load meetings",
@@ -88,30 +95,32 @@ export function useMeetings() {
     fetchMeetings();
   }, []);
 
-  const filteredMeetings = useMemo(() => {
-    const query = searchQuery.toLowerCase().trim();
+  const filterOptions = useMemo(() => {
+    const types = Array.from(new Set((allMeetings || []).map((m) => m.type).filter(Boolean)));
+    return { types };
+  }, [allMeetings]);
 
-    return meetings.filter((meeting) => {
+  const filteredMeetings = useMemo(() => {
+    const query = (searchQuery || '').toLowerCase().trim();
+
+    return (allMeetings || []).filter((meeting) => {
+      // Search Match
       const matchesSearch =
         !query ||
-        meeting.title.toLowerCase().includes(query) ||
-        meeting.client.toLowerCase().includes(query) ||
-        meeting.type.toLowerCase().includes(query);
+        meeting.title?.toLowerCase().includes(query) ||
+        meeting.client?.toLowerCase().includes(query) ||
+        meeting.type?.toLowerCase().includes(query);
 
-      const meetingDate = new Date(meeting.date);
-      const today = new Date();
-      const isUpcoming = meetingDate >= new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const isCompleted = meetingDate < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      // Category Matches
+      const matchesDate = !filters?.date || meeting.date === filters.date;
+      const matchesType = !filters?.type || filters.type === 'all' || meeting.type === filters.type;
+      const matchesStatus = !filters?.status || filters.status === 'all' || meeting.status === filters.status;
 
-      const matchesFilter =
-        filterPreset === 'all' ||
-        (filterPreset === 'upcoming' && isUpcoming) ||
-        (filterPreset === 'completed' && isCompleted) ||
-        (filterPreset === 'cancelled' && meeting.type.toLowerCase().includes('cancel'));
-
-      return matchesSearch && matchesFilter;
+      return matchesSearch && matchesDate && matchesType && matchesStatus;
     });
-  }, [meetings, searchQuery, filterPreset]);
+  }, [allMeetings, searchQuery, filters]);
+
+  const resetFilters = () => setFilters(initialFilters);
 
   const openCreateMeeting = () => {
     setMeetingToEdit(null);
@@ -133,6 +142,7 @@ export function useMeetings() {
       const payload = {
         meetingTitle: meetingData.title,
         meetingType: meetingData.type,
+        status: meetingData.status,
         client: meetingData.client,
         date: meetingData.date,
         startTime: meetingData.startTime,
@@ -145,34 +155,23 @@ export function useMeetings() {
       };
   
       if (meetingToEdit) {
-        await api.patch(`/api/meetings/${meetingToEdit.id}`, payload);
-  
-        Toast.fire({
-          icon: "success",
-          title: "Meeting updated successfully",
-        });
+        const targetId = meetingToEdit.id || meetingToEdit._id;
+        await api.patch(`/api/meetings/${targetId}`, payload);
+        Toast.fire({ icon: "success", title: "Meeting updated successfully" });
       } else {
         await api.post("/api/meetings", payload);
-  
-        Toast.fire({
-          icon: "success",
-          title: "Meeting added successfully",
-        });
+        Toast.fire({ icon: "success", title: "Meeting added successfully" });
       }
   
       await fetchMeetings();
-  
       closeMeetingForm();
       setSelectedMeeting(null);
   
     } catch (error) {
       console.error(error);
-  
       Toast.fire({
         icon: "error",
-        title:
-          error.response?.data?.error ||
-          "Unable to save meeting",
+        title: error.response?.data?.error || "Unable to save meeting",
       });
     }
   };
@@ -180,39 +179,14 @@ export function useMeetings() {
   const handleDeleteMeeting = async (meetingId) => {
     try {
       await api.delete(`/api/meetings/${meetingId}`);
-  
       await fetchMeetings();
-  
       setSelectedMeeting(null);
-  
-      Toast.fire({
-        icon: "success",
-        title: "Meeting deleted successfully",
-      });
-  
+      Toast.fire({ icon: "success", title: "Meeting deleted successfully" });
     } catch (error) {
       console.error(error);
-  
-      Toast.fire({
-        icon: "error",
-        title: "Unable to delete meeting",
-      });
+      Toast.fire({ icon: "error", title: "Unable to delete meeting" });
     }
   };
-
-  const stats = useMemo(() => {
-    const today = new Date();
-    const upcoming = meetings.filter((meeting) => new Date(meeting.date) >= new Date(today.getFullYear(), today.getMonth(), today.getDate())).length;
-    const completed = meetings.filter((meeting) => new Date(meeting.date) < new Date(today.getFullYear(), today.getMonth(), today.getDate())).length;
-    const cancelled = meetings.filter((meeting) => meeting.type.toLowerCase().includes('cancel')).length;
-
-    return {
-      total: meetings.length,
-      upcoming,
-      completed,
-      cancelled,
-    };
-  }, [meetings]);
 
   return {
     meetings: filteredMeetings,
@@ -223,19 +197,17 @@ export function useMeetings() {
     searchQuery,
     setSearchQuery,
     isFormOpen,
-    setIsFormOpen,
     meetingToEdit,
     activeView,
     setActiveView,
-    filterPreset,
-    setFilterPreset,
-    isFilterOpen,
-    setIsFilterOpen,
+    filters,
+    setFilters,
+    resetFilters,
+    filterOptions,
     openCreateMeeting,
     openEditMeeting,
     closeMeetingForm,
     handleAddMeeting,
     handleDeleteMeeting,
-    stats,
   };
 }

@@ -1,10 +1,10 @@
 import {Pencil,Trash2} from "lucide-react";
-import {getProfileImage} from "../../utils/avatar";
-import {getDisplayName} from "../../utils/name";
-import {formatPhone} from "../../utils/format";
+import {getProfileImage} from "../../../utils/avatar";
+import {getDisplayName} from "../../../utils/name";
+import {formatPhone} from "../../../utils/format";
 import {
   BaseTable,TableRow,TableCell,TablePagination,useTablePagination,
-} from "../../components/table";
+} from "../../../components/table";
 
 export default function UserTable({
   users=[],

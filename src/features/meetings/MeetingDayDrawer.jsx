@@ -62,7 +62,12 @@ export default function MeetingDayDrawer({
                     className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] text-blue-600">
                     {meeting.type}
                   </span>
+                </div>
 
+                <div className="mt-1">
+                  <span className="inline-block rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600">
+                    {meeting.status ?? "Scheduled"}
+                  </span>
                 </div>
 
                 <p className="mt-2 text-sm font-medium text-gray-800">

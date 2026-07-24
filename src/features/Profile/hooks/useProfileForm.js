@@ -47,7 +47,7 @@ const EMPTY_ADDRESS = {
   zipCode: "",
 };
 
-export function useSettingsForm(settings) {
+export function useProfileForm(settings) {
   const base = useFormBase(EMPTY_PROFILE);
   const { user, updateUser } = useAuth();
 

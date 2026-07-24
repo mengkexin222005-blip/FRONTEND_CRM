@@ -92,7 +92,6 @@ function App() {
           <Route path="/admin/settings" element={<AdminSettings />} />
           <Route path="/admin/profile" element={<AdminProfile />} />
           <Route path="/admin/reports" element={<AdminReports />} />
-          {/* Changed from /admin/communication */}
           <Route path="/admin/communications" element={<AdminCommunication />} />
           <Route path="/admin/support" element={<AdminSupport />} />
         </Route>
@@ -112,7 +111,6 @@ function App() {
           <Route path="/sales-manager/calls" element={<SalesManagerCalls />} />
           <Route path="/sales-manager/settings" element={<SalesManagerSettings />} />
           <Route path="/sales-manager/profile" element={<SalesManagerProfile />} />
-          {/* Changed from /sales-manager/communication */}
           <Route path="/sales-manager/communications" element={<SalesManagerCommunication />} />
           <Route path="/sales-manager/support" element={<SalesManagerSupport />} />
         </Route>
@@ -132,7 +130,6 @@ function App() {
           <Route path="/sales-agent/calls" element={<SalesAgentCalls />} />
           <Route path="/sales-agent/settings" element={<SalesAgentSettings />} />
           <Route path="/sales-agent/profile" element={<SalesAgentProfile />} />
-          {/* Changed from /sales-agent/communication */}
           <Route path="/sales-agent/communications" element={<SalesAgentCommunication />} />
           <Route path="/sales-agent/support" element={<SalesAgentSupport />} />
         </Route>
@@ -143,16 +140,15 @@ function App() {
         <Route element={<AppLayout />}>
           <Route path="/support-staff" element={<SupportStaffIndex />} />
           <Route path="/support-staff/users" element={<UserManagementPage />} />
-          <Route path="/support-staff/leads" element={<SalesAgentLeads />} />
+          {/* <Route path="/support-staff/leads" element={<SalesAgentLeads />} />
           <Route path="/support-staff/clients" element={<SalesAgentClients />} />
           <Route path="/support-staff/quotations" element={<SalesAgentQuotations />} />
           <Route path="/support-staff/tasks" element={<SalesAgentTasks />} />
-          <Route path="/support-staff/prospects" element={<SalesAgentProspects />} />
-          <Route path="/support-staff/meetings" element={<SalesAgentMeetings />} />
-          <Route path="/support-staff/calls" element={<SalesAgentCalls />} />
-          <Route path="/support-staff/settings" element={<SalesAgentSettings />} />
+          <Route path="/support-staff/prospects" element={<SalesAgentProspects />} /> */}
+          {/* <Route path="/support-staff/meetings" element={<SalesAgentMeetings />} />
+          <Route path="/support-staff/calls" element={<SalesAgentCalls />} /> */}
+          {/* <Route path="/support-staff/settings" element={<SalesAgentSettings />} /> */}
           <Route path="/support-staff/profile" element={<SupportStaffProfile />} />
-          {/* Changed from /support-staff/communication */}
           <Route path="/support-staff/communications" element={<SupportCommunication />} />
           <Route path="/support-staff/support" element={<SupportStaffSupport />} />
         </Route>

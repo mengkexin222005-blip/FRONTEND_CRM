@@ -1,16 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useActivities } from "../../../hooks/useActivities";
-import { useEffect } from "react";
 import api from "../../../services/api";
-
-// const STAGE_PROBABILITY = {
-//   Prospecting: 10,
-//   Qualification: 25,
-//   Proposal: 50,
-//   Negotiation: 75,
-//   Won: 100,
-//   Lost: 0,
-// };
 
 const EMPTY_FORM = {
   title: "",
@@ -18,7 +8,6 @@ const EMPTY_FORM = {
   value: "",
   currency: "PHP",
   stage: "Draft",
-  // probability: 10,
   expectedCloseDate: "",
   assignedTo: "",
   notes: "",
@@ -29,7 +18,6 @@ const mapQuotationToForm = (quotation) => ({
   client: quotation.client?._id || "",
   value: quotation.value ?? "",
   currency: quotation.currency || "PHP",
-  // probability: quotation.probability ?? 0,
   expectedCloseDate: quotation.expectedCloseDate
     ? quotation.expectedCloseDate.slice(0, 10)
     : "",
@@ -37,7 +25,7 @@ const mapQuotationToForm = (quotation) => ({
   notes: quotation.notes || "",
 });
 
-export function useQuotationModal() {
+export function useQuotationWizard() {
   const [modalOpen, setModalOpen] = useState(false);
   const [mode, setMode] = useState("create");
   const [origin, setOrigin] = useState("view");
@@ -45,12 +33,10 @@ export function useQuotationModal() {
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [viewingQuotation, setViewingQuotation] = useState(null);
 
-  // ── Tasks ──────────────────────────────────────────────
   const [tasks, setTasks] = useState([]);
   const [tasksLoading, setTasksLoading] = useState(false);
 
   useEffect(() => {
-    // Only fetch when the modal is open, in view mode, and a quotation is selected
     if (!modalOpen || mode !== "view" || !viewingQuotation?._id) {
       setTasks([]);
       return;
@@ -72,10 +58,10 @@ export function useQuotationModal() {
 
     fetchTasks();
 
-    // Cleanup — avoids setting state on an unmounted/stale effect
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [modalOpen, mode, viewingQuotation?._id]);
-  // ──────────────────────────────────────────────────────
 
   const { activities, loading: activitiesLoading } = useActivities(
     modalOpen && mode === "view" && viewingQuotation ? "Quotation" : null,
@@ -83,11 +69,10 @@ export function useQuotationModal() {
   );
 
   const openCreate = useCallback((presetStage) => {
-    const stage = presetStage || "Draft";
+    const stage = typeof presetStage === "object" ? presetStage?.stage || "Draft" : presetStage || "Draft";
     setFormData({
       ...EMPTY_FORM,
       stage,
-      // probability: STAGE_PROBABILITY[stage] ?? 10,
     });
     setViewingQuotation(null);
     setMode("create");
@@ -128,7 +113,7 @@ export function useQuotationModal() {
     setViewingQuotation(null);
     setMode("create");
     setFormData(EMPTY_FORM);
-    setTasks([]); // clear tasks on close
+    setTasks([]);
   }, []);
 
   const handleChange = useCallback((e) => {
@@ -150,8 +135,8 @@ export function useQuotationModal() {
     viewingQuotation,
     activities,
     activitiesLoading,
-    tasks,        
-    tasksLoading, 
+    tasks,
+    tasksLoading,
     openCreate,
     openView,
     openEdit,

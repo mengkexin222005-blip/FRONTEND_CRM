@@ -4,10 +4,12 @@ import { Plus, X } from 'lucide-react';
 import FormDrawer from '../../components/form/FormDrawer';
 import FormSection from '../../components/form/FormSection';
 import { FormLabel, FormInput, FormTextarea } from '../../components/form/FormField';
+import { getAutoMeetingStatus } from './utils/meetingUtils';
 
 function MeetingFormContent({ meeting, onSubmit }) {
   // --- Form Local State ---
   const [title, setTitle] = useState(meeting?.title ?? '');
+  const [status, setStatus] = useState(meeting ? getAutoMeetingStatus(meeting) : 'Scheduled');
   const [location, setLocation] = useState(meeting?.location ?? '');
   const [locationScope, setLocationScope] = useState(meeting?.locationScope ?? 'Inside the Philippines');
   const [type, setType] = useState(meeting?.type ?? '');
@@ -50,6 +52,7 @@ function MeetingFormContent({ meeting, onSubmit }) {
 
     await onSubmit({
       title,
+      status,
       date,
       startTime,
       endTime,
@@ -64,9 +67,8 @@ function MeetingFormContent({ meeting, onSubmit }) {
   };
 
   return (
-    <form id="meeting-form" onSubmit={handleSubmit} className="flex flex-col h-full min-h-0">
-      <div className="flex-1 overflow-y-auto min-h-0 space-y-6 px-1">
-        
+    <form id="meeting-form" onSubmit={handleSubmit} className="space-y-6">
+
         {/* Section 1: Meeting Information */}
         <FormSection title="Meeting Information">
           <div className="space-y-4">
@@ -82,6 +84,22 @@ function MeetingFormContent({ meeting, onSubmit }) {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
+              <div>
+                <FormLabel required>Status</FormLabel>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-xs focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-100"
+                >
+                  <option value="Scheduled">Scheduled</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Cancelled">Cancelled</option>
+                  <option value="Rescheduled">Rescheduled</option>
+                  <option value="No Show">No Show</option>
+                </select>
+              </div>
+
               <div>
                 <FormLabel>Meeting Type</FormLabel>
                 <FormInput
@@ -100,20 +118,21 @@ function MeetingFormContent({ meeting, onSubmit }) {
                   <option value="Sales Meeting" />
                 </datalist>
               </div>
-              <div>
-                <FormLabel>Client</FormLabel>
-                <FormInput
-                  type="text"
-                  value={client}
-                  placeholder="Enter client name..."
-                  onChange={(e) => setClient(e.target.value)}
-                />
-              </div>
+            </div>
+
+            <div>
+              <FormLabel>Client</FormLabel>
+              <FormInput
+                type="text"
+                value={client}
+                placeholder="Enter client name..."
+                onChange={(e) => setClient(e.target.value)}
+              />
             </div>
 
             <div className="grid gap-3">
               <div>
-                <FormLabel>Location</FormLabel>
+                <FormLabel required>Location</FormLabel>
                 <FormInput
                   type="text"
                   required
@@ -275,7 +294,6 @@ function MeetingFormContent({ meeting, onSubmit }) {
           </div>
         </FormSection>
 
-      </div>
     </form>
   );
 }

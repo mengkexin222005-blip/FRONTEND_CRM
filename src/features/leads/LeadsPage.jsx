@@ -20,7 +20,6 @@ import { LEAD_SOURCE_OPTIONS } from "../../constants/options";
 
 import { getDisplayName } from "../../utils/name";
 
-import { useAuth } from "../../context/AuthContext";
 import { usePermissions } from "../../permissions/usePermissions";
 import { useLeads } from "./hooks/useLeads";
 import { useLeadForm } from "./hooks/useLeadForm";
@@ -45,10 +44,8 @@ const Toast = Swal.mixin({
 
 export default function LeadsPage() {
   const permissions = usePermissions("leads");
-  const { user: currentUser } = useAuth();
-  const isCurrentAgent = currentUser.role === "Sales Agent";
 
-  const { users: salesAgents = [] } = useUsers({
+  const { users = [] } = useUsers({
     skip: !permissions.canAssign,
     mode: "assignable",
     resource: "lead",
@@ -485,11 +482,7 @@ export default function LeadsPage() {
       <div className="flex items-center justify-between mb-4">
         <PageHeader
           title="Leads"
-          subtitle={
-            isCurrentAgent
-              ? "Track and manage your assigned leads across different stages"
-              : "Track and manage leads across your team"
-          }
+          subtitle={ "Track and manage your assigned leads across different stages"}
         />
 
         <PageToolbar
@@ -506,24 +499,22 @@ export default function LeadsPage() {
               activeFilterCount={activeFilterCount}
               onClearAll={handleClear}
             >
-              {!isCurrentAgent && (
-                <div>
-                  <p className="text-xs text-gray-400 mb-1">Assigned To</p>
-                  <Select
-                    {...getSelectProps({ variant: "filter" })}
-                    placeholder="All agents"
-                    options={agentFilterOptions}
-                    value={
-                      agentFilterOptions.find(
-                        (option) => option.value === filterAssigned,
-                      ) || null
-                    }
-                    onChange={(option) =>
-                      setFilterAssigned(option?.value || null)
-                    }
-                  />
-                </div>
-              )}
+              <div>
+                <p className="text-xs text-gray-400 mb-1">Handling Officer</p>
+                <Select
+                  {...getSelectProps({ variant: "filter" })}
+                  placeholder="All handling officers"
+                  options={agentFilterOptions}
+                  value={
+                    agentFilterOptions.find(
+                      (option) => option.value === filterAssigned,
+                    ) || null
+                  }
+                  onChange={(option) =>
+                    setFilterAssigned(option?.value || null)
+                  }
+                />
+              </div>
 
               {view === "table" && (
                 <div>
@@ -596,7 +587,6 @@ export default function LeadsPage() {
           <LeadTable
             leads={filteredLeads}
             permissions={permissions}
-            isCurrentAgent={isCurrentAgent}
             onView={openViewPane}
             onEdit={openEditSidePane}
             onUpdateStatus={handleUpdateStatus}
@@ -610,7 +600,7 @@ export default function LeadsPage() {
       <LeadView
         open={viewPaneOpen}
         lead={viewingLead}
-        salesAgents={salesAgents}
+        users={users}
         permissions={permissions}
         onClose={closeViewPane}
         onEdit={(lead) => {
@@ -638,7 +628,7 @@ export default function LeadsPage() {
         open={showSidePane}
         editingLead={editingLead}
         formData={formData}
-        salesAgents={salesAgents}
+        users={users}
         addressCodes={addressCodes}
         permissions={permissions}
         preview={preview}

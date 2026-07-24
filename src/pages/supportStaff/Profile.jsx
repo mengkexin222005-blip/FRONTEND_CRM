@@ -1,5 +1,5 @@
 import ProfilePage from "../../features/profile/components/ProfilePage";
 
-export default function AdminProfile() {
+export default function SupportStaffProfile() {
   return <ProfilePage />;
 }

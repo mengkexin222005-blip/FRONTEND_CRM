@@ -8,7 +8,7 @@ export default function Dashboard() {
         </div>
 
         <div className="row-span-1 bg-white shadow rounded-md p-6">
-          <h2 className="text-gray-500 text-sm">Total Sales1</h2>
+          <h2 className="text-gray-500 text-sm">Total Sales</h2>
           <p className="text-3xl font-bold mt-2">₱54,000</p>
         </div>
 
@@ -18,17 +18,17 @@ export default function Dashboard() {
         </div>
 
         <div className="row-span-2 bg-white shadow rounded-md p-6">
-          <h2 className="text-gray-500 text-sm">Total Sales 3</h2>
+          <h2 className="text-gray-500 text-sm">Monthly Sales</h2>
           <p className="text-3xl font-bold mt-2">₱54,000</p>
         </div>
 
         <div className="row-span-1 bg-white shadow rounded-md p-6">
-          <h2 className="text-gray-500 text-sm">Total Sales4</h2>
+          <h2 className="text-gray-500 text-sm">Weekly Sales</h2>
           <p className="text-3xl font-bold mt-2">₱54,000</p>
         </div>
 
         <div className="row-span-1 bg-white shadow rounded-md p-6">
-          <h2 className="text-gray-500 text-sm">Total Sales5w</h2>
+          <h2 className="text-gray-500 text-sm">Daily Sales</h2>
           <p className="text-3xl font-bold mt-2">₱54,000</p>
         </div>
       </div>

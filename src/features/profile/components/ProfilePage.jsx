@@ -1,20 +1,21 @@
 import { useState } from "react";
 
-import { useSettings } from "../../settings/hooks/useSettings";
-import { useSettingsForm } from "../../settings/hooks/useSettingsForm";
+import { useProfile } from "../hooks/useProfile";
+import { useProfileForm } from "../hooks/useProfileForm";
 
 import PageHeader from "../../../components/page/PageHeader";
-import ProfileTab from "../../settings/tabs/ProfileTab";
-import SecurityTab from "../../settings/tabs/SecurityTab";
-import NotificationsTab from "../../settings/tabs/NotificationsTab";
+
+import ProfileTab from "../tabs/ProfileTab";
+import SecurityTab from "../tabs/SecurityTab";
+import NotificationsTab from "../tabs/NotificationsTab";
 
 const TABS = ["My Profile", "Security", "Notifications"];
 
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState("My Profile");
 
-  const { settings, loading } = useSettings();
-  const form = useSettingsForm(settings);
+  const { settings, loading } = useProfile();
+  const form = useProfileForm(settings);
 
   const { saving, isProfileDirty, isAddressDirty, handleSave, resetForm } =
     form;
