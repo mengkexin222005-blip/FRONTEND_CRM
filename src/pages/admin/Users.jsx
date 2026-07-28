@@ -18,9 +18,9 @@ import { getSelectProps } from "../../components/select/selectConfig";
 
 import { getDisplayName } from "../../utils/name";
 
-import UserTable from "../../features/users/UserTable";
-import UserForm from "../../features/users/UserForm";
-import UserView from "../../features/users/UserView";
+import UserTable from "../../features/users/components/UserTable";
+import UserForm from "../../features/users/components/UserForm";
+import UserView from "../../features/users/components/UserView";
 
 const ROLE_OPTIONS = [
   "Admin",
