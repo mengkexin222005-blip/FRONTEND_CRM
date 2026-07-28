@@ -3,17 +3,18 @@ import api from "../../../services/api"; // Gamit ang working axios api instance
 import Swal from "sweetalert2";
 
 const ALL_ACCESS = [
-  "Dashboard", "Teams", "Leads", "Clients", "Quotations", "Tasks",
+  "Dashboard", "Leads", "Clients", "Quotations", "Tasks",
   "Meetings", "Calls", "Settings", "Reports", "Prospects",
 ];
 
 // 🌟 Dito natin itinakda ang eksaktong specifications mo para sa defaults ng bawat role
 const ROLE_ACCESS = {
   Admin: ALL_ACCESS,
+  "Super Admin": ALL_ACCESS,
   "Sales Manager": [
-    "Dashboard", "Teams", "Leads", "Clients", "Quotations",
-    "Tasks", "Meetings", "Calls", "Settings",
-  ], // Lahat maliban sa Reports at Prospects
+    "Dashboard", "Leads", "Clients", "Quotations", "Tasks",
+    "Meetings", "Calls", "Settings", "Reports", "Prospects",
+  ],
   "Sales Agent": [
     "Dashboard", "Leads", "Clients", "Quotations", "Tasks", "Meetings", "Calls",
   ],
@@ -78,7 +79,7 @@ export default function useUserAccess() {
       // Kung may naka-save nang specific accessModules sa database para sa user na ito, gamitin yun.
       // Kung wala pa, ibigay ang standard default ng role niya base sa requirements mo.
       if (data.accessModules && data.accessModules.length > 0) {
-        setAccess(data.accessModules);
+        setAccess(data.accessModules.filter((item) => item !== "Teams"));
       } else if (currentRole && ROLE_ACCESS[currentRole]) {
         setAccess([...ROLE_ACCESS[currentRole]]);
       } else {
@@ -121,14 +122,14 @@ export default function useUserAccess() {
     try {
       const payload = {
         role: roleTemplate,
-        accessModules: access, // Sine-save ang dynamic modified access sa db
+        accessModules: access.filter((item) => item !== "Teams"), // never persist Teams access
       };
 
-      await api.patch(`/api/users/${selectedUserId}`, payload);
+      // Use the dedicated access update endpoint so the backend saves accessModules correctly
+      await api.patch(`/api/users/${selectedUserId}/access`, payload);
 
-      if (selectedUser) {
-        setSelectedUserData(prev => ({ ...prev, role: roleTemplate, accessModules: access }));
-      }
+      // Refresh the selected user data from the backend so role and accessModules are persisted correctly
+      await setSelectedUser(selectedUserId);
 
       await Swal.fire({
         toast: true,
