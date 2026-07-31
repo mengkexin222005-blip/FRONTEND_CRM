@@ -5,9 +5,12 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 
 import {
   CalendarDays,
+  ChevronDown,
+  ChevronUp,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -17,28 +20,35 @@ import {
   Phone,
   UserRound,
   Bell,
+  ExternalLink,
+  FileText,
+  Paperclip,
 } from "lucide-react";
 
 import HeaderFilterDropdown from "./HeaderFilterDropdown";
+import { getDynamicTaskStatus } from "../hooks/useDashboard";
+import { useAuth } from "../../../context/AuthContext";
 
 const VISIBLE_CARDS = 4;
 const CLONE_COUNT = 4;
 const ALL_TIMES = "all";
 const NO_TIME = "__no_time__";
 
-// Status weight ranking (Higher number = higher rank/urgency)
-const STATUS_ORDER = {
-  Overdue: 4,   // 1st: Immediate action required
-  "Due Soon": 3, // 2nd: Needs urgent attention
-  Pending: 2,   // 3rd: Backlog / To start
-  Ongoing: 1,   // 4th: Work in progress
-};
+const TASK_STATUS_OPTIONS = ["Pending", "Ongoing", "Due Soon", "Completed", "Overdue"];
 
-// Priority weight ranking
 const PRIORITY_ORDER = {
   high: 3,
   medium: 2,
   low: 1,
+};
+
+const STATUS_STYLES = {
+  Pending: { bg: "bg-[#ffdd00]/10", text: "text-[#ffdd00]", border: "border-[#ffdd00]", dot: "bg-[#ffdd00]" },
+  "In Progress": { bg: "bg-blue-50", text: "text-blue-600", border: "border-blue-400", dot: "bg-blue-600" },
+  Ongoing: { bg: "bg-blue-50", text: "text-blue-600", border: "border-blue-400", dot: "bg-blue-600" },
+  "Due Soon": { bg: "bg-orange-500/10", text: "text-orange-500", border: "border-orange-500", dot: "bg-orange-500" },
+  Completed: { bg: "bg-green-50", text: "text-green-600", border: "border-green-400", dot: "bg-green-600" },
+  Overdue: { bg: "bg-red-50", text: "text-red-600", border: "border-red-200", dot: "bg-red-600" },
 };
 
 const clamp = (value, minimum, maximum) =>
@@ -82,6 +92,62 @@ const getTaskTypeIcon = (task) => {
   return ListTodo;
 };
 
+const parseSingleAttachment = (rawAtt) => {
+  if (!rawAtt) return null;
+  if (typeof rawAtt === "object") {
+    const url = rawAtt.url || rawAtt.link || rawAtt.path || rawAtt.fileUrl;
+    const name = rawAtt.name || rawAtt.title || rawAtt.fileName || "Document";
+    if (!url && !name) return null;
+    const finalUrl = url ? (!/^https?:\/\//i.test(url) ? `${window.location.origin}/${url.replace(/^\/+/, "")}` : url) : "#";
+    return {
+      name,
+      url: finalUrl,
+    };
+  }
+  if (typeof rawAtt === "string") {
+    const trimmed = rawAtt.trim();
+    if (!trimmed || trimmed === "-") return null;
+    const finalUrl = !/^https?:\/\//i.test(trimmed) 
+      ? `${window.location.origin}/${trimmed.replace(/^\/+/, "")}` 
+      : trimmed;
+    return {
+      name: trimmed.split("/").pop() || "Document",
+      url: finalUrl,
+    };
+  }
+  return null;
+};
+
+const getTaskLinkAndAttachments = (task) => {
+  let linkItem = null;
+  const attachmentList = [];
+
+  const rawLink = task?.link || task?.url || task?.externalLink;
+  if (rawLink) {
+    const customName = typeof task?.linkName === "string" ? task.linkName.trim() : "";
+    if (typeof rawLink === "string" && rawLink.trim() !== "") {
+      const formattedUrl = rawLink.startsWith("http") ? rawLink : `https://${rawLink}`;
+      linkItem = {
+        name: customName || rawLink,
+        url: formattedUrl,
+      };
+    } else if (typeof rawLink === "object") {
+      const parsed = parseSingleAttachment(rawLink);
+      if (parsed) linkItem = { ...parsed, name: customName || parsed.name };
+    }
+  }
+
+  const rawAtts = task?.attachments || task?.files || task?.file || task?.documents;
+  if (rawAtts) {
+    (Array.isArray(rawAtts) ? rawAtts : [rawAtts]).forEach((item) => {
+      const parsed = parseSingleAttachment(item);
+      if (parsed) attachmentList.push(parsed);
+    });
+  }
+
+  return { linkItem, attachmentList };
+};
+
 const getObjectName = (record) => {
   if (!record || typeof record !== "object") return "";
   const directName =
@@ -101,30 +167,63 @@ const getObjectName = (record) => {
     .trim();
 };
 
-const getClientName = (task) => {
+const getClientInfo = (task) => {
   const directClientName =
     task?.clientName || task?.customerName || task?.contactName || task?.companyName || task?.prospectName || task?.leadName;
 
   if (typeof directClientName === "string" && directClientName.trim()) {
-    return directClientName.trim();
+    const clientId = task?.clientId || task?.client?._id || task?.client?.id || task?.customerId || task?.contactId;
+    return { name: directClientName.trim(), id: clientId };
   }
 
   const possibleRecords = [task?.client, task?.customer, task?.contact, task?.prospect, task?.lead, task?.relatedTo];
 
   for (const record of possibleRecords) {
-    if (typeof record === "string" && record.trim()) return record.trim();
-    const recordName = getObjectName(record);
-    if (recordName) return recordName;
+    if (typeof record === "string" && record.trim()) return { name: record.trim(), id: null };
+    if (record && typeof record === "object") {
+      const recordName = getObjectName(record);
+      if (recordName) {
+        const recordId = record._id || record.id;
+        return { name: recordName, id: recordId };
+      }
+    }
   }
 
-  return "No client assigned";
+  if (task?.clientId) {
+    return { name: `Client (${task.clientId.slice(-4)})`, id: task.clientId };
+  }
+
+  return null;
+};
+
+const getAssignerInfo = (task, currentUserId) => {
+  const creatorField = task?.createdBy || task?.assignedBy || task?.owner || task?.author;
+  if (!creatorField) return null;
+
+  let creatorId = "";
+  let creatorName = "";
+
+  if (typeof creatorField === "string") {
+    creatorId = creatorField.trim();
+    creatorName = creatorId;
+  } else if (typeof creatorField === "object") {
+    creatorId = String(creatorField._id || creatorField.id || "");
+    creatorName = getObjectName(creatorField);
+  }
+
+  if (currentUserId && creatorId && creatorId === currentUserId) {
+    return null;
+  }
+
+  if (creatorName && creatorName !== currentUserId) {
+    return { name: creatorName, id: creatorId };
+  }
+
+  return null;
 };
 
 const getTaskDateValue = (task) =>
   task?.dueDate || task?.date || task?.taskDate || task?.scheduledDate || task?.reminderDate || null;
-
-const getTaskStartDateValue = (task) =>
-  task?.startDate || task?.createdAt || task?.createdDate || null;
 
 const getTaskTimeValue = (task) =>
   task?.dueTime || task?.time || task?.taskTime || task?.scheduledTime || task?.reminderTime || task?.startTime || "";
@@ -218,87 +317,149 @@ const getTaskTimestamp = (task) => {
   return parsedDate.getTime();
 };
 
-const getTaskStartTimestamp = (task) => {
-  const parsedDate = parseDate(getTaskStartDateValue(task));
-  if (!parsedDate) return null;
-  return parsedDate.getTime();
-};
-
 const formatTaskDate = (task) => {
   const parsedDate = parseDate(getTaskDateValue(task));
   if (!parsedDate) return "No date";
-  return parsedDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const year = parsedDate.getFullYear();
+  const month = String(parsedDate.getMonth() + 1).padStart(2, "0");
+  const day = String(parsedDate.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 };
 
 const formatTaskTime = (task) => formatTimeKey(getTaskTimeKey(task));
 
-const normalizeStatus = (value) => {
-  const normalizedStatus = String(value || "").trim().toLowerCase();
-  if (normalizedStatus === "due soon" || normalizedStatus === "due_soon") return "Due Soon";
-  if (!normalizedStatus || normalizedStatus === "to do" || normalizedStatus === "todo" || normalizedStatus === "pending") return "Pending";
-  if (normalizedStatus === "in progress" || normalizedStatus === "ongoing") return "Ongoing";
-  if (normalizedStatus === "overdue") return "Overdue";
-  return "Pending";
-};
-
-const getTaskStatus = (task) => {
-  const timestamp = getTaskTimestamp(task);
-  const startTimestamp = getTaskStartTimestamp(task);
-  const now = Date.now();
-
-  // 1. Overdue Check
-  if (timestamp !== Number.MAX_SAFE_INTEGER && timestamp < now) {
-    return "Overdue";
-  }
-
-  // 2. Length-based / Remaining Time "Due Soon" Check
-  if (timestamp !== Number.MAX_SAFE_INTEGER && timestamp >= now) {
-    const threeDaysInMs = 3 * 24 * 60 * 60 * 1000;
-
-    if (startTimestamp && !Number.isNaN(startTimestamp)) {
-      const totalTaskDuration = timestamp - startTimestamp;
-
-      // If the entire task duration is <= 3 days, flag as Due Soon immediately upon start
-      if (totalTaskDuration <= threeDaysInMs) {
-        return "Due Soon";
-      }
-    }
-
-    // Standard remaining-time check for longer tasks
-    if (timestamp - now <= threeDaysInMs) {
-      return "Due Soon";
-    }
-  }
-
-  return normalizeStatus(task?.status);
-};
-
-const getStatusClasses = (value) => {
-  const status = normalizeStatus(value);
-  if (status === "Due Soon") return "border-orange-500 bg-orange-50 text-orange-700";
-  if (status === "Pending") return "border-yellow-400 bg-yellow-50 text-yellow-700";
-  if (status === "Ongoing") return "border-blue-400 bg-blue-50 text-blue-700";
-  if (status === "Overdue") return "border-red-500 bg-red-50 text-red-700";
-  return "border-black/10 bg-black/[0.035] text-black/60";
-};
-
-const getStatusDotClasses = (value) => {
-  const status = normalizeStatus(value);
-  if (status === "Due Soon") return "bg-orange-500";
-  if (status === "Pending") return "bg-yellow-500";
-  if (status === "Ongoing") return "bg-blue-500";
-  if (status === "Overdue") return "bg-red-500";
-  return "bg-black/50";
-};
-
 const getPriorityClasses = (priority) => {
   const p = String(priority || "medium").toLowerCase();
-  if (p === "high") return "bg-red-100 text-red-700 border-red-200";
-  if (p === "medium") return "bg-amber-100 text-amber-700 border-amber-200";
-  return "bg-gray-100 text-gray-600 border-gray-200";
+  if (p === "high") return "bg-red-50 text-red-600 border-red-200/60";
+  if (p === "medium") return "bg-amber-50 text-amber-600 border-amber-200/60";
+  return "bg-gray-100 text-gray-600 border-gray-200/60";
 };
 
-export default function MyTasksTable({ tasks = [], hideFilter = false }) {
+function ColorPillStatusDropdown({ currentStatus, onSelect, scale }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [coords, setCoords] = useState({ bottom: 0, left: 0 });
+  const buttonRef = useRef(null);
+  const dropdownRef = useRef(null);
+
+  const updatePosition = () => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setCoords({
+        bottom: window.innerHeight - rect.top + 4,
+        left: rect.right + window.scrollX - 144,
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      updatePosition();
+      window.addEventListener("scroll", updatePosition, true);
+      window.addEventListener("resize", updatePosition);
+    }
+    return () => {
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target)
+      ) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const toggleDropdown = (e) => {
+    e.stopPropagation();
+    setIsOpen((prev) => !prev);
+  };
+
+  const currentStyle = STATUS_STYLES[currentStatus] || STATUS_STYLES.Pending;
+  const ChevronIcon = isOpen ? ChevronDown : ChevronUp;
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={toggleDropdown}
+        className={`inline-flex items-center gap-1.5 rounded-full border ${currentStyle.border} ${currentStyle.bg} transition-all hover:opacity-80 focus:outline-none`}
+        style={{
+          padding: `${clamp(3 * scale, 2, 4)}px ${clamp(10 * scale, 6, 10)}px`,
+        }}
+      >
+        <span className={`h-1.5 w-1.5 rounded-full ${currentStyle.dot}`} />
+        <span
+          className={`font-normal uppercase tracking-wide ${currentStyle.text}`}
+          style={{ fontSize: `${clamp(10 * scale, 7, 10)}px` }}
+        >
+          {currentStatus}
+        </span>
+        <ChevronIcon size={clamp(12 * scale, 9, 12)} className={currentStyle.text} />
+      </button>
+
+      {isOpen &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            style={{
+              position: "fixed",
+              bottom: `${coords.bottom}px`,
+              left: `${coords.left}px`,
+              zIndex: 999999,
+            }}
+            className="w-36 overflow-hidden rounded-2xl border border-slate-100 bg-white p-1.5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-col gap-1">
+              {TASK_STATUS_OPTIONS.map((status) => {
+                const isSelected = status === currentStatus;
+                const optStyle = STATUS_STYLES[status] || STATUS_STYLES.Pending;
+
+                return (
+                  <button
+                    key={status}
+                    type="button"
+                    onClick={() => {
+                      onSelect(status);
+                      setIsOpen(false);
+                    }}
+                    className={`flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 transition-colors ${
+                      isSelected ? "bg-slate-100" : "hover:bg-slate-50"
+                    }`}
+                  >
+                    <span
+                      className={`inline-flex items-center gap-1.5 rounded-full border ${optStyle.border} ${optStyle.bg} px-2 py-0.5`}
+                    >
+                      <span className={`h-1.5 w-1.5 rounded-full ${optStyle.dot}`} />
+                      <span className={`text-[10px] font-normal uppercase tracking-wide ${optStyle.text}`}>
+                        {status}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>,
+          document.body
+        )}
+    </>
+  );
+}
+
+export default function MyTasksTable({ tasks = [], hideFilter = false, onStatusChange, onClientClick }) {
+  const { user: currentUser } = useAuth();
+  const currentUserId = String(currentUser?._id || currentUser?.id || "");
+
   const viewportRef = useRef(null);
   const movingRef = useRef(false);
   const touchStartRef = useRef(null);
@@ -309,19 +470,33 @@ export default function MyTasksTable({ tasks = [], hideFilter = false }) {
   const [hoveredSide, setHoveredSide] = useState(null);
   const [selectedTime, setSelectedTime] = useState(ALL_TIMES);
 
-  const [layout, setLayout] = useState({ cardWidth: 0, cardHeight: 194, gap: 16, scale: 1 });
+  const [layout, setLayout] = useState({ cardWidth: 0, cardHeight: 225, gap: 16, scale: 1 });
+
+  const handleStatusUpdate = (task, newStatus) => {
+    if (onStatusChange) {
+      onStatusChange(task, newStatus);
+    }
+  };
 
   const activeTasks = useMemo(() => {
     return tasks.filter((task) => {
-      const status = String(task?.status || "").trim().toLowerCase();
-      const isCompleted = status === "completed" || status === "complete" || status === "done";
+      const creatorId = String(task.createdBy?._id || task.createdBy?.id || task.createdBy || "");
+      const isCreator = creatorId === currentUserId;
+
+      const assigneeId = String(task.assignedTo?._id || task.assignedTo?.id || task.assignedTo || "");
+      const isAssignee = assigneeId === currentUserId;
+
+      if (currentUserId && !isCreator && !isAssignee) return false;
+
+      const status = getDynamicTaskStatus(task);
+      const isCompleted = status === "Completed";
       
       const typeText = getTaskTypeText(task);
       const isMeeting = typeText.includes("meeting") || typeText.includes("appointment");
 
       return !isCompleted && !isMeeting;
     });
-  }, [tasks]);
+  }, [tasks, currentUserId]);
 
   const timeOptions = useMemo(() => {
     const uniqueTimes = [...new Set(activeTasks.map((task) => getTaskTimeKey(task)))].sort((a, b) => {
@@ -346,20 +521,8 @@ export default function MyTasksTable({ tasks = [], hideFilter = false }) {
     return activeTasks.filter((task) => selectedTime === ALL_TIMES || getTaskTimeKey(task) === selectedTime);
   }, [activeTasks, selectedTime, hideFilter]);
 
-  // Priority and Urgency Sorting Implementation
   const sortedTasks = useMemo(() => {
     return [...filteredTasks].sort((a, b) => {
-      // 1. Resolve and compare Status weight (Overdue > Due Soon > Pending > Ongoing)
-      const statusA = getTaskStatus(a);
-      const statusB = getTaskStatus(b);
-      const statusWeightA = STATUS_ORDER[statusA] || 0;
-      const statusWeightB = STATUS_ORDER[statusB] || 0;
-
-      if (statusWeightA !== statusWeightB) {
-        return statusWeightB - statusWeightA;
-      }
-
-      // 2. Compare Priority weight (High > Medium > Low)
       const priorityA = String(a?.priority || "medium").toLowerCase();
       const priorityB = String(b?.priority || "medium").toLowerCase();
       const priorityWeightA = PRIORITY_ORDER[priorityA] || 0;
@@ -369,11 +532,9 @@ export default function MyTasksTable({ tasks = [], hideFilter = false }) {
         return priorityWeightB - priorityWeightA;
       }
 
-      // 3. Compare Due Date & Time (Earliest date/time first)
       const dateDiff = getTaskTimestamp(a) - getTaskTimestamp(b);
       if (dateDiff !== 0) return dateDiff;
 
-      // 4. Fallback alphabetical title comparison
       return getTaskTitle(a).localeCompare(getTaskTitle(b));
     });
   }, [filteredTasks]);
@@ -410,7 +571,7 @@ export default function MyTasksTable({ tasks = [], hideFilter = false }) {
         setAnimated(false);
         setLayout({
           cardWidth: Math.max(0, cardWidth),
-          cardHeight: clamp(194 * scale, 132, 194),
+          cardHeight: clamp(225 * scale, 160, 235),
           gap,
           scale,
         });
@@ -441,7 +602,7 @@ export default function MyTasksTable({ tasks = [], hideFilter = false }) {
 
     let secondFrame;
     const firstFrame = window.requestAnimationFrame(() => {
-      secondFrame = window.requestAnimationFrame(() => setAnimated(true));
+      secondFrame = window.requestAnimationFrame(() => setIndex(cloneCount));
     });
 
     return () => {
@@ -571,7 +732,7 @@ export default function MyTasksTable({ tasks = [], hideFilter = false }) {
             </>
           )}
 
-          <div ref={viewportRef} className="w-full min-w-0 overflow-hidden py-2">
+          <div ref={viewportRef} className="w-full min-w-0 py-2">
             <div
               className="flex"
               onTransitionEnd={(e) => e.target === e.currentTarget && finishMove()}
@@ -584,61 +745,127 @@ export default function MyTasksTable({ tasks = [], hideFilter = false }) {
               }}
             >
               {cards.map((task, itemIndex) => {
+                const taskId = task?._id || task?.id;
+                const cardKey = `${taskId || "task"}-${itemIndex}`;
                 const TaskTypeIcon = getTaskTypeIcon(task);
                 const taskType = getTaskType(task);
-                const clientName = getClientName(task);
-                const status = getTaskStatus(task);
+                const clientInfo = getClientInfo(task);
+                const assignerInfo = getAssignerInfo(task, currentUserId);
+                const { linkItem, attachmentList } = getTaskLinkAndAttachments(task);
+                const currentStatus = getDynamicTaskStatus(task);
                 const priority = task?.priority || "medium";
 
                 return (
                   <article
-                    key={`${task?._id || task?.id || "task"}-${itemIndex}`}
-                    className="group relative box-border min-w-0 shrink-0 overflow-hidden rounded-xl border border-black/[0.08] bg-white shadow-[0_4px_14px_rgba(0,0,0,0.05)] transition duration-200 hover:-translate-y-0.5 hover:border-red-500/25 hover:shadow-[0_9px_22px_rgba(0,0,0,0.09)]"
+                    key={cardKey}
+                    className="group relative box-border min-w-0 shrink-0 rounded-2xl border border-black/[0.08] bg-white shadow-[0_4px_14px_rgba(0,0,0,0.05)] transition-all duration-200 hover:border-red-500/25 hover:shadow-[0_6px_18px_rgba(0,0,0,0.08)] flex flex-col justify-between"
                     style={{ width: `${cardWidth}px`, height: `${cardHeight}px`, padding: `${padding}px` }}
                   >
                     <span className="absolute bottom-0 left-5 right-5 h-0.5 rounded-full bg-red-500 opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
 
-                    <div className="flex h-full min-w-0 flex-col">
-                      <div className="min-w-0">
-                        <div className="flex min-w-0 items-center justify-between" style={{ gap: `${clamp(7 * scale, 4, 7)}px` }}>
-                          <div className="flex min-w-0 items-center gap-1.5">
-                            <TaskTypeIcon size={iconSize} strokeWidth={2} className="shrink-0 text-red-600" />
-                            <p className="min-w-0 truncate font-semibold uppercase tracking-[0.05em] text-red-600" style={{ fontSize: `${typeSize}px`, lineHeight: 1 }}>
-                              {taskType}
-                            </p>
-                          </div>
-
-                          <span
-                            className={`inline-flex shrink-0 items-center rounded-md border font-bold uppercase ${getPriorityClasses(priority)}`}
-                            style={{ fontSize: `${clamp(9 * scale, 6, 9)}px`, padding: `1px ${clamp(6 * scale, 3, 6)}px` }}
-                          >
-                            {priority}
-                          </span>
+                    <div className="flex flex-col min-w-0">
+                      <div className="flex min-w-0 items-center justify-between" style={{ gap: `${clamp(7 * scale, 4, 7)}px` }}>
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <TaskTypeIcon size={iconSize} strokeWidth={2} className="shrink-0 text-red-600" />
+                          <p className="min-w-0 truncate font-semibold uppercase tracking-[0.05em] text-red-600" style={{ fontSize: `${typeSize}px`, lineHeight: 1 }}>
+                            {taskType}
+                          </p>
                         </div>
 
-                        <h3 className="line-clamp-2 min-w-0 font-semibold text-black/85" style={{ marginTop: `${clamp(9 * scale, 5, 9)}px`, fontSize: `${titleSize}px`, lineHeight: 1.35 }}>
-                          {getTaskTitle(task)}
-                        </h3>
+                        <span
+                          className={`inline-flex shrink-0 items-center rounded-md border font-bold uppercase ${getPriorityClasses(priority)}`}
+                          style={{ fontSize: `${clamp(9 * scale, 6, 9)}px`, padding: `1px ${clamp(6 * scale, 3, 6)}px` }}
+                        >
+                          {priority}
+                        </span>
                       </div>
 
-                      <div className="flex min-w-0 items-center text-black/50" style={{ gap: `${clamp(6 * scale, 3, 6)}px`, marginTop: `${clamp(12 * scale, 6, 12)}px`, fontSize: `${clientSize}px` }}>
-                        <UserRound size={smallIconSize} className="shrink-0 text-red-600" />
-                        <span className="truncate" title={clientName}>{clientName}</span>
-                      </div>
+                      <h3 className="line-clamp-2 min-w-0 font-semibold text-black/85" style={{ marginTop: `${clamp(8 * scale, 4, 8)}px`, fontSize: `${titleSize}px`, lineHeight: 1.35 }}>
+                        {getTaskTitle(task)}
+                      </h3>
 
-                      <div className="mt-auto border-t border-black/[0.08]" style={{ paddingTop: `${clamp(10 * scale, 5, 10)}px` }}>
-                        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-                          <div className="flex min-w-0 items-center text-black/45" style={{ gap: `${clamp(5 * scale, 2, 5)}px`, fontSize: `${metaSize}px` }}>
+                      {assignerInfo && (
+                        <div 
+                          className="flex min-w-0 items-center text-black/50" 
+                          style={{ gap: `${clamp(6 * scale, 3, 6)}px`, marginTop: `${clamp(6 * scale, 3, 6)}px`, fontSize: `${clientSize}px` }}
+                        >
+                          <UserRound size={smallIconSize} className="shrink-0 text-red-600" />
+                          <span className="truncate" title={`Assigned by: ${assignerInfo.name}`}>
+                            Assigned by {assignerInfo.name}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col gap-1 my-1 overflow-hidden">
+                      {linkItem && (
+                        <a 
+                          href={linkItem.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-blue-600 hover:underline flex items-center gap-1 truncate rounded bg-blue-50/50 border border-blue-100 px-2 py-0.5" 
+                          style={{ fontSize: `${clientSize}px` }}
+                          title={linkItem.name}
+                        >
+                          <ExternalLink size={smallIconSize} className="shrink-0" />
+                          <span className="truncate">{linkItem.name}</span>
+                        </a>
+                      )}
+                      {attachmentList.map((file, idx) => (
+                        <a 
+                          key={idx} 
+                          href={file.url} 
+                          download={file.name} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-gray-700 hover:text-red-500 flex items-center gap-1 truncate rounded bg-slate-50 border border-slate-200/60 px-2 py-0.5 transition-colors" 
+                          style={{ fontSize: `${clientSize}px` }}
+                          title={file.name}
+                        >
+                          <Paperclip size={smallIconSize} className="shrink-0 text-red-500" />
+                          <span className="truncate font-medium">{file.name}</span>
+                        </a>
+                      ))}
+                      {clientInfo && !linkItem && attachmentList.length === 0 && (
+                        <div 
+                          className="flex min-w-0 items-center rounded-md bg-slate-50 border border-slate-200/60 transition-colors hover:bg-slate-100 cursor-pointer" 
+                          style={{ gap: `${clamp(6 * scale, 3, 6)}px`, padding: `${clamp(2 * scale, 1, 2)}px ${clamp(6 * scale, 3, 6)}px`, fontSize: `${clientSize}px` }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onClientClick) {
+                              onClientClick(clientInfo, task);
+                            }
+                          }}
+                        >
+                          <UserRound size={smallIconSize} className="shrink-0 text-red-600" />
+                          <span className="truncate font-medium text-slate-700" title={clientInfo?.name}>
+                            {clientInfo?.name}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="border-t border-black/[0.08]" style={{ paddingTop: `${clamp(6 * scale, 3, 6)}px` }}>
+                      <div className="flex min-w-0 items-center justify-between gap-2">
+                        <div className="flex min-w-0 flex-1 flex-col text-black/45" style={{ gap: `${clamp(2 * scale, 1, 3)}px`, fontSize: `${metaSize}px` }}>
+                          <div className="flex min-w-0 items-center" style={{ gap: `${clamp(5 * scale, 2, 5)}px` }}>
                             <CalendarDays size={smallIconSize} className="shrink-0" />
                             <span className="truncate">{formatTaskDate(task)}</span>
-                            <Clock size={smallIconSize} className="ml-1 shrink-0" />
+                          </div>
+                          <div className="flex min-w-0 items-center" style={{ gap: `${clamp(5 * scale, 2, 5)}px` }}>
+                            <Clock size={smallIconSize} className="shrink-0" />
                             <span className="truncate">{formatTaskTime(task)}</span>
                           </div>
+                        </div>
 
-                          <span className={`inline-flex shrink-0 items-center rounded-full border font-semibold uppercase ${getStatusClasses(status)}`} style={{ gap: `${clamp(5 * scale, 3, 5)}px`, fontSize: `${metaSize}px`, padding: `${clamp(4 * scale, 2, 4)}px ${clamp(8 * scale, 4, 8)}px` }}>
-                            <span className={`shrink-0 rounded-full ${getStatusDotClasses(status)}`} style={{ width: `${clamp(5 * scale, 3, 5)}px`, height: `${clamp(5 * scale, 3, 5)}px` }} />
-                            <span>{status}</span>
-                          </span>
+                        <div className="shrink-0">
+                          <ColorPillStatusDropdown
+                            currentStatus={currentStatus}
+                            onSelect={(status) => handleStatusUpdate(task, status)}
+                            scale={scale}
+                          />
                         </div>
                       </div>
                     </div>
