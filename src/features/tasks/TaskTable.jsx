@@ -2,7 +2,6 @@ import {
   Pencil,
   User,
   Calendar,
-  TriangleAlert,
   ExternalLink,
   Paperclip,
 } from "lucide-react";
@@ -16,7 +15,6 @@ import {
   BaseTable,
   TableRow,
   TableCell,
-  TablePagination,
   useTablePagination,
 } from "../../components/table";
 
@@ -76,13 +74,22 @@ const getTaskLinkAndAttachments = (task) => {
   const attachmentList = [];
 
   const rawLink = task?.link || task?.url || task?.externalLink;
+  
+  const customName = 
+    task?.linkName || 
+    task?.link_name || 
+    task?.urlName || 
+    task?.linkTitle || 
+    task?.metadata?.linkName || 
+    task?.linkMetadata?.name ||
+    (typeof task?.link === "object" ? task?.link?.name : null);
+
+  const trimmedCustomName = typeof customName === "string" ? customName.trim() : "";
+
   if (rawLink) {
-    const customName = typeof task?.linkName === "string" ? task.linkName.trim() : "";
     if (typeof rawLink === "string" && rawLink.trim() !== "") {
       const formattedUrl = rawLink.startsWith("http") ? rawLink : `https://${rawLink}`;
-      
-      // FIXED LOGIC: If customName exists, use it. Otherwise, use rawLink.
-      const displayName = customName !== "" ? customName : rawLink;
+      const displayName = trimmedCustomName !== "" ? trimmedCustomName : rawLink;
 
       linkItem = {
         name: displayName,
@@ -93,7 +100,7 @@ const getTaskLinkAndAttachments = (task) => {
       if (parsed) {
         linkItem = { 
           ...parsed, 
-          name: customName !== "" ? customName : (rawLink.url || rawLink.link || parsed.name) 
+          name: trimmedCustomName !== "" ? trimmedCustomName : (rawLink.url || rawLink.link || parsed.name) 
         };
       }
     }
@@ -220,149 +227,144 @@ export default function TaskTable({
   }
 
   return (
-    <>
-      <BaseTable columns={columns} empty={paginatedItems.length === 0 ? "No tasks found." : null} colSpan={columns.length} heightClass="h-112.5">
-        {paginatedItems.map((task) => {
-          const dynamicStatus = getDynamicTaskStatus(task);
-          const overdue = isOverdue(task.dueDate, dynamicStatus);
-          const dueToday = isDueToday(task.dueDate, dynamicStatus);
-          const responsible = getResponsibleName(task);
-          const responsiblePhoto = getProfileImage(responsible.user);
-          const canEditCurrentTask = canFullyEditTask(task, currentUser, permissions);
-          const editDisabledReason = getTaskEditDisabledReason(task, currentUser, permissions);
-          const { linkItem, attachmentList } = getTaskLinkAndAttachments(task);
-          const hasContent = linkItem || attachmentList.length > 0;
+    <BaseTable 
+      columns={columns} 
+      empty={paginatedItems.length === 0 ? "No tasks found." : null} 
+      colSpan={columns.length} 
+      heightClass="h-112.5"
+      paginationProps={{
+        currentPage,
+        totalPages,
+        totalRows,
+        rowsPerPage,
+        from,
+        to,
+        pageWindow,
+        onGoTo: goTo,
+        onRowsPerPageChange: setRowsPerPage,
+      }}
+    >
+      {paginatedItems.map((task) => {
+        const dynamicStatus = getDynamicTaskStatus(task);
+        const overdue = isOverdue(task.dueDate, dynamicStatus);
+        const dueToday = isDueToday(task.dueDate, dynamicStatus);
+        const responsible = getResponsibleName(task);
+        const responsiblePhoto = getProfileImage(responsible.user);
+        const canEditCurrentTask = canFullyEditTask(task, currentUser, permissions);
+        const editDisabledReason = getTaskEditDisabledReason(task, currentUser, permissions);
+        const { linkItem, attachmentList } = getTaskLinkAndAttachments(task);
+        const hasContent = linkItem || attachmentList.length > 0;
 
-          return (
-            <TableRow key={task._id} onClick={() => onView?.(task)}>
-              {/* 1. TITLE */}
-              <TableCell className="max-w-72 !py-2">
-                <div className="min-w-0">
-                  <p className="font-medium truncate">
-                    {task.taskType && task.taskType !== "Other" ? `${task.taskType}: ` : ""}
-                    {task.subject}
-                  </p>
-                  {task.description && (
-                    <p className="text-xs text-gray-400 truncate mt-0.5">{task.description}</p>
-                  )}
-                </div>
-              </TableCell>
-
-              {/* 2. PRIORITY */}
-              <TableCell className="!py-2">
-                <div onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
-                  <StatusDropdown
-                    status={task.priority || "Medium"}
-                    statuses={TASK_PRIORITIES}
-                    toneMap={TASK_PRIORITY_TONE}
-                    disabled={!canEdit}
-                    onSelect={(val) => onUpdatePriority?.(task._id, val)}
-                  />
-                </div>
-              </TableCell>
-
-              {/* 3. TASK OWNER */}
-              <TableCell className="!py-2">
-                <div className="flex items-center gap-2 whitespace-nowrap">
-                  {responsible.user ? (
-                    <img src={responsiblePhoto} alt="" className="w-7 h-7 rounded-full object-cover border border-gray-300 shrink-0" />
-                  ) : (
-                    <span className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-                      <User size={13} className="text-gray-400" />
-                    </span>
-                  )}
-                  <span className={`text-sm truncate max-w-36 inline-flex items-center ${responsible.type === "unassigned" ? "text-gray-400 italic" : "text-gray-700"}`}>
-                    {responsible.label}
-                  </span>
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${task.scope === "Personal" ? "bg-indigo-500" : "bg-teal-500"}`} title={task.scope} />
-                </div>
-              </TableCell>
-
-              {/* 4. LINK / FILES */}
-              <TableCell className="max-w-[180px] !py-2">
-                {hasContent ? (
-                  <div className="flex flex-col gap-0.5 truncate" onClick={(e) => e.stopPropagation()}>
-                    {linkItem && (
-                      <a href={linkItem.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs flex items-center gap-1 truncate" title={linkItem.name}>
-                        <ExternalLink size={11} className="shrink-0" />
-                        <span className="truncate">{linkItem.name}</span>
-                      </a>
-                    )}
-                    {attachmentList.map((file, idx) => (
-                      <a 
-                        key={idx} 
-                        href={file.url} 
-                        download={file.name} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="text-gray-700 hover:text-red-500 text-xs flex items-center gap-1 truncate" 
-                        title={file.name}
-                      >
-                        <Paperclip size={11} className="shrink-0 text-red-500" />
-                        <span className="truncate">{file.name}</span>
-                      </a>
-                    ))}
-                  </div>
-                ) : (
-                  <span className="text-sm text-gray-400">—</span>
+        return (
+          <TableRow key={task._id} onClick={() => onView?.(task)}>
+            <TableCell className="max-w-72 !py-2">
+              <div className="min-w-0">
+                <p className="font-medium truncate">
+                  {task.taskType && task.taskType !== "Other" ? `${task.taskType}: ` : ""}
+                  {task.subject}
+                </p>
+                {task.description && (
+                  <p className="text-xs text-gray-400 truncate mt-0.5">{task.description}</p>
                 )}
-              </TableCell>
+              </div>
+            </TableCell>
 
-              {/* 5. DEADLINE */}
-              <TableCell className="!py-2">
-                {task.dueDate ? (
-                  <span className={`flex items-center gap-1 text-sm ${overdue ? "text-red-500 font-medium" : dueToday ? "text-amber-500 font-medium" : "text-gray-600"}`}>
-                    {overdue || dueToday ? <TriangleAlert size={12} className="shrink-0" /> : <Calendar size={12} className="shrink-0" />}
-                    {formatDate(task.dueDate)}
-                  </span>
+            <TableCell className="!py-2">
+              <div onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+                <StatusDropdown
+                  status={task.priority || "Medium"}
+                  statuses={TASK_PRIORITIES}
+                  toneMap={TASK_PRIORITY_TONE}
+                  disabled={!canEdit}
+                  onSelect={(val) => onUpdatePriority?.(task._id, val)}
+                />
+              </div>
+            </TableCell>
+
+            <TableCell className="!py-2">
+              <div className="flex items-center gap-2 whitespace-nowrap">
+                {responsible.user ? (
+                  <img src={responsiblePhoto} alt="" className="w-7 h-7 rounded-full object-cover border border-gray-300 shrink-0" />
                 ) : (
-                  <span className="text-sm text-gray-400">—</span>
+                  <span className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                    <User size={13} className="text-gray-400" />
+                  </span>
                 )}
-              </TableCell>
+                <span className={`text-sm truncate max-w-36 inline-flex items-center ${responsible.type === "unassigned" ? "text-gray-400 italic" : "text-gray-700"}`}>
+                  {responsible.label}
+                </span>
+                <span className={`w-2 h-2 rounded-full shrink-0 ${task.scope === "Personal" ? "bg-indigo-500" : "bg-teal-500"}`} title={task.scope} />
+              </div>
+            </TableCell>
 
-              {/* 6. STATUS */}
-              <TableCell className="!py-2">
-                <div onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
-                  <StatusDropdown
-                    status={dynamicStatus}
-                    statuses={TASK_STATUSES}
-                    toneMap={TASK_STATUS_TONE}
-                    disabled={!canEdit}
-                    onSelect={(val) => onUpdateStatus?.(task._id, val)}
-                  />
+            <TableCell className="max-w-[180px] !py-2">
+              {hasContent ? (
+                <div className="flex flex-col gap-0.5 truncate" onClick={(e) => e.stopPropagation()}>
+                  {linkItem && (
+                    <a href={linkItem.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs flex items-center gap-1 truncate" title={linkItem.name}>
+                      <ExternalLink size={11} className="shrink-0" />
+                      <span className="truncate">{linkItem.name}</span>
+                    </a>
+                  )}
+                  {attachmentList.map((file, idx) => (
+                    <a 
+                      key={idx} 
+                      href={file.url} 
+                      download={file.name} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-gray-700 hover:text-red-500 text-xs flex items-center gap-1 truncate" 
+                      title={file.name}
+                    >
+                      <Paperclip size={11} className="shrink-0 text-red-500" />
+                      <span className="truncate">{file.name}</span>
+                    </a>
+                  ))}
                 </div>
-              </TableCell>
-
-              {/* 7. ACTIONS */}
-              {canEdit && (
-                <TableCell className="text-right !py-2">
-                  <button
-                    disabled={!canEditCurrentTask}
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); onEdit?.(task); }}
-                    className={`p-1.5 rounded-md transition-colors ${!canEditCurrentTask ? "text-gray-300 cursor-not-allowed" : "text-gray-400 hover:text-[#ef4444] cursor-pointer"}`}
-                    title={!canEditCurrentTask ? editDisabledReason : "Edit task"}
-                  >
-                    <Pencil size={15} />
-                  </button>
-                </TableCell>
+              ) : (
+                <span className="text-sm text-gray-400">—</span>
               )}
-            </TableRow>
-          );
-        })}
-      </BaseTable>
+            </TableCell>
 
-      <TablePagination
-        currentPage={currentPage}
-        totalPages={totalPages}
-        totalRows={totalRows}
-        rowsPerPage={rowsPerPage}
-        from={from}
-        to={to}
-        pageWindow={pageWindow}
-        onGoTo={goTo}
-        onRowsPerPageChange={setRowsPerPage}
-      />
-    </>
+            <TableCell className="!py-2">
+              {task.dueDate ? (
+                <span className={`flex items-center gap-1 text-sm ${overdue ? "text-red-500 font-medium" : dueToday ? "text-amber-500 font-medium" : "text-gray-600"}`}>
+                  <Calendar size={12} className="shrink-0" />
+                  {formatDate(task.dueDate)}
+                </span>
+              ) : (
+                <span className="text-sm text-gray-400">—</span>
+              )}
+            </TableCell>
+
+            <TableCell className="!py-2">
+              <div onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+                <StatusDropdown
+                  status={dynamicStatus}
+                  statuses={TASK_STATUSES}
+                  toneMap={TASK_STATUS_TONE}
+                  disabled={!canEdit}
+                  onSelect={(val) => onUpdateStatus?.(task._id, val)}
+                />
+              </div>
+            </TableCell>
+
+            {canEdit && (
+              <TableCell className="text-right !py-2">
+                <button
+                  disabled={!canEditCurrentTask}
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onEdit?.(task); }}
+                  className={`p-1.5 rounded-md transition-colors ${!canEditCurrentTask ? "text-gray-300 cursor-not-allowed" : "text-gray-400 hover:text-[#ef4444] cursor-pointer"}`}
+                  title={!canEditCurrentTask ? editDisabledReason : "Edit task"}
+                >
+                  <Pencil size={15} />
+                </button>
+              </TableCell>
+            )}
+          </TableRow>
+        );
+      })}
+    </BaseTable>
   );
 }
