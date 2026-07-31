@@ -5,28 +5,54 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 
 import {
   CalendarDays,
+  ChevronDown,
+  ChevronUp,
   ChevronLeft,
   ChevronRight,
   Clock,
   UserRound,
   Video,
+  Check,
 } from "lucide-react";
-
-import HeaderFilterDropdown from "./HeaderFilterDropdown";
 
 const VISIBLE_CARDS = 4;
 const CLONE_COUNT = 4;
 const ALL_VALUES = "all";
 const NO_VALUE = "__no_value__";
 
+// Updated meeting status options including "In Progress"
+const MEETING_STATUS_OPTIONS = [
+  "Scheduled",
+  "In Progress",
+  "Completed",
+  "Cancelled",
+  "Rescheduled",
+];
+
+// Color styling system with Scheduled as orange and In Progress as blue
+const STATUS_STYLES = {
+  Scheduled: { bg: "bg-orange-50", text: "text-orange-600", border: "border-orange-400", dot: "bg-orange-600" },
+  "In Progress": { bg: "bg-blue-50", text: "text-blue-600", border: "border-blue-400", dot: "bg-blue-600" },
+  Completed: { bg: "bg-green-50", text: "text-green-600", border: "border-green-400", dot: "bg-green-600" },
+  Cancelled: { bg: "bg-red-50", text: "text-red-600", border: "border-red-400", dot: "bg-red-600" },
+  Rescheduled: { bg: "bg-purple-50", text: "text-purple-600", border: "border-purple-400", dot: "bg-purple-600" },
+};
+
 const clamp = (value, minimum, maximum) =>
   Math.min(maximum, Math.max(minimum, value));
 
 const getMeetingTitle = (m) =>
   m?.title || m?.meetingTitle || m?.subject || m?.name || "Untitled Meeting";
+
+const getMeetingType = (m) =>
+  m?.meetingType || m?.type || m?.category || m?.kind || "Meeting";
+
+const getMeetingStatus = (m) =>
+  m?.status || m?.meetingStatus || m?.state || "Scheduled";
 
 const getObjectName = (record) => {
   if (!record || typeof record !== "object") return "";
@@ -136,38 +162,6 @@ const getMeetingTimeParts = (m) => {
   return null;
 };
 
-const getMeetingDateKey = (m) => {
-  const dateValue = getMeetingDateValue(m);
-  if (!dateValue) return NO_VALUE;
-
-  const rawString = String(dateValue).trim();
-  const cleanString = rawString.includes("T") ? rawString.split("T")[0] : rawString;
-
-  const parsedDate = parseDate(cleanString);
-  if (!parsedDate) return cleanString || NO_VALUE;
-
-  const year = parsedDate.getFullYear();
-  const month = String(parsedDate.getMonth() + 1).padStart(2, "0");
-  const day = String(parsedDate.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-};
-
-// FIX: Formats to strictly YYYY-MM-DD
-const formatMeetingDateKey = (dateKey) => {
-  if (dateKey === NO_VALUE || !dateKey) return "No Date";
-
-  const cleanKey = String(dateKey).includes("T") ? String(dateKey).split("T")[0] : String(dateKey);
-  const parsedDate = parseDate(cleanKey);
-  if (!parsedDate) return cleanKey;
-
-  const year = parsedDate.getFullYear();
-  const month = String(parsedDate.getMonth() + 1).padStart(2, "0");
-  const day = String(parsedDate.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-};
-
 const getMeetingTimeKey = (m) => {
   const timeParts = getMeetingTimeParts(m);
   if (!timeParts) return NO_VALUE;
@@ -197,49 +191,282 @@ const getMeetingTimestamp = (m) => {
   return parsedDate.getTime();
 };
 
-const formatMeetingDate = (m) => formatMeetingDateKey(getMeetingDateKey(m));
+const formatMeetingDate = (m) => {
+  const parsedDate = parseDate(getMeetingDateValue(m));
+  if (!parsedDate) return "No Date";
+  const year = parsedDate.getFullYear();
+  const month = String(parsedDate.getMonth() + 1).padStart(2, "0");
+  const day = String(parsedDate.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 const formatMeetingTime = (m) => formatMeetingTimeKey(getMeetingTimeKey(m));
 
 const normalizeStatus = (value) => {
-  const normalizedStatus = String(value || "").trim().toLowerCase();
-  if (!normalizedStatus || normalizedStatus === "scheduled" || normalizedStatus === "upcoming") return "Scheduled";
-  if (normalizedStatus === "in progress" || normalizedStatus === "ongoing") return "Ongoing";
-  if (normalizedStatus === "completed" || normalizedStatus === "complete" || normalizedStatus === "done") return "Completed";
-  if (normalizedStatus === "cancelled" || normalizedStatus === "canceled") return "Cancelled";
-  return value;
+  const normalizedStatus = String(value || "").trim();
+  if (!normalizedStatus) return "Scheduled";
+  const found = MEETING_STATUS_OPTIONS.find(
+    (opt) => opt.toLowerCase() === normalizedStatus.toLowerCase()
+  );
+  return found || normalizedStatus;
 };
 
-const getMeetingStatus = (m) => {
-  const normalizedStatus = normalizeStatus(m?.status);
-  if (normalizedStatus === "Completed" || normalizedStatus === "Cancelled") return normalizedStatus;
+function ColorPillMeetingStatusDropdown({ currentStatus, onSelect, scale }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [coords, setCoords] = useState({ bottom: 0, left: 0 });
+  const buttonRef = useRef(null);
+  const dropdownRef = useRef(null);
 
-  const timestamp = getMeetingTimestamp(m);
-  if (timestamp !== Number.MAX_SAFE_INTEGER && timestamp < Date.now()) {
-    return "Completed";
-  }
+  const updatePosition = () => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setCoords({
+        bottom: window.innerHeight - rect.top + 4,
+        left: rect.right + window.scrollX - 156,
+      });
+    }
+  };
 
-  return normalizedStatus;
-};
+  useEffect(() => {
+    if (isOpen) {
+      updatePosition();
+      window.addEventListener("scroll", updatePosition, true);
+      window.addEventListener("resize", updatePosition);
+    }
+    return () => {
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [isOpen]);
 
-const getStatusClasses = (value) => {
-  const status = normalizeStatus(value);
-  if (status === "Scheduled") return "border-blue-400 bg-blue-50 text-blue-700";
-  if (status === "Ongoing") return "border-purple-400 bg-purple-50 text-purple-700";
-  if (status === "Completed") return "border-green-500 bg-green-50 text-green-700";
-  if (status === "Cancelled") return "border-red-500 bg-red-50 text-red-700";
-  return "border-black/10 bg-black/[0.035] text-black/60";
-};
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target)
+      ) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
-const getStatusDotClasses = (value) => {
-  const status = normalizeStatus(value);
-  if (status === "Scheduled") return "bg-blue-500";
-  if (status === "Ongoing") return "bg-purple-500";
-  if (status === "Completed") return "bg-green-500";
-  if (status === "Cancelled") return "bg-red-500";
-  return "bg-black/50";
-};
+  const toggleDropdown = (e) => {
+    e.stopPropagation();
+    setIsOpen((prev) => !prev);
+  };
 
-export default function MyMeetingsTable({ meetings = [], hideFilter = false }) {
+  const currentStyle = STATUS_STYLES[currentStatus] || STATUS_STYLES.Scheduled;
+  const ChevronIcon = isOpen ? ChevronDown : ChevronUp;
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={toggleDropdown}
+        className={`inline-flex items-center gap-1.5 rounded-full border ${currentStyle.border} ${currentStyle.bg} transition-all hover:opacity-80 focus:outline-none`}
+        style={{
+          padding: `${clamp(3 * scale, 2, 4)}px ${clamp(10 * scale, 6, 10)}px`,
+        }}
+      >
+        <span className={`h-1.5 w-1.5 rounded-full ${currentStyle.dot}`} />
+        <span
+          className={`font-normal uppercase tracking-wide ${currentStyle.text}`}
+          style={{ fontSize: `${clamp(10 * scale, 7, 10)}px` }}
+        >
+          {currentStatus}
+        </span>
+        <ChevronIcon size={clamp(12 * scale, 9, 12)} className={currentStyle.text} />
+      </button>
+
+      {isOpen &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            style={{
+              position: "fixed",
+              bottom: `${coords.bottom}px`,
+              left: `${coords.left}px`,
+              zIndex: 999999,
+            }}
+            className="w-36 overflow-hidden rounded-2xl border border-slate-100 bg-white p-1.5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-col gap-1">
+              {MEETING_STATUS_OPTIONS.map((status) => {
+                const isSelected = status === currentStatus;
+                const optStyle = STATUS_STYLES[status] || STATUS_STYLES.Scheduled;
+
+                return (
+                  <button
+                    key={status}
+                    type="button"
+                    onClick={() => {
+                      onSelect(status);
+                      setIsOpen(false);
+                    }}
+                    className={`flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 transition-colors ${
+                      isSelected ? "bg-slate-100" : "hover:bg-slate-50"
+                    }`}
+                  >
+                    <span
+                      className={`inline-flex items-center gap-1.5 rounded-full border ${optStyle.border} ${optStyle.bg} px-2 py-0.5`}
+                    >
+                      <span className={`h-1.5 w-1.5 rounded-full ${optStyle.dot}`} />
+                      <span className={`text-[10px] font-normal uppercase tracking-wide ${optStyle.text}`}>
+                        {status}
+                      </span>
+                    </span>
+                    {isSelected && <Check size={12} className={optStyle.text} />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>,
+          document.body
+        )}
+    </>
+  );
+}
+
+function HeaderFilterDropdown({
+  icon: Icon,
+  ariaLabel,
+  value,
+  options,
+  onChange,
+  minimumWidth = 145,
+  isStatusFilter = false,
+}) {
+  const containerRef = useRef(null);
+  const [open, setOpen] = useState(false);
+
+  const selectedOption =
+    options.find((opt) => opt.value === value) || options[0];
+
+  useEffect(() => {
+    if (!options.length) return;
+
+    const valueStillExists = options.some((option) => option.value === value);
+    if (!valueStillExists) {
+      onChange(options[0].value);
+    }
+  }, [onChange, options, value]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (!containerRef.current?.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  const activeStyle = isStatusFilter && value !== ALL_VALUES && STATUS_STYLES[value];
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        aria-label={ariaLabel}
+        aria-expanded={open}
+        disabled={!options.length}
+        onClick={() => setOpen((prev) => !prev)}
+        className={`inline-flex items-center justify-between gap-2 rounded-lg border bg-white px-3 py-1.5 text-xs font-medium shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${
+          open
+            ? "border-red-500/50 text-red-600"
+            : "border-black/10 text-black/65 hover:border-red-500/30"
+        }`}
+        style={{ minWidth: `${minimumWidth}px` }}
+      >
+        <span className="flex min-w-0 items-center gap-1.5">
+          {activeStyle ? (
+            <span className={`inline-flex items-center gap-1.5 rounded-full border ${activeStyle.border} ${activeStyle.bg} px-2 py-0.5`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${activeStyle.dot}`} />
+              <span className={`text-[10px] font-normal uppercase tracking-wide ${activeStyle.text}`}>
+                {selectedOption?.label}
+              </span>
+            </span>
+          ) : (
+            <>
+              <Icon size={14} className="shrink-0 text-red-600" />
+              <span className="truncate">{selectedOption?.label}</span>
+            </>
+          )}
+        </span>
+        <ChevronDown
+          size={14}
+          className={`shrink-0 transition-transform duration-200 ${
+            open ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full z-50 mt-1.5 w-48 overflow-hidden rounded-xl border border-black/10 bg-white p-1.5 shadow-lg">
+          <p className="px-2.5 pb-1.5 pt-1 text-[11px] font-medium text-black/40">
+            Select option
+          </p>
+          <div className="max-h-56 overflow-y-auto space-y-1">
+            {options.map((opt) => {
+              const selected = opt.value === value;
+              const optStyle = STATUS_STYLES[opt.value];
+
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(opt.value);
+                    setOpen(false);
+                  }}
+                  className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs transition ${
+                    selected ? "bg-black/5 font-semibold" : "text-black/65 hover:bg-black/5"
+                  }`}
+                >
+                  {optStyle ? (
+                    <span className={`inline-flex items-center gap-1.5 rounded-full border ${optStyle.border} ${optStyle.bg} px-2 py-0.5`}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${optStyle.dot}`} />
+                      <span className={`text-[10px] font-normal uppercase tracking-wide ${optStyle.text}`}>
+                        {opt.label}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="truncate">{opt.label}</span>
+                  )}
+                  {selected && (
+                    <Check size={14} className="shrink-0 text-red-600" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function MyMeetingsTable({ meetings = [], hideFilter = false, onStatusChange, currentUserId, isSuperAdmin = false }) {
   const viewportRef = useRef(null);
   const movingRef = useRef(false);
   const touchStartRef = useRef(null);
@@ -249,26 +476,51 @@ export default function MyMeetingsTable({ meetings = [], hideFilter = false }) {
   const [animated, setAnimated] = useState(false);
   const [hoveredSide, setHoveredSide] = useState(null);
 
-  const [selectedDate, setSelectedDate] = useState(ALL_VALUES);
+  const [selectedStatus, setSelectedStatus] = useState(ALL_VALUES);
   const [selectedTime, setSelectedTime] = useState(ALL_VALUES);
+  const [localMeetingStatuses, setLocalMeetingStatuses] = useState({});
 
-  const [layout, setLayout] = useState({ cardWidth: 0, cardHeight: 194, gap: 16, scale: 1 });
+  // EDIT CARD HEIGHT HERE (e.g., change base 210 and limits 150, 220)
+  const [layout, setLayout] = useState({ cardWidth: 0, cardHeight: 210, gap: 16, scale: 1 });
 
-  const dateOptions = useMemo(() => {
-    const uniqueDates = [...new Set(meetings.map((m) => getMeetingDateKey(m)))].sort((a, b) => {
-      if (a === NO_VALUE) return 1;
-      if (b === NO_VALUE) return -1;
-      return a.localeCompare(b);
+  const handleStatusUpdate = (meeting, newStatus) => {
+    const meetingId = meeting?._id || meeting?.id;
+    if (meetingId) {
+      setLocalMeetingStatuses((prev) => ({ ...prev, [meetingId]: newStatus }));
+    }
+    if (onStatusChange) {
+      onStatusChange(meeting, newStatus);
+    }
+  };
+
+  const userRelatedMeetings = useMemo(() => {
+    if (isSuperAdmin || !currentUserId) return meetings;
+
+    return meetings.filter((m) => {
+      const creatorId = m?.userId || m?.createdBy || m?.creator?._id || m?.creator?.id;
+      const assignedUsers = m?.assignedTo || m?.participants || m?.attendees || [];
+      
+      const isCreator = creatorId && String(creatorId) === String(currentUserId);
+      const isParticipant = Array.isArray(assignedUsers)
+        ? assignedUsers.some((u) => {
+            const uId = typeof u === "object" ? (u?._id || u?.id) : u;
+            return String(uId) === String(currentUserId);
+          })
+        : false;
+
+      return isCreator || isParticipant;
     });
+  }, [meetings, currentUserId, isSuperAdmin]);
 
+  const statusOptions = useMemo(() => {
     return [
-      { value: ALL_VALUES, label: "All Dates" },
-      ...uniqueDates.map((d) => ({ value: d, label: formatMeetingDateKey(d) })),
+      { value: ALL_VALUES, label: "All Statuses" },
+      ...MEETING_STATUS_OPTIONS.map((status) => ({ value: status, label: status })),
     ];
-  }, [meetings]);
+  }, []);
 
   const timeOptions = useMemo(() => {
-    const uniqueTimes = [...new Set(meetings.map((m) => getMeetingTimeKey(m)))].sort((a, b) => {
+    const uniqueTimes = [...new Set(userRelatedMeetings.map((m) => getMeetingTimeKey(m)))].sort((a, b) => {
       if (a === NO_VALUE) return 1;
       if (b === NO_VALUE) return -1;
       return a.localeCompare(b);
@@ -278,29 +530,37 @@ export default function MyMeetingsTable({ meetings = [], hideFilter = false }) {
       { value: ALL_VALUES, label: "All Times" },
       ...uniqueTimes.map((t) => ({ value: t, label: formatMeetingTimeKey(t) })),
     ];
-  }, [meetings]);
+  }, [userRelatedMeetings]);
 
   useEffect(() => {
-    if (!dateOptions.some((opt) => opt.value === selectedDate)) setSelectedDate(ALL_VALUES);
-  }, [selectedDate, dateOptions]);
+    if (!statusOptions.some((opt) => opt.value === selectedStatus)) setSelectedStatus(ALL_VALUES);
+  }, [selectedStatus, statusOptions]);
 
   useEffect(() => {
     if (!timeOptions.some((opt) => opt.value === selectedTime)) setSelectedTime(ALL_VALUES);
   }, [selectedTime, timeOptions]);
 
   const filteredMeetings = useMemo(() => {
-    if (hideFilter) return meetings;
-    return meetings.filter((m) => {
-      const dateMatch = selectedDate === ALL_VALUES || getMeetingDateKey(m) === selectedDate;
+    if (hideFilter) return userRelatedMeetings;
+    return userRelatedMeetings.filter((m) => {
+      const meetingId = m?._id || m?.id;
+      const currentStatus = localMeetingStatuses[meetingId]
+        ? normalizeStatus(localMeetingStatuses[meetingId])
+        : normalizeStatus(getMeetingStatus(m));
+
+      const statusMatch = selectedStatus === ALL_VALUES || currentStatus.toLowerCase() === selectedStatus.toLowerCase();
       const timeMatch = selectedTime === ALL_VALUES || getMeetingTimeKey(m) === selectedTime;
-      return dateMatch && timeMatch;
+
+      return statusMatch && timeMatch;
     });
-  }, [meetings, selectedDate, selectedTime, hideFilter]);
+  }, [userRelatedMeetings, localMeetingStatuses, selectedStatus, selectedTime, hideFilter]);
 
   const sortedMeetings = useMemo(() => {
     return [...filteredMeetings].sort((a, b) => {
-      const dateDiff = getMeetingTimestamp(a) - getMeetingTimestamp(b);
-      if (dateDiff !== 0) return dateDiff;
+      const timeA = getMeetingTimestamp(a);
+      const timeB = getMeetingTimestamp(b);
+
+      if (timeA !== timeB) return timeA - timeB;
       return getMeetingTitle(a).localeCompare(getMeetingTitle(b));
     });
   }, [filteredMeetings]);
@@ -337,7 +597,8 @@ export default function MyMeetingsTable({ meetings = [], hideFilter = false }) {
         setAnimated(false);
         setLayout({
           cardWidth: Math.max(0, cardWidth),
-          cardHeight: clamp(194 * scale, 132, 194),
+          // MODIFIED HEIGHT: Adjusted base height to 210 and limits to 150-220
+          cardHeight: clamp(210 * scale, 150, 220),
           gap,
           scale,
         });
@@ -368,7 +629,7 @@ export default function MyMeetingsTable({ meetings = [], hideFilter = false }) {
 
     let secondFrame;
     const firstFrame = window.requestAnimationFrame(() => {
-      secondFrame = window.requestAnimationFrame(() => setAnimated(true));
+      secondFrame = window.requestAnimationFrame(() => setIndex(cloneCount));
     });
 
     return () => {
@@ -432,12 +693,13 @@ export default function MyMeetingsTable({ meetings = [], hideFilter = false }) {
       {!hideFilter && (
         <div className="mb-4 mt-2 flex w-full flex-wrap justify-end gap-2">
           <HeaderFilterDropdown
-            icon={CalendarDays}
-            ariaLabel="Filter meetings by date"
-            value={selectedDate}
-            options={dateOptions}
-            onChange={setSelectedDate}
-            minimumWidth={150}
+            icon={Clock}
+            ariaLabel="Filter meetings by status"
+            value={selectedStatus}
+            options={statusOptions}
+            onChange={setSelectedStatus}
+            minimumWidth={145}
+            isStatusFilter={true}
           />
           <HeaderFilterDropdown
             icon={Clock}
@@ -445,13 +707,14 @@ export default function MyMeetingsTable({ meetings = [], hideFilter = false }) {
             value={selectedTime}
             options={timeOptions}
             onChange={setSelectedTime}
+            minimumWidth={130}
           />
         </div>
       )}
 
       {!items.length ? (
         <div className="flex h-36 w-full items-center justify-center rounded-xl border border-black/10 bg-white text-sm text-black/40">
-          {meetings.length ? "No meetings match the selected filters" : "No meetings scheduled"}
+          {meetings.length ? "No meetings match your account" : "No meetings scheduled"}
         </div>
       ) : (
         <div
@@ -506,7 +769,7 @@ export default function MyMeetingsTable({ meetings = [], hideFilter = false }) {
             </>
           )}
 
-          <div ref={viewportRef} className="w-full min-w-0 overflow-hidden py-2">
+          <div ref={viewportRef} className="w-full min-w-0 py-2">
             <div
               className="flex"
               onTransitionEnd={(e) => e.target === e.currentTarget && finishMove()}
@@ -519,13 +782,17 @@ export default function MyMeetingsTable({ meetings = [], hideFilter = false }) {
               }}
             >
               {cards.map((meeting, itemIndex) => {
+                const meetingId = meeting?._id || meeting?.id;
                 const clientName = getClientName(meeting);
-                const status = getMeetingStatus(meeting);
+                const meetingType = getMeetingType(meeting);
+                const currentStatus = localMeetingStatuses[meetingId]
+                  ? normalizeStatus(localMeetingStatuses[meetingId])
+                  : normalizeStatus(getMeetingStatus(meeting));
 
                 return (
                   <article
-                    key={`${meeting?._id || meeting?.id || "meeting"}-${itemIndex}`}
-                    className="group relative box-border min-w-0 shrink-0 overflow-hidden rounded-xl border border-black/[0.08] bg-white shadow-[0_4px_14px_rgba(0,0,0,0.05)] transition duration-200 hover:-translate-y-0.5 hover:border-red-500/25 hover:shadow-[0_9px_22px_rgba(0,0,0,0.09)]"
+                    key={`${meetingId || "meeting"}-${itemIndex}`}
+                    className="group relative box-border min-w-0 shrink-0 rounded-2xl border border-black/[0.08] bg-white shadow-[0_4px_14px_rgba(0,0,0,0.05)] transition-all duration-200 hover:border-red-500/25 hover:shadow-[0_6px_18px_rgba(0,0,0,0.08)]"
                     style={{ width: `${cardWidth}px`, height: `${cardHeight}px`, padding: `${padding}px` }}
                   >
                     <span className="absolute bottom-0 left-5 right-5 h-0.5 rounded-full bg-red-500 opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
@@ -535,7 +802,7 @@ export default function MyMeetingsTable({ meetings = [], hideFilter = false }) {
                         <div className="flex min-w-0 items-center" style={{ gap: `${clamp(7 * scale, 4, 7)}px` }}>
                           <Video size={iconSize} strokeWidth={2} className="shrink-0 text-red-600" />
                           <p className="min-w-0 truncate font-semibold uppercase tracking-[0.05em] text-red-600" style={{ fontSize: `${typeSize}px`, lineHeight: 1 }}>
-                            Meeting
+                            {meetingType}
                           </p>
                         </div>
 
@@ -550,18 +817,25 @@ export default function MyMeetingsTable({ meetings = [], hideFilter = false }) {
                       </div>
 
                       <div className="mt-auto border-t border-black/[0.08]" style={{ paddingTop: `${clamp(10 * scale, 5, 10)}px` }}>
-                        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-                          <div className="flex min-w-0 items-center text-black/45" style={{ gap: `${clamp(5 * scale, 2, 5)}px`, fontSize: `${metaSize}px` }}>
-                            <CalendarDays size={smallIconSize} className="shrink-0" />
-                            <span className="truncate">{formatMeetingDate(meeting)}</span>
-                            <Clock size={smallIconSize} className="ml-1 shrink-0" />
-                            <span className="truncate">{formatMeetingTime(meeting)}</span>
+                        <div className="flex min-w-0 items-center justify-between gap-2">
+                          <div className="flex min-w-0 flex-1 flex-col text-black/45" style={{ gap: `${clamp(2 * scale, 1, 3)}px`, fontSize: `${metaSize}px` }}>
+                            <div className="flex min-w-0 items-center" style={{ gap: `${clamp(5 * scale, 2, 5)}px` }}>
+                              <CalendarDays size={smallIconSize} className="shrink-0" />
+                              <span className="truncate">{formatMeetingDate(meeting)}</span>
+                            </div>
+                            <div className="flex min-w-0 items-center" style={{ gap: `${clamp(5 * scale, 2, 5)}px` }}>
+                              <Clock size={smallIconSize} className="shrink-0" />
+                              <span className="truncate">{formatMeetingTime(meeting)}</span>
+                            </div>
                           </div>
 
-                          <span className={`inline-flex shrink-0 items-center rounded-full border font-semibold uppercase ${getStatusClasses(status)}`} style={{ gap: `${clamp(5 * scale, 3, 5)}px`, fontSize: `${metaSize}px`, padding: `${clamp(4 * scale, 2, 4)}px ${clamp(8 * scale, 4, 8)}px` }}>
-                            <span className={`shrink-0 rounded-full ${getStatusDotClasses(status)}`} style={{ width: `${clamp(5 * scale, 3, 5)}px`, height: `${clamp(5 * scale, 3, 5)}px` }} />
-                            <span>{status}</span>
-                          </span>
+                          <div className="shrink-0">
+                            <ColorPillMeetingStatusDropdown
+                              currentStatus={currentStatus}
+                              onSelect={(status) => handleStatusUpdate(meeting, status)}
+                              scale={scale}
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>
