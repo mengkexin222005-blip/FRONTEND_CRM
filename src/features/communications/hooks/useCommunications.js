@@ -8,19 +8,26 @@ export function useCommunications(initialThreads = [], initialMessages = {}) {
   const [messages, setMessages] = useState(initialMessages);
   const [loading, setLoading] = useState(false);
   const [activeThreadId, setActiveThreadId] = useState(initialThreads[0]?.id ?? null);
-  
+
   const { user } = useAuth();
   const { socket } = useSocketContext();
 
-  const activeThread = useMemo(
-    () => threads.find((t) => String(t.id) === String(activeThreadId)),
-    [threads, activeThreadId]
-  );
+  // Fix 2: Safe resolution using nullish coalescing
+  const activeThread =
+    threads.find((t) => String(t.id) === String(activeThreadId)) ?? null;
 
   const activeMessages = useMemo(
     () => messages[activeThreadId] || [],
     [messages, activeThreadId]
   );
+
+  // Fix 3: Expose initialize helper
+  const initializeConversation = useCallback((otherId) => {
+    setMessages((prev) => ({
+      ...prev,
+      [otherId]: prev[otherId] || [],
+    }));
+  }, []);
 
   const buildThreadsFromCommunications = useCallback((comms = []) => {
     const map = new Map();
@@ -55,15 +62,39 @@ export function useCommunications(initialThreads = [], initialMessages = {}) {
     return Array.from(map.values()).sort((a, b) => (b.time || "").localeCompare(a.time || ""));
   }, [user]);
 
+  // Fix 1: Merge instead of replacing
   const fetchThreads = useCallback(async () => {
     setLoading(true);
     try {
       const { data } = await api.get("/api/communications");
       const comms = data?.communications || (Array.isArray(data) ? data : []);
       const built = buildThreadsFromCommunications(comms);
+
       if (built.length > 0) {
-        setThreads(built);
-        if (!activeThreadId) setActiveThreadId(built[0].id);
+        setThreads((prev) => {
+          const merged = [...prev];
+
+          built.forEach((thread) => {
+            const index = merged.findIndex(
+              (t) => String(t.id) === String(thread.id)
+            );
+
+            if (index >= 0) {
+              merged[index] = {
+                ...merged[index],
+                ...thread,
+              };
+            } else {
+              merged.push(thread);
+            }
+          });
+
+          return merged;
+        });
+
+        if (!activeThreadId) {
+          setActiveThreadId(built[0].id);
+        }
       }
     } catch (err) {
       console.error("Failed to load communications:", err);
@@ -112,7 +143,6 @@ export function useCommunications(initialThreads = [], initialMessages = {}) {
     }
   };
 
-  // Toggle Archive state for a thread
   const archiveThread = async (threadId) => {
     const targetThread = threads.find((t) => String(t.id) === String(threadId));
     if (!targetThread) return;
@@ -130,28 +160,22 @@ export function useCommunications(initialThreads = [], initialMessages = {}) {
     }
   };
 
-  // Delete an entire thread/conversation
   const deleteThread = async (threadId) => {
-    if (!window.confirm("Are you sure you want to delete this conversation?")) return;
-
-    setThreads((prev) => {
-      const updated = prev.filter((t) => String(t.id) !== String(threadId));
-      if (String(activeThreadId) === String(threadId)) {
-        setActiveThreadId(updated[0]?.id || null);
-      }
-      return updated;
-    });
-
+    setThreads((prev) => prev.filter((t) => String(t.id) !== String(threadId)));
     setMessages((prev) => {
-      const copy = { ...prev };
-      delete copy[threadId];
-      return copy;
+      const next = { ...prev };
+      delete next[threadId];
+      return next;
     });
+
+    if (String(activeThreadId) === String(threadId)) {
+      setActiveThreadId(null);
+    }
 
     try {
-      await api.delete(`/api/communications/user/${threadId}`);
+      await api.delete(`/api/communications/thread/${threadId}`);
     } catch (err) {
-      console.error("Failed to delete conversation:", err);
+      console.error("Failed to delete thread:", err);
     }
   };
 
@@ -175,6 +199,7 @@ export function useCommunications(initialThreads = [], initialMessages = {}) {
     sendMessage,
     archiveThread,
     deleteThread,
+    initializeConversation,
     loading,
     fetchConversation,
   };

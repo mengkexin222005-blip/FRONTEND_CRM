@@ -84,17 +84,27 @@ export default function ChatSidebar({
     };
   }, [userSearch, showNew]);
 
+  // INSTANT SINGLE-CLICK SELECTION HANDLER
   const handleSelectUserToChat = (u) => {
     const otherId = u._id || u.employeeId || u.id;
-    const name = `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.email || "User";
-
+    const name =
+      `${u.firstName || ""} ${u.lastName || ""}`.trim() ||
+      u.email ||
+      "User";
+  
+    // 1. Immediately update threads list
     setThreads((prev) => {
-      if (prev.find((t) => String(t.id) === String(otherId))) return prev;
+      const exists = prev.some(
+        (t) => String(t.id) === String(otherId)
+      );
+  
+      if (exists) return prev;
+  
       return [
         {
           id: otherId,
           name,
-          role: u.role || "Client",
+          role: u.role || "User",
           lastMessage: "",
           time: "Just now",
           unread: 0,
@@ -104,12 +114,21 @@ export default function ChatSidebar({
         ...prev,
       ];
     });
-
+  
+    // 2. Instantly set active thread
     setActiveThreadId(otherId);
+
+    // 3. Immediately close suggestions view and clear search
     setShowNew(false);
     setUserSearch("");
     setUserResults([]);
-    fetchConversation(otherId);
+
+    // 4. Fetch messages in background without blocking UI render
+    if (typeof fetchConversation === "function") {
+      fetchConversation(otherId).catch((err) =>
+        console.error("Failed to load conversation:", err)
+      );
+    }
   };
 
   return (
@@ -148,9 +167,9 @@ export default function ChatSidebar({
 
                 return (
                   <button
-                    key={u._id || u.employeeId || u.id}
-                    type="button"
-                    onClick={() => handleSelectUserToChat(u)}
+                  key={u._id || u.employeeId || u.id}
+                  type="button"
+                  onClick={() => handleSelectUserToChat(u)}
                     className="w-full text-left px-3 py-2.5 hover:bg-slate-50 rounded-lg transition border border-transparent hover:border-slate-100 cursor-pointer block"
                   >
                     <div className="flex items-center gap-3">

@@ -139,6 +139,7 @@ function App() {
           <Route path="/sales-manager/calls" element={<SalesManagerCalls />} />
           <Route path="/sales-manager/settings" element={<SalesManagerSettings />} />
           <Route path="/sales-manager/profile" element={<SalesManagerProfile />} />
+          <Route path="/sales-manager/reports" element={<SalesManagerReports />} />
           <Route path="/sales-manager/communications" element={<SalesManagerCommunication />} />
           <Route path="/sales-manager/support" element={<SalesManagerSupport />} />
         </Route>
@@ -158,6 +159,7 @@ function App() {
           <Route path="/sales-agent/calls" element={<SalesAgentCalls />} />
           <Route path="/sales-agent/settings" element={<SalesAgentSettings />} />
           <Route path="/sales-agent/profile" element={<SalesAgentProfile />} />
+          <Route path="/sales-agent/reports" element={<SalesAgentReports />} />
           <Route path="/sales-agent/communications" element={<SalesAgentCommunication />} />
           <Route path="/sales-agent/support" element={<SalesAgentSupport />} />
         </Route>
