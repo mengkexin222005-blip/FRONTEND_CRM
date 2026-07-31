@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { Plus, X } from 'lucide-react';
 
-import FormDrawer from '../../components/form/FormDrawer';
-import FormSection from '../../components/form/FormSection';
-import { FormLabel, FormInput, FormTextarea } from '../../components/form/FormField';
-import { getAutoMeetingStatus } from './utils/meetingUtils';
+import FormDrawer from '../../../components/form/FormDrawer';
+import FormSection from '../../../components/form/FormSection';
+import { FormLabel, FormInput, FormTextarea } from '../../../components/form/FormField';
+import { getAutoMeetingStatus } from '../utils/meetingUtils';
 
 function MeetingFormContent({ meeting, onSubmit }) {
   // --- Form Local State ---

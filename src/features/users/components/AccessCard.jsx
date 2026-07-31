@@ -5,7 +5,7 @@ import {
 
 const ICONS={
   Dashboard:LayoutDashboard,
-  Teams:UsersRound,
+  // Teams:UsersRound,
   Prospects:UserPlus,
   Leads:Magnet,
   Clients:UserRound,
@@ -55,7 +55,7 @@ export default function AccessCard({
                     :`Add ${item} access`
                 }
                 onClick={()=>onClick?.(item)}
-                className={`relative flex h-[68px] min-w-0 flex-col items-center justify-center rounded-md border px-1 pb-1 pt-2.5 text-center transition ${
+                className={`relative flex h-17 min-w-0 flex-col items-center justify-center rounded-md border px-1 pb-1 pt-2.5 text-center transition ${
                   selected
                     ?"border-red-200 bg-red-50/25 hover:border-red-400"
                     :"border-slate-200 bg-slate-50/20 hover:border-red-300 hover:bg-red-50/20"

@@ -109,10 +109,11 @@ export const ROLE_ROUTES = {
     "support",
     "settings",
   ],
+
   Admin: [
     "dashboard",
     "users",
-    "teams",
+    // "teams",
     "reports",
     "module",
     "prospects",

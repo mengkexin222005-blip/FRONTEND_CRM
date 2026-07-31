@@ -1,9 +1,8 @@
-import { Pencil, Calendar, User } from "lucide-react";
-import { getProfileImage } from "../../utils/avatar";
+import { memo } from "react";
+import { Pencil } from "lucide-react";
 import { getDisplayName } from "../../utils/name";
 import { formatDate } from "../../utils/date";
 import { formatCurrencyCompact } from "../../utils/currency";
-// import { getProbabilityTone } from "./utils/quotationPresentation";
 
 import {
   BaseTable,
@@ -15,32 +14,155 @@ import {
 import LoaderTables from "../../components/loader/TablesLazyLoader";
 
 import BaseBadge from "../../components/badge/BaseBadge";
-import UserDisplayName from "../../components/UserDisplayName";
 
-const STAGE_CONFIG = {
-  Prospecting: { tone: "blue" },
-  Qualification: { tone: "indigo" },
-  Proposal: { tone: "purple" },
-  Negotiation: { tone: "amber" },
-  Won: { tone: "green" },
-  Lost: { tone: "red" },
+const STATUS_CONFIG = {
+  Draft: { tone: "gray" },
+  Sent: { tone: "blue" },
+  "Under Review": { tone: "amber" },
+  Negotiation: { tone: "purple" },
+  Approved: { tone: "green" },
+  Rejected: { tone: "red" },
+  Expired: { tone: "slate" },
 };
 
-export default function QuotationTable({ 
-  quotations, 
-  permissions = {},
-  onView, 
-  onEdit, 
-  isLoading = false 
-}) {
+function getQuotationDisplayData(quotation) {
+  const title =
+    quotation.quotationDetails?.quotationTitle ||
+    quotation.title ||
+    "Untitled Quotation";
 
+  const quotationNumber =
+    quotation.quotationDetails?.quotationNumber || quotation.number || null;
+
+  const clientName =
+    quotation.quotationDetails?.clientName ||
+    quotation.clientName ||
+    (quotation.client
+      ? getDisplayName(quotation.client, {
+          includeMiddleInitial: true,
+          includeSuffix: true,
+        })
+      : "—");
+
+  const quotationDate =
+    quotation.quotationDetails?.quotationDate ||
+    quotation.quotationDate ||
+    quotation.expectedCloseDate;
+
+  const status = quotation.status || quotation.stage || "Draft";
+
+  const statusConfig = STATUS_CONFIG[status] || STATUS_CONFIG.Draft;
+
+  const total =
+    quotation.value ?? quotation.quotationDetails?.total ?? 0;
+
+  const currency = quotation.currency || "PHP";
+
+  return {
+    title,
+    quotationNumber,
+    clientName,
+    quotationDate,
+    status,
+    statusConfig,
+    total,
+    currency,
+  };
+}
+
+// Reusable, memoized row component
+const QuotationTableRow = memo(function QuotationTableRow({
+  quotation,
+  permissions,
+  onView,
+  onEdit,
+}) {
+  const {
+    title,
+    quotationNumber,
+    clientName,
+    quotationDate,
+    status,
+    statusConfig,
+    total,
+    currency,
+  } = getQuotationDisplayData(quotation);
+
+  return (
+    <TableRow onClick={() => onView?.(quotation)}>
+      {/* Quotation Title & Number */}
+      <TableCell className="max-w-72">
+        <div className="min-w-0">
+          <p className="font-medium truncate">{title}</p>
+          {quotationNumber && (
+            <p className="mt-0.5 text-xs text-gray-400">{quotationNumber}</p>
+          )}
+        </div>
+      </TableCell>
+
+      {/* Client */}
+      <TableCell>
+        <span className="text-sm text-gray-700">{clientName}</span>
+      </TableCell>
+
+      {/* Total */}
+      <TableCell>
+        <span className="text-sm font-semibold text-gray-700">
+          {formatCurrencyCompact(total, currency)}
+        </span>
+      </TableCell>
+
+      {/* Quotation Date */}
+      <TableCell>
+        {quotationDate ? (
+          <span className="text-sm text-gray-700">
+            {formatDate(quotationDate)}
+          </span>
+        ) : (
+          <span className="text-sm text-gray-400">—</span>
+        )}
+      </TableCell>
+
+      {/* Status */}
+      <TableCell>
+        <BaseBadge tone={statusConfig.tone} shape="soft">
+          {status}
+        </BaseBadge>
+      </TableCell>
+
+      {/* Edit */}
+      {permissions?.canEdit && (
+        <TableCell align="text-right">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit?.(quotation);
+            }}
+            className="p-2 rounded-md transition-colors text-gray-400 hover:text-[#ef4444] cursor-pointer"
+            title="Edit quotation"
+          >
+            <Pencil size={16} />
+          </button>
+        </TableCell>
+      )}
+    </TableRow>
+  );
+});
+
+export default function QuotationTable({
+  quotations,
+  permissions = {},
+  onView,
+  onEdit,
+  isLoading = false,
+}) {
   const columns = [
     { label: "Quotation" },
-    { label: "Value" },
-    // { label: "Probability" },
-    { label: "Assigned To" },
-    { label: "Expected Close" },
-    { label: "Stage" },
+    { label: "Client" },
+    { label: "Total" },
+    { label: "Quotation Date" },
+    { label: "Status" },
     ...(permissions.canEdit ? [{ label: "", align: "text-right" }] : []),
   ];
 
@@ -75,113 +197,15 @@ export default function QuotationTable({
         pageWindow={pageWindow}
         onGoTo={goTo}
         onRowsPerPageChange={setRowsPerPage}
-        renderRow={(quotation) => {
-          const clientName = quotation.client
-            ? `${getDisplayName(quotation.client, { includeMiddleInitial: true, includeSuffix: true })}`
-            : null;
-          const assignedTo = quotation.assignedTo;
-          const assignedName = assignedTo ? (
-            <UserDisplayName user={assignedTo} showYou={true}>
-              {getDisplayName(assignedTo, {
-                includeMiddleInitial: true,
-                includeSuffix: true,
-              })}
-            </UserDisplayName>
-          ) : (
-            "Unassigned"
-          );
-          const assignedPhoto = getProfileImage(assignedTo);
-          const stageConfig =
-            STAGE_CONFIG[quotation.stage] || STAGE_CONFIG.Prospecting;
-
-          return (
-            <TableRow key={quotation._id} onClick={() => onView(quotation)}>
-              <TableCell className="max-w-72">
-                <div className="min-w-0">
-                  <p className="font-medium truncate">{quotation.title}</p>
-                  {clientName && (
-                    <p className="text-xs text-gray-400 truncate mt-0.5">
-                      {quotation.client?.company && (
-                        <span className="font-medium text-gray-500">
-                          {quotation.client.company} ·{" "}
-                        </span>
-                      )}
-                      {clientName}
-                    </p>
-                  )}
-                </div>
-              </TableCell>
-              <TableCell>
-                <span className="text-sm font-semibold text-gray-700">
-                  {formatCurrencyCompact(quotation.value, quotation.currency)}
-                </span>
-              </TableCell>
-              <TableCell>
-                {/* <BaseBadge
-                  tone={getProbabilityTone(quotation.probability).tone}
-                  size="sm"
-                  shape="pill"
-                >
-                  {quotation.probability}%
-                </BaseBadge> */}
-              </TableCell>
-              <TableCell>
-                <div className="flex items-center gap-2">
-                  {assignedTo ? (
-                    <img
-                      src={assignedPhoto}
-                      alt=""
-                      className="w-7 h-7 rounded-full object-cover border border-gray-300 shrink-0"
-                    />
-                  ) : (
-                    <span className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-                      <User size={13} className="text-gray-400" />
-                    </span>
-                  )}
-                  <span
-                    className={`text-sm truncate ${
-                      !assignedTo
-                        ? "text-gray-400 italic"
-                        : "text-gray-700 group-hover:text-[#ef4444]"
-                    }`}
-                  >
-                    {assignedName}
-                  </span>
-                </div>
-              </TableCell>
-              <TableCell>
-                {quotation.expectedCloseDate ? (
-                  <span className="flex items-center gap-1 text-sm text-gray-600 group-hover:text-[#ef4444]">
-                    <Calendar size={12} className="shrink-0" />
-                    {formatDate(quotation.expectedCloseDate)}
-                  </span>
-                ) : (
-                  <span className="text-sm text-gray-400">—</span>
-                )}
-              </TableCell>
-              <TableCell>
-                <BaseBadge tone={stageConfig.tone} shape="soft">
-                  {quotation.stage}
-                </BaseBadge>
-              </TableCell>
-              {permissions.canEdit && (
-                <TableCell align="text-right">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEdit(quotation);
-                    }}
-                    className="p-2 rounded-md transition-colors text-gray-400 hover:text-[#ef4444] cursor-pointer"
-                    title="Edit quotation"
-                  >
-                    <Pencil size={16} />
-                  </button>
-                </TableCell>
-              )}
-            </TableRow>
-          );
-        }}
+        renderRow={(quotation) => (
+          <QuotationTableRow
+            key={quotation._id || quotation.quotationDetails?.quotationNumber || quotation.title}
+            quotation={quotation}
+            permissions={permissions}
+            onView={onView}
+            onEdit={onEdit}
+          />
+        )}
       />
     );
   }
@@ -194,124 +218,15 @@ export default function QuotationTable({
         colSpan={columns.length}
         heightClass="h-112.5"
       >
-        {paginatedItems.map((quotation) => {
-          const clientName = quotation.client
-            ? `${getDisplayName(quotation.client, { includeMiddleInitial: true, includeSuffix: true })}`
-            : null;
-          const assignedTo = quotation.assignedTo;
-          const assignedName = assignedTo ? (
-            <UserDisplayName user={assignedTo} showYou={true}>
-              {getDisplayName(assignedTo, {
-                includeMiddleInitial: true,
-                includeSuffix: true,
-              })}
-            </UserDisplayName>
-          ) : (
-            "Unassigned"
-          );
-          const assignedPhoto = getProfileImage(assignedTo);
-          const stageConfig =
-            STAGE_CONFIG[quotation.stage] || STAGE_CONFIG.Prospecting;
-
-          return (
-            <TableRow key={quotation._id} onClick={() => onView(quotation)}>
-              {/* Quotation (Title + Client) */}
-              <TableCell className="max-w-72">
-                <div className="min-w-0">
-                  <p className="font-medium truncate">{quotation.title}</p>
-                  {clientName && (
-                    <p className="text-xs text-gray-400 truncate mt-0.5">
-                      {quotation.client?.company && (
-                        <span className="font-medium text-gray-500">
-                          {quotation.client.company} ·{" "}
-                        </span>
-                      )}
-                      {clientName}
-                    </p>
-                  )}
-                </div>
-              </TableCell>
-
-              {/* Value */}
-              <TableCell>
-                <span className="text-sm font-semibold text-gray-700">
-                  {formatCurrencyCompact(quotation.value, quotation.currency)}
-                </span>
-              </TableCell>
-
-              {/* Probability */}
-              {/* <TableCell>
-                <BaseBadge
-                  tone={getProbabilityTone(quotation.probability).tone}
-                  size="sm"
-                  shape="pill"
-                >
-                  {quotation.probability}%
-                </BaseBadge>
-              </TableCell> */}
-
-              {/* Assigned To */}
-              <TableCell>
-                <div className="flex items-center gap-2">
-                  {assignedTo ? (
-                    <img
-                      src={assignedPhoto}
-                      alt=""
-                      className="w-7 h-7 rounded-full object-cover border border-gray-300 shrink-0"
-                    />
-                  ) : (
-                    <span className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-                      <User size={13} className="text-gray-400" />
-                    </span>
-                  )}
-                  <span
-                    className={`text-sm truncate ${
-                      !assignedTo
-                        ? "text-gray-400 italic"
-                        : "text-gray-700 group-hover:text-[#ef4444]"
-                    }`}
-                  >
-                    {assignedName}
-                  </span>
-                </div>
-              </TableCell>
-
-              {/* Expected Close */}
-              <TableCell>
-                {quotation.expectedCloseDate ? (
-                  <span className="flex items-center gap-1 text-sm text-gray-600 group-hover:text-[#ef4444]">
-                    <Calendar size={12} className="shrink-0" />
-                    {formatDate(quotation.expectedCloseDate)}
-                  </span>
-                ) : (
-                  <span className="text-sm text-gray-400">—</span>
-                )}
-              </TableCell>
-
-              {/* Stage */}
-              <TableCell>
-                <BaseBadge tone={stageConfig.tone} shape="soft">
-                  {quotation.stage}
-                </BaseBadge>
-              </TableCell>
-
-              {/* Edit */}
-              <TableCell align="text-right">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onEdit(quotation);
-                  }}
-                  className="p-2 rounded-md transition-colors text-gray-400 hover:text-[#ef4444] cursor-pointer"
-                  title="Edit quotation"
-                >
-                  <Pencil size={16} />
-                </button>
-              </TableCell>
-            </TableRow>
-          );
-        })}
+        {paginatedItems.map((quotation) => (
+          <QuotationTableRow
+            key={quotation._id || quotation.quotationDetails?.quotationNumber || quotation.title}
+            quotation={quotation}
+            permissions={permissions}
+            onView={onView}
+            onEdit={onEdit}
+          />
+        ))}
       </BaseTable>
 
       <TablePagination

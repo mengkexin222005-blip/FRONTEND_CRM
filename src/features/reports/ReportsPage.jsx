@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { FaPlus } from "react-icons/fa";
+import { BarChart3, List } from "lucide-react";
 import Select from "react-select";
 import Swal from "sweetalert2";
 
@@ -11,8 +12,8 @@ import { useFilterPopover } from "../../components/filters/useFilterPopover";
 import { getSelectProps } from "../../components/select/selectConfig";
 import { TablePagination, useTablePagination } from "../../components/table";
 
-import ReportTable from "./components/ReportTable";
-import ReportModal from "./components/ReportModal";
+import ReportTable from "./components/reports/ReportTable";
+import ReportModal from "./components/reports/ReportModal";
 
 const emptyForm = { 
   title: "", 
@@ -37,20 +38,27 @@ export default function ReportsPage({
   const [loading, setLoading] = useState(true); 
   const [search, setSearch] = useState(""); 
   const [filterCategory, setFilterCategory] = useState("All"); 
+  const [view, setView] = useState("analytics");
   const [isModalOpen, setIsModalOpen] = useState(false); 
   const [editingReport, setEditingReport] = useState(null); 
   const [formData, setFormData] = useState(emptyForm); 
   const [submitting, setSubmitting] = useState(false); 
 
-    useEffect(() => {
-      setLoading(true);
-    
-        localStorage.getItem("crm_reports");
-    
-      setReports([]);
+  const fetchReports = async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.get("/api/reports");
+      setReports(data || []);
+    } catch (error) {
+      console.error("Fetch reports error:", error);
+    } finally {
       setLoading(false);
-    }, []);
-  
+    }
+  };
+
+  useEffect(() => {
+    fetchReports();
+  }, []);
 
   const categoryOptions = useMemo(() => {
     const categories = [ 
@@ -247,7 +255,7 @@ export default function ReportsPage({
   } = useTablePagination(filteredReports, 10); 
 
   const toolbar = (
-    <div className="mb-4 mt-4 flex shrink-0 flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
       <PageHeader 
         title="Reports" 
         subtitle="Generate reports to monitor CRM activities, sales progress, and team performance." 
@@ -257,6 +265,20 @@ export default function ReportsPage({
         searchValue={search} 
         onSearchChange={event => setSearch(event.target.value)} 
         searchPlaceholder="Search reports..." 
+        view={view}
+        onViewChange={setView}
+        viewOptions={[
+          {
+            value: "analytics",
+            icon: BarChart3,
+            title: "Analytics",
+          },
+          {
+            value: "list",
+            icon: List,
+            title: "Reports",
+          },
+        ]}
         filterSlot={ 
           <FilterPopover 
             filterRef={filterRef} 
@@ -285,12 +307,10 @@ export default function ReportsPage({
           <button 
             type="button" 
             onClick={openCreateModal} 
-            className="min-w-[150px] cursor-pointer rounded-md bg-red-500 px-5 py-2 text-white hover:bg-red-600" 
+            className="flex cursor-pointer items-center justify-center gap-1.5 rounded-md bg-red-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600" 
           > 
-            <span className="flex items-center justify-center gap-2 whitespace-nowrap text-sm"> 
-              <FaPlus size={11} /> 
-              Add Report 
-            </span> 
+            <FaPlus size={11} /> 
+            Add Report 
           </button> 
         } 
       /> 
@@ -298,7 +318,7 @@ export default function ReportsPage({
   ); 
 
   const settingsTable = (
-    <table className="w-full min-w-[760px] border-collapse">
+    <table className="w-full min-w-190 border-collapse">
       <thead className="sticky top-0 z-10 bg-white">
         <tr className="border-b border-gray-200">
           <th className="w-[27%] px-3 pb-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -330,7 +350,7 @@ export default function ReportsPage({
           </tr>
         ) : (
           paginatedItems.map(report => (
-            <tr key={report._id} className="border-b border-gray-100 hover:bg-gray-50 text-sm">
+            <tr key={report._id} className="border-b border-gray-100 text-sm hover:bg-gray-50">
               <td className="px-3 py-3 font-medium text-gray-900">{report.title}</td>
               <td className="px-3 py-3 text-gray-500">{report.description || "—"}</td>
               <td className="px-3 py-3 text-gray-600">{report.category}</td>
@@ -338,13 +358,13 @@ export default function ReportsPage({
                 <div className="flex gap-3">
                   <button
                     onClick={() => openEditModal(report)}
-                    className="text-blue-600 hover:text-blue-800 cursor-pointer"
+                    className="cursor-pointer text-blue-600 hover:text-blue-800"
                   >
                     Edit
                   </button>
                   <button
                     onClick={() => handleDelete(report._id)}
-                    className="text-red-600 hover:text-red-800 cursor-pointer"
+                    className="cursor-pointer text-red-600 hover:text-red-800"
                   >
                     Delete
                   </button>
@@ -359,49 +379,68 @@ export default function ReportsPage({
 
   const content = (
     <div className="flex h-full min-h-0 flex-col">
-      {toolbar} 
-
-      <div className="min-h-0 flex-1 overflow-auto pr-1 [scrollbar-gutter:stable]">
+      {toolbar}
+  
+      <div className="min-h-0 flex-1 overflow-auto pr-1">
         {loading && !settingsMode ? (
           <div className="flex justify-center py-12 text-sm text-gray-400">
             Loading reports...
           </div>
-        ) : settingsMode ? ( 
-          settingsTable 
-        ) : ( 
-          <ReportTable 
-            reports={paginatedItems} 
-            onEdit={openEditModal} 
-            onDelete={handleDelete} 
-          /> 
+        ) : settingsMode ? (
+          settingsTable
+        ) : view === "analytics" ? (
+          <div className="flex h-full items-center justify-center rounded-md border border-dashed border-gray-300 bg-gray-50">
+            <div className="text-center">
+              <BarChart3
+                size={40}
+                className="mx-auto mb-3 text-gray-400"
+              />
+  
+              <h3 className="text-base font-semibold text-gray-700">
+                Analytics Dashboard
+              </h3>
+  
+              <p className="mt-1 text-sm text-gray-500">
+                Charts and performance insights will appear here.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <ReportTable
+            reports={paginatedItems}
+            onEdit={openEditModal}
+            onDelete={handleDelete}
+          />
         )}
       </div>
+  
+      {view === "list" && (
+        <div className="shrink-0 border-t border-gray-200 bg-white pt-3">
+          <TablePagination
+            currentPage={totalRows ? currentPage : 1}
+            totalPages={Math.max(totalPages, 1)}
+            totalRows={totalRows}
+            rowsPerPage={rowsPerPage}
+            from={totalRows ? from : 0}
+            to={totalRows ? to : 0}
+            pageWindow={totalRows ? pageWindow : [1]}
+            onGoTo={totalRows ? goTo : () => {}}
+            onRowsPerPageChange={setRowsPerPage}
+          />
+        </div>
+      )}
+  
+      <ReportModal
+        open={isModalOpen}
+        editingReport={editingReport}
+        formData={formData}
+        loading={submitting}
+        onChange={handleFieldChange}
+        onClose={closeModal}
+        onSubmit={handleSubmit}
+      />
+    </div>
+  );
 
-      <div className="shrink-0 border-t border-gray-200 bg-white pt-3">
-        <TablePagination 
-          currentPage={totalRows ? currentPage : 1} 
-          totalPages={Math.max(totalPages, 1)} 
-          totalRows={totalRows} 
-          rowsPerPage={rowsPerPage} 
-          from={totalRows ? from : 0} 
-          to={totalRows ? to : 0} 
-          pageWindow={totalRows ? pageWindow : [1]} 
-          onGoTo={totalRows ? goTo : () => {}} 
-          onRowsPerPageChange={setRowsPerPage} 
-        /> 
-      </div>
-
-      <ReportModal 
-        open={isModalOpen} 
-        editingReport={editingReport} 
-        formData={formData} 
-        loading={submitting} 
-        onChange={handleFieldChange} 
-        onClose={closeModal} 
-        onSubmit={handleSubmit} 
-      /> 
-    </div> 
-  ); 
-
-  return embedded ? content : <PageBase>{content}</PageBase>; 
+  return embedded ? content : <PageBase className="overflow-hidden">{content}</PageBase>; 
 }

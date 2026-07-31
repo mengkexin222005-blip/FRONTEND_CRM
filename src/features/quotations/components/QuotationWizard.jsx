@@ -4,8 +4,6 @@ import {
   ArrowRight,
   Check,
   CheckCircle2,
-  ChevronDown,
-  Download,
   Expand,
   FileText,
   Layers3,
@@ -13,7 +11,6 @@ import {
   Minimize2,
   Pencil,
   Plus,
-  Printer,
   Search,
   Trash2,
   X,
@@ -44,7 +41,9 @@ function Stepper({ step }) {
         return (
           <div
             key={label}
-            className={`flex items-center text-[11px] font-medium ${active ? "text-red-500" : "text-slate-700"}`}
+            className={`flex items-center text-[11px] font-medium ${
+              active ? "text-red-500" : "text-slate-700"
+            }`}
           >
             <span
               className={`mr-3 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
@@ -58,7 +57,9 @@ function Stepper({ step }) {
               {complete ? <Check size={13} /> : number}
             </span>
             <span className="whitespace-nowrap">{label}</span>
-            {index < steps.length - 1 && <span className="mx-5 h-px flex-1 bg-slate-200" />}
+            {index < steps.length - 1 && (
+              <span className="mx-5 h-px flex-1 bg-slate-200" />
+            )}
           </div>
         );
       })}
@@ -126,30 +127,20 @@ function TemplateCard({ template, selected, onSelect }) {
       <p className="mt-1 text-[11px] leading-5 text-slate-500">
         {template.description}
       </p>
-      <div className="mt-auto flex items-center gap-2 pt-4 text-[11px] text-slate-500">
+      <div className="mt-auto pt-5 flex items-center gap-2 text-[11px] text-slate-500">
         <Layers3 size={13} />
         <span>
           {template.sections.length}{" "}
           {template.sections.length === 1 ? "Section" : "Sections"}
         </span>
       </div>
-      <span
-        className={`mt-4 flex items-center justify-between rounded-md border px-3 py-2 text-[11px] font-medium ${
-          selected
-            ? "border-red-200 text-red-500"
-            : "border-slate-200 text-slate-600"
-        }`}
-      >
-        Preview
-        <ArrowRight size={13} />
-      </span>
     </button>
   );
 }
 
 function ChooseTemplateStep({
   category,
-  error,
+  errors = {},
   filteredTemplates,
   onBuildCustom,
   onCategoryChange,
@@ -164,14 +155,21 @@ function ChooseTemplateStep({
     <div className="min-h-0 flex-1 overflow-y-auto px-8 py-5">
       <div>
         <label className="block text-xs font-semibold text-slate-700 mb-1">
-          Quotation Title
+          Quotation Title <span className="text-red-500">*</span>
         </label>
         <input
           value={quotationTitle}
           onChange={(event) => setQuotationTitle(event.target.value)}
-          className="w-full rounded-md border border-slate-200 px-3 py-3 text-xs outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400"
+          className={`w-full rounded-md border px-3 py-3 text-xs outline-none transition ${
+            errors.quotationTitle
+              ? "border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-200"
+              : "border-slate-200 focus:border-red-400 focus:ring-1 focus:ring-red-400"
+          }`}
           placeholder="Untitled Quotation Document Title..."
         />
+        {errors.quotationTitle && (
+          <p className="mt-1 text-xs text-red-500">{errors.quotationTitle}</p>
+        )}
       </div>
 
       <div className="mt-7 flex items-end justify-between gap-5">
@@ -214,17 +212,11 @@ function ChooseTemplateStep({
         ))}
       </div>
 
-      {error && (
-        <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-xs text-red-600">
-          {error}
-        </div>
-      )}
-
       <div className="mt-5 grid grid-cols-4 gap-4">
         <button
           type="button"
           onClick={onBuildCustom}
-          className="flex min-h-64 flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 p-5 text-center transition hover:border-red-300 hover:bg-red-50/30"
+          className="flex min-h-64 flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 p-5 text-center transition hover:border-red-300 hover:bg-red-50/30 cursor-pointer"
         >
           <span className="flex h-16 w-16 items-center justify-center rounded-xl bg-red-50 text-red-500">
             <Plus size={27} />
@@ -281,7 +273,7 @@ function SelectedTemplatePanel({ template, onChangeTemplate }) {
       <button
         type="button"
         onClick={onChangeTemplate}
-        className="mt-5 flex w-full items-center justify-between rounded-md border border-slate-200 px-3 py-2.5 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
+        className="mt-5 flex w-full items-center justify-between rounded-md border border-slate-200 px-3 py-2.5 text-[11px] font-medium text-slate-700 hover:bg-slate-50 cursor-pointer"
       >
         Change Template
         <Pencil size={13} />
@@ -332,7 +324,7 @@ function ItemEditor({ currency, items, onAdd, onRemove, onUpdate }) {
         <button
           type="button"
           onClick={onAdd}
-          className="flex items-center gap-2 rounded-md border border-red-200 px-3 py-2 text-[11px] font-medium text-red-500 hover:bg-red-50"
+          className="flex items-center gap-2 rounded-md border border-red-200 px-3 py-2 text-[11px] font-medium text-red-500 hover:bg-red-50 cursor-pointer"
         >
           <Plus size={13} />
           Add Item
@@ -345,11 +337,13 @@ function ItemEditor({ currency, items, onAdd, onRemove, onUpdate }) {
               <span key={`${label}-${index}`} className="px-3 py-2.5">
                 {label}
               </span>
-            ),
+            )
           )}
         </div>
         {items.map((item, index) => {
-          const amount = (parseFloat(item.quantity) || 0) * (parseFloat(item.unitPrice) || 0);
+          const amount =
+            (parseFloat(item.quantity) || 0) *
+            (parseFloat(item.unitPrice) || 0);
           return (
             <div
               key={item.id}
@@ -391,7 +385,7 @@ function ItemEditor({ currency, items, onAdd, onRemove, onUpdate }) {
               <button
                 type="button"
                 onClick={() => onRemove(item.id)}
-                className="mx-auto rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500"
+                className="mx-auto rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500 cursor-pointer"
                 aria-label="Remove item"
               >
                 <Trash2 size={13} />
@@ -407,7 +401,7 @@ function ItemEditor({ currency, items, onAdd, onRemove, onUpdate }) {
 function DetailsStep({
   clients,
   details,
-  error,
+  errors = {},
   onAddItem,
   onChangeClient,
   onRemoveItem,
@@ -416,7 +410,13 @@ function DetailsStep({
   selectedTemplate,
 }) {
   const hasSection = (section) => selectedTemplate.sections.includes(section);
-  const fieldClass = "w-full rounded-md border border-slate-200 px-3 py-2 text-xs outline-none focus:border-red-400";
+
+  const getFieldClass = (fieldName) =>
+    `w-full rounded-md border px-3 py-2 text-xs outline-none transition ${
+      errors[fieldName]
+        ? "border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-200"
+        : "border-slate-200 focus:border-red-400"
+    }`;
 
   return (
     <div className="flex min-h-0 flex-1 gap-5 p-6">
@@ -426,31 +426,29 @@ function DetailsStep({
       />
 
       <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-slate-200 p-6">
-        {error && (
-          <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-xs text-red-600">
-            {error}
-          </div>
-        )}
-
         <div className="space-y-6">
           <section>
             <SectionHeading>Quotation Basic Information</SectionHeading>
             <div className="mt-4 grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Quotation Number *</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Quotation Number <span className="text-red-500">*</span>
+                </label>
                 <input
                   value={details.quotationNumber}
                   onChange={(event) => onUpdate("quotationNumber", event.target.value)}
-                  className={fieldClass}
+                  className={getFieldClass("quotationNumber")}
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Quotation Date *</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Quotation Date <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="date"
                   value={details.quotationDate}
                   onChange={(event) => onUpdate("quotationDate", event.target.value)}
-                  className={fieldClass}
+                  className={getFieldClass("quotationDate")}
                 />
               </div>
               <div>
@@ -459,15 +457,17 @@ function DetailsStep({
                   type="date"
                   value={details.validUntil}
                   onChange={(event) => onUpdate("validUntil", event.target.value)}
-                  className={fieldClass}
+                  className={getFieldClass("validUntil")}
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Currency *</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Currency <span className="text-red-500">*</span>
+                </label>
                 <select
                   value={details.currency}
                   onChange={(event) => onUpdate("currency", event.target.value)}
-                  className={fieldClass}
+                  className={getFieldClass("currency")}
                 >
                   <option value="PHP">PHP - Philippine Peso</option>
                   <option value="USD">USD - US Dollar</option>
@@ -475,11 +475,13 @@ function DetailsStep({
                 </select>
               </div>
               <div className="col-span-2">
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Subject / Title *</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Subject / Title <span className="text-red-500">*</span>
+                </label>
                 <input
                   value={details.quotationTitle}
                   onChange={(event) => onUpdate("quotationTitle", event.target.value)}
-                  className={fieldClass}
+                  className={getFieldClass("quotationTitle")}
                   placeholder="e.g. Supply of Office Equipment"
                 />
               </div>
@@ -491,20 +493,24 @@ function DetailsStep({
               <SectionHeading>Company Information</SectionHeading>
               <div className="mt-4 grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Company Name *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Company Name <span className="text-red-500">*</span>
+                  </label>
                   <input
                     value={details.companyName}
                     onChange={(event) => onUpdate("companyName", event.target.value)}
-                    className={fieldClass}
+                    className={getFieldClass("companyName")}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Email *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Email <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="email"
                     value={details.companyEmail}
                     onChange={(event) => onUpdate("companyEmail", event.target.value)}
-                    className={fieldClass}
+                    className={getFieldClass("companyEmail")}
                   />
                 </div>
                 <div>
@@ -512,7 +518,7 @@ function DetailsStep({
                   <input
                     value={details.companyPhone}
                     onChange={(event) => onUpdate("companyPhone", event.target.value)}
-                    className={fieldClass}
+                    className={getFieldClass("companyPhone")}
                   />
                 </div>
                 <div>
@@ -520,7 +526,7 @@ function DetailsStep({
                   <input
                     value={details.companyAddress}
                     onChange={(event) => onUpdate("companyAddress", event.target.value)}
-                    className={fieldClass}
+                    className={getFieldClass("companyAddress")}
                   />
                 </div>
               </div>
@@ -532,11 +538,13 @@ function DetailsStep({
               <SectionHeading>Client Information</SectionHeading>
               <div className="mt-4 grid grid-cols-2 gap-4">
                 <div className="col-span-2">
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Client Record *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Client Record <span className="text-red-500">*</span>
+                  </label>
                   <select
                     value={details.clientId}
                     onChange={(event) => onChangeClient(event.target.value)}
-                    className={fieldClass}
+                    className={getFieldClass("clientId")}
                   >
                     <option value="">Select a client...</option>
                     {clients.map((client) => (
@@ -548,21 +556,25 @@ function DetailsStep({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Client Name *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Client Name <span className="text-red-500">*</span>
+                  </label>
                   <input
                     value={details.clientName}
                     onChange={(event) => onUpdate("clientName", event.target.value)}
-                    className={fieldClass}
+                    className={getFieldClass("clientName")}
                     placeholder="Enter client name"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Email *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Email <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="email"
                     value={details.clientEmail}
                     onChange={(event) => onUpdate("clientEmail", event.target.value)}
-                    className={fieldClass}
+                    className={getFieldClass("clientEmail")}
                     placeholder="Enter email"
                   />
                 </div>
@@ -571,7 +583,7 @@ function DetailsStep({
                   <input
                     value={details.clientPhone}
                     onChange={(event) => onUpdate("clientPhone", event.target.value)}
-                    className={fieldClass}
+                    className={getFieldClass("clientPhone")}
                     placeholder="Enter phone number"
                   />
                 </div>
@@ -580,7 +592,7 @@ function DetailsStep({
                   <input
                     value={details.clientAddress}
                     onChange={(event) => onUpdate("clientAddress", event.target.value)}
-                    className={fieldClass}
+                    className={getFieldClass("clientAddress")}
                     placeholder="Enter client address"
                   />
                 </div>
@@ -595,7 +607,7 @@ function DetailsStep({
                 value={details.introduction}
                 onChange={(event) => onUpdate("introduction", event.target.value)}
                 rows={3}
-                className={`${fieldClass} mt-4 resize-none`}
+                className={`${getFieldClass("introduction")} mt-4 resize-none`}
                 placeholder="Add a short introduction for this quotation..."
               />
             </section>
@@ -623,7 +635,7 @@ function DetailsStep({
                     step="0.01"
                     value={details.discount}
                     onChange={(event) => onUpdate("discount", event.target.value)}
-                    className={fieldClass}
+                    className={getFieldClass("discount")}
                   />
                 </div>
                 <div>
@@ -634,7 +646,7 @@ function DetailsStep({
                     step="0.01"
                     value={details.taxRate}
                     onChange={(event) => onUpdate("taxRate", event.target.value)}
-                    className={fieldClass}
+                    className={getFieldClass("taxRate")}
                   />
                 </div>
               </div>
@@ -648,7 +660,7 @@ function DetailsStep({
                 value={details.terms}
                 onChange={(event) => onUpdate("terms", event.target.value)}
                 rows={5}
-                className={`${fieldClass} mt-4 resize-none`}
+                className={`${getFieldClass("terms")} mt-4 resize-none`}
               />
             </section>
           )}
@@ -660,7 +672,7 @@ function DetailsStep({
                 value={details.notes}
                 onChange={(event) => onUpdate("notes", event.target.value)}
                 rows={4}
-                className={`${fieldClass} mt-4 resize-none`}
+                className={`${getFieldClass("notes")} mt-4 resize-none`}
                 placeholder="Add a note for the client..."
               />
             </section>
@@ -675,7 +687,7 @@ function DetailsStep({
                   <input
                     value={details.preparedBy}
                     onChange={(event) => onUpdate("preparedBy", event.target.value)}
-                    className={fieldClass}
+                    className={getFieldClass("preparedBy")}
                   />
                 </div>
                 <div>
@@ -683,7 +695,7 @@ function DetailsStep({
                   <input
                     value={details.preparedByRole}
                     onChange={(event) => onUpdate("preparedByRole", event.target.value)}
-                    className={fieldClass}
+                    className={getFieldClass("preparedByRole")}
                   />
                 </div>
               </div>
@@ -701,7 +713,7 @@ function QuotationDocument({ details, selectedTemplate, totals }) {
   );
 
   return (
-    <article className="mx-auto min-h-[650px] w-full max-w-2xl bg-white px-8 py-7 text-[9px] text-slate-700 shadow-sm">
+    <article className="mx-auto min-h-[700px] w-full max-w-2xl bg-white px-8 py-7 text-[9px] text-slate-700 shadow-sm">
       <div className="flex items-start justify-between border-b border-red-100 pb-5">
         <div>
           <p className="mt-1 font-medium">{details.companyName}</p>
@@ -788,20 +800,20 @@ function QuotationDocument({ details, selectedTemplate, totals }) {
 
       <div className="mt-7 grid grid-cols-2 gap-10">
         <div>
-          {selectedTemplate.sections.includes("terms") && (
+          {selectedTemplate.sections.includes("terms") && details.terms.trim() && (
             <>
               <p className="font-semibold uppercase text-red-500">Terms &amp; Conditions</p>
               <p className="mt-2 whitespace-pre-line leading-5 text-slate-500">{details.terms || "—"}</p>
             </>
           )}
-          {selectedTemplate.sections.includes("notes") && details.notes && (
+          {selectedTemplate.sections.includes("notes") && details.notes.trim() && (
             <div className="mt-5">
               <p className="font-semibold uppercase text-red-500">Notes</p>
               <p className="mt-2 whitespace-pre-line leading-5 text-slate-500">{details.notes}</p>
             </div>
           )}
         </div>
-        {selectedTemplate.sections.includes("signature") && (
+        {selectedTemplate.sections.includes("signature") && details.preparedBy.trim() && (
           <div className="self-end text-center">
             <div className="mx-auto mb-2 w-36 border-b border-slate-400" />
             <p className="font-semibold">{details.preparedBy}</p>
@@ -813,7 +825,16 @@ function QuotationDocument({ details, selectedTemplate, totals }) {
   );
 }
 
-function QuotationSummary({ details, selectedTemplate, totals }) {
+function SummaryRow({ label, value }) {
+  return (
+    <div className="flex items-center justify-between text-xs">
+      <span className="text-slate-500">{label}</span>
+      <span className="font-medium text-slate-800">{value}</span>
+    </div>
+  );
+}
+
+function QuotationSummary({ details, selectedTemplate, totals, onEditDetails }) {
   return (
     <aside className="w-72 shrink-0 rounded-lg border border-slate-200 bg-white">
       <h3 className="border-b border-slate-200 px-4 py-4 text-sm font-semibold text-slate-900">
@@ -832,251 +853,53 @@ function QuotationSummary({ details, selectedTemplate, totals }) {
           </div>
         </div>
 
-        <div className="border-t border-slate-100 pt-4">
-          <div className="flex items-center gap-3">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-red-50 text-red-500">
-              <Layers3 size={15} />
-            </span>
-            <div>
-              <p className="text-[10px] text-slate-500">
-                Sections Included ({selectedTemplate.sections.length})
-              </p>
-            </div>
-          </div>
-          <div className="mt-3 space-y-2.5 pl-1">
-            {selectedTemplate.sections.map((section) => (
-              <p key={section} className="flex items-center gap-2 text-[10px] text-slate-600">
-                <CheckCircle2 size={13} className="text-emerald-500" />
-                {section}
-              </p>
-            ))}
-          </div>
+        <div className="border-t border-slate-100 pt-4 space-y-3">
+          <SummaryRow label="Client" value={details.clientName || "—"} />
+          <SummaryRow label="Quotation #" value={details.quotationNumber} />
+          <SummaryRow label="Date" value={details.quotationDate} />
+          <SummaryRow label="Valid Until" value={details.validUntil || "—"} />
+          <SummaryRow label="Items" value={details.items.length} />
         </div>
 
         <div className="border-t border-slate-100 pt-4">
           <p className="text-[10px] text-slate-500">Total Amount</p>
+          <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+            ✓ Ready to create quotation
+          </div>
           <p className="mt-1 text-lg font-bold text-red-500">
             {details.currency} {(totals.total || 0).toFixed(2)}
           </p>
         </div>
 
-        <div className="rounded-md bg-red-50 p-4 text-[10px] leading-5 text-slate-600">
-          <div className="mb-1 flex items-center gap-2 font-semibold text-slate-800">
-            <Lightbulb size={14} className="text-red-500" />
-            Tip
-          </div>
-          Review the quotation preview. You can return to edit details if needed.
-        </div>
+        <button
+          type="button"
+          onClick={onEditDetails}
+          className="w-full rounded-md border border-slate-200 px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 cursor-pointer"
+        >
+          Edit Details
+        </button>
       </div>
     </aside>
   );
 }
 
-function FormDataPanel({ details, totals }) {
-  const rows = [
-    ["Quotation Number", details.quotationNumber],
-    ["Subject / Title", details.quotationTitle],
-    ["Client", details.clientName],
-    ["Company", details.companyName],
-    ["Quotation Date", details.quotationDate],
-    ["Valid Until", details.validUntil],
-    ["Currency", details.currency],
-    ["Subtotal", `${details.currency} ${(totals.subtotal || 0).toFixed(2)}`],
-    ["Tax", `${details.currency} ${(totals.taxAmount || 0).toFixed(2)}`],
-    ["Total", `${details.currency} ${(totals.total || 0).toFixed(2)}`],
-  ];
-
+function ReviewStep({ details, selectedTemplate, totals, onEditDetails }) {
   return (
-    <div className="grid grid-cols-2 gap-4 rounded-lg border border-slate-200 bg-white p-6">
-      {rows.map(([label, value]) => (
-        <div key={label} className="rounded-md bg-slate-50 p-4">
-          <p className="text-[10px] uppercase tracking-wide text-slate-400">{label}</p>
-          <p className="mt-1 text-xs font-medium text-slate-800">{value || "—"}</p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function SettingsPanel({ details, onUpdate, permissions, salesAgents, stages }) {
-  const fieldClass = "w-full rounded-md border border-slate-200 px-3 py-2 text-xs outline-none focus:border-red-400";
-
-  return (
-    <div className="rounded-lg border border-slate-200 bg-white p-6">
-      <h3 className="text-sm font-semibold text-slate-900">Quotation Settings</h3>
-      <div className="mt-5 grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1">Pipeline Stage</label>
-          <select
-            value={details.stage}
-            onChange={(event) => onUpdate("stage", event.target.value)}
-            className={fieldClass}
-          >
-            {stages.map((stage) => (
-              <option key={stage} value={stage}>
-                {stage}
-              </option>
-            ))}
-          </select>
-        </div>
-        {permissions.canAssign && (
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Assigned To</label>
-            <select
-              value={details.assignedTo}
-              onChange={(event) => onUpdate("assignedTo", event.target.value)}
-              className={fieldClass}
-            >
-              <option value="">Unassigned</option>
-              {salesAgents.map((agent) => (
-                <option key={agent._id} value={agent._id}>
-                  {getDisplayName(agent, { includeSuffix: true })}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-        <div className="col-span-2">
-          <label className="block text-xs font-semibold text-slate-700 mb-1">Internal Notes</label>
-          <textarea
-            value={details.notes}
-            onChange={(event) => onUpdate("notes", event.target.value)}
-            rows={5}
-            className={`${fieldClass} resize-none`}
-            placeholder="Add notes for this quotation..."
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ReviewStep({
-  activeTab,
-  details,
-  onEditDetails,
-  onTabChange,
-  onUpdate,
-  permissions,
-  salesAgents,
-  selectedTemplate,
-  stages,
-  totals,
-}) {
-  const previewTabs = [
-    { id: "preview", label: "Document Preview", icon: FileText },
-    { id: "data", label: "Form Data", icon: Layers3 },
-    { id: "settings", label: "Settings", icon: Pencil },
-  ];
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col px-6 pb-5">
-      <div className="flex shrink-0 items-center justify-between border-b border-slate-200">
-        <div className="flex">
-          {previewTabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => onTabChange(tab.id)}
-                className={`flex items-center gap-2 border-b-2 px-4 py-3 text-[11px] font-medium ${
-                  activeTab === tab.id
-                    ? "border-red-500 text-red-500"
-                    : "border-transparent text-slate-600"
-                }`}
-              >
-                <Icon size={13} />
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-        <button
-          type="button"
-          onClick={onEditDetails}
-          className="flex items-center gap-2 rounded-md border border-slate-200 px-4 py-2 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
-        >
-          <Pencil size={13} />
-          Edit Details
-        </button>
+    <div className="flex min-h-0 flex-1 gap-6 overflow-auto bg-slate-100 p-6">
+      <div className="flex min-w-0 flex-1 justify-center overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-6">
+        <QuotationDocument
+          details={details}
+          selectedTemplate={selectedTemplate}
+          totals={totals}
+        />
       </div>
 
-      {activeTab === "preview" && (
-        <>
-          <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-2.5 text-[11px]">
-            <div className="flex items-center gap-3">
-              <span className="flex h-6 w-6 items-center justify-center rounded bg-red-50 text-red-500">
-                <FileText size={13} />
-              </span>
-              <span>
-                Template: <strong>{selectedTemplate.name} Template</strong>
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              <label className="flex items-center gap-2 text-slate-500">
-                View
-                <button
-                  type="button"
-                  className="flex items-center gap-8 rounded-md border border-slate-200 px-3 py-2 text-slate-700"
-                >
-                  Desktop
-                  <ChevronDown size={13} />
-                </button>
-              </label>
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="flex items-center gap-2 rounded-md border border-slate-200 px-4 py-2 text-slate-700 hover:bg-slate-50"
-              >
-                <Download size={13} />
-                Download PDF
-              </button>
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="flex items-center gap-2 rounded-md border border-slate-200 px-4 py-2 text-slate-700 hover:bg-slate-50"
-              >
-                <Printer size={13} />
-                Print
-              </button>
-            </div>
-          </div>
-
-          <div className="flex min-h-0 flex-1 gap-5 overflow-auto bg-slate-50 p-4">
-            <div className="min-w-0 flex-1">
-              <QuotationDocument
-                details={details}
-                selectedTemplate={selectedTemplate}
-                totals={totals}
-              />
-            </div>
-            <QuotationSummary
-              details={details}
-              selectedTemplate={selectedTemplate}
-              totals={totals}
-            />
-          </div>
-        </>
-      )}
-
-      {activeTab === "data" && (
-        <div className="min-h-0 flex-1 overflow-auto bg-slate-50 p-5">
-          <FormDataPanel details={details} totals={totals} />
-        </div>
-      )}
-
-      {activeTab === "settings" && (
-        <div className="min-h-0 flex-1 overflow-auto bg-slate-50 p-5">
-          <SettingsPanel
-            details={details}
-            onUpdate={onUpdate}
-            permissions={permissions}
-            salesAgents={salesAgents}
-            stages={stages}
-          />
-        </div>
-      )}
+      <QuotationSummary
+        details={details}
+        selectedTemplate={selectedTemplate}
+        totals={totals}
+        onEditDetails={onEditDetails}
+      />
     </div>
   );
 }
@@ -1116,7 +939,7 @@ function WizardFooter({
             type="button"
             onClick={onBack}
             disabled={loading}
-            className="flex items-center gap-2 rounded-md border border-slate-200 px-5 py-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-2 rounded-md border border-slate-200 px-5 py-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors cursor-pointer"
           >
             <ArrowLeft size={14} /> Back
           </button>
@@ -1126,7 +949,7 @@ function WizardFooter({
             type="button"
             onClick={onSaveDraft}
             disabled={loading}
-            className="rounded-md border border-slate-200 px-6 py-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+            className="rounded-md border border-slate-200 px-6 py-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors cursor-pointer"
           >
             Save Draft
           </button>
@@ -1136,7 +959,7 @@ function WizardFooter({
             type="button"
             onClick={onContinue}
             disabled={loading}
-            className="flex items-center gap-4 rounded-md bg-red-500 px-6 py-2.5 text-xs font-medium text-white hover:bg-red-600 transition-colors"
+            className="flex items-center gap-4 rounded-md bg-red-500 px-6 py-2.5 text-xs font-medium text-white hover:bg-red-600 transition-colors cursor-pointer"
           >
             {step === 1 ? "Continue" : "Next: Review & Preview"} <ArrowRight size={14} />
           </button>
@@ -1145,7 +968,7 @@ function WizardFooter({
             type="button"
             onClick={onSubmit}
             disabled={loading}
-            className="flex items-center gap-3 rounded-md bg-red-500 px-7 py-2.5 text-xs font-medium text-white hover:bg-red-600 transition-colors"
+            className="flex items-center gap-3 rounded-md bg-red-500 px-7 py-2.5 text-xs font-medium text-white hover:bg-red-600 transition-colors cursor-pointer"
           >
             {loading
               ? mode === "edit"
@@ -1197,27 +1020,18 @@ const createInitialDetails = (formData = {}, clients = [], currentUser = null, v
     quotationTitle: source.title || source.quotationTitle || "",
     currency: source.currency || "PHP",
 
-    companyName: currentUser?.company || source.companyName || "",
-    companyEmail: currentUser?.email || source.companyEmail || "",
-    companyPhone: currentUser?.phone || source.companyPhone || "",
+    companyName: currentUser?.company ?? source.companyName ?? "",
+    companyEmail: currentUser?.email ?? source.companyEmail ?? "",
+    companyPhone: currentUser?.phone ?? source.companyPhone ?? "",
     companyAddress: companyAddress === "—" ? "" : companyAddress,
 
     clientId: source.client || source.clientId || "",
     ...getClientDetails(selectedClient),
-    introduction:
-      "Thank you for the opportunity to provide this quotation. The following products and services are proposed for your consideration.",
-    items: [
-      {
-        id: "item-1",
-        description: "",
-        quantity: "1",
-        unitPrice: "",
-      },
-    ],
+    introduction: "",
+    items: [],
     discount: "0",
     taxRate: "12",
-    terms:
-      "This quotation is valid until the date indicated above.\nPayment terms: 50% down payment, 50% upon delivery.\nDelivery: 7-10 business days upon receipt of payment.",
+    terms: "",
     notes: formData.notes || "",
     preparedBy: getDisplayName(currentUser, {
       includeMiddleInitial: true,
@@ -1240,9 +1054,6 @@ export default function QuotationWizard({
   open,
   mode = "create",
   viewingQuotation = null,
-  permissions = {},
-  salesAgents = [],
-  stages = [],
 }) {
   const [step, setStep] = useState(1);
   const [category, setCategory] = useState("All");
@@ -1253,18 +1064,16 @@ export default function QuotationWizard({
   );
   const [quotationTitle, setQuotationTitle] = useState(formData.title || viewingQuotation?.title || "");
   const [details, setDetails] = useState(() => createInitialDetails(formData, clients, currentUser, viewingQuotation));
-  const [activeTab, setActiveTab] = useState("preview");
   const [showBuilder, setShowBuilder] = useState(false);
-  const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
 
   useEffect(() => {
     if (!open) return;
     setDetails(createInitialDetails(formData, clients, currentUser, viewingQuotation));
     setQuotationTitle(formData.title || viewingQuotation?.title || "");
     setStep(1);
-    setError("");
+    setFieldErrors({});
     setIsExpanded(false);
-    setActiveTab("preview");
     setSelectedTemplate(
       QUOTATION_TEMPLATES.find((t) => t.id === "product")
     );
@@ -1291,11 +1100,24 @@ export default function QuotationWizard({
       return;
     }
     setDetails((curr) => ({ ...curr, [name]: value }));
+    if (fieldErrors[name]) {
+      setFieldErrors((prev) => ({ ...prev, [name]: null }));
+    }
+  };
+
+  const handleTitleChange = (val) => {
+    setQuotationTitle(val);
+    if (fieldErrors.quotationTitle) {
+      setFieldErrors((prev) => ({ ...prev, quotationTitle: null }));
+    }
   };
 
   const changeClient = (clientId) => {
     const selectedClient = clients.find((c) => String(c._id) === String(clientId));
     setDetails((curr) => ({ ...curr, clientId, ...getClientDetails(selectedClient) }));
+    if (fieldErrors.clientId) {
+      setFieldErrors((prev) => ({ ...prev, clientId: null }));
+    }
   };
 
   const addItem = () => {
@@ -1320,31 +1142,82 @@ export default function QuotationWizard({
   };
 
   const validateTemplate = () => {
+    const errors = {};
+    let firstMessage = null;
+
     if (!quotationTitle.trim()) {
-      setError("Enter a quotation title before continuing.");
-      return false;
+      errors.quotationTitle = "Please enter a quotation title before continuing.";
+      firstMessage = errors.quotationTitle;
     }
+
     if (!selectedTemplate) {
-      setError("Select a quotation template before continuing.");
+      firstMessage = firstMessage || "Please select a quotation template before continuing.";
+    }
+
+    if (firstMessage) {
+      setFieldErrors(errors);
+      alert(firstMessage);
       return false;
     }
+
+    setFieldErrors({});
     return true;
   };
 
   const validateDetails = () => {
-    if (!details.quotationTitle.trim() || !details.companyName.trim()) {
-      setError("Complete required quotation and company fields.");
+    const errors = {};
+    let firstMessage = null;
+
+    if (!details.quotationNumber.trim()) {
+      errors.quotationNumber = "Please enter a quotation number.";
+      firstMessage = firstMessage || errors.quotationNumber;
+    }
+
+    if (!details.quotationDate.trim()) {
+      errors.quotationDate = "Please select a quotation date.";
+      firstMessage = firstMessage || errors.quotationDate;
+    }
+
+    if (!details.quotationTitle.trim()) {
+      errors.quotationTitle = "Please enter a subject / title.";
+      firstMessage = firstMessage || errors.quotationTitle;
+    }
+
+    if (
+      selectedTemplate.sections.includes("company") &&
+      !details.companyName.trim()
+    ) {
+      errors.companyName = "Please enter a company name.";
+      firstMessage = firstMessage || "Please complete all required company information.";
+    }
+
+    if (
+      selectedTemplate.sections.includes("company") &&
+      !details.companyEmail.trim()
+    ) {
+      errors.companyEmail = "Please enter a company email.";
+      firstMessage = firstMessage || "Please complete all required company information.";
+    }
+
+    if (
+      selectedTemplate.sections.includes("client") &&
+      !details.clientId
+    ) {
+      errors.clientId = "Please select a client record.";
+      firstMessage = firstMessage || "Please select a client before continuing.";
+    }
+
+    if (firstMessage) {
+      setFieldErrors(errors);
+      alert(firstMessage);
       return false;
     }
-    if (!details.clientId) {
-      setError("Select a client record before continuing.");
-      return false;
-    }
+
+    setFieldErrors({});
     return true;
   };
 
   const continueToNextStep = () => {
-    setError("");
     if (step === 1) {
       if (!validateTemplate()) return;
       setDetails((curr) => ({ ...curr, quotationTitle: quotationTitle.trim() }));
@@ -1370,16 +1243,15 @@ export default function QuotationWizard({
   });
 
   const submitQuotation = async (stage) => {
-    setError("");
     if (!validateTemplate() || !validateDetails()) {
-      if (step !== 2) setStep(2);
+      if (step !== 2 && step !== 1) setStep(2);
       return;
     }
 
     try {
       await onSubmit({ preventDefault: () => undefined }, createPayload(stage));
     } catch (err) {
-      setError(err?.message || "An unexpected error occurred while saving the quotation.");
+      alert(err?.message || "An unexpected error occurred while saving the quotation.");
     }
   };
 
@@ -1421,7 +1293,7 @@ export default function QuotationWizard({
             <div className="flex-1 min-h-0 overflow-y-auto">
               <ChooseTemplateStep
                 category={category}
-                error={error}
+                errors={fieldErrors}
                 filteredTemplates={filteredTemplates}
                 onBuildCustom={() => setShowBuilder(true)}
                 onCategoryChange={setCategory}
@@ -1430,7 +1302,7 @@ export default function QuotationWizard({
                 quotationTitle={quotationTitle}
                 search={search}
                 selectedTemplate={selectedTemplate}
-                setQuotationTitle={setQuotationTitle}
+                setQuotationTitle={handleTitleChange}
               />
             </div>
           )}
@@ -1439,7 +1311,7 @@ export default function QuotationWizard({
             <DetailsStep
               clients={clients}
               details={details}
-              error={error}
+              errors={fieldErrors}
               onAddItem={addItem}
               onChangeClient={changeClient}
               onRemoveItem={removeItem}
@@ -1452,16 +1324,10 @@ export default function QuotationWizard({
           {step === 3 && (
             <div className="flex-1 min-h-0 overflow-y-auto">
               <ReviewStep
-                activeTab={activeTab}
                 details={details}
-                onEditDetails={() => setStep(2)}
-                onTabChange={setActiveTab}
-                onUpdate={updateDetails}
-                permissions={permissions}
-                salesAgents={salesAgents}
                 selectedTemplate={selectedTemplate}
-                stages={stages}
                 totals={totals}
+                onEditDetails={() => setStep(2)}
               />
             </div>
           )}
@@ -1469,7 +1335,7 @@ export default function QuotationWizard({
           <WizardFooter
             loading={loading}
             onBack={() => {
-              setError("");
+              setFieldErrors({});
               setStep((curr) => Math.max(1, curr - 1));
             }}
             onContinue={continueToNextStep}

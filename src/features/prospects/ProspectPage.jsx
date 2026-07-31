@@ -7,18 +7,19 @@ import {
   PageHeader,
   PageToolbar,
   PageContentState,
-} from "../../../components/page";
+} from "../../components/page";
 
-import { useUsers } from "../../users/hooks/useUsers";
+import { useUsers } from "../users/hooks/useUsers";
 
-import FilterPopover from "../../../components/filters/FilterPopover";
-import { useFilterPopover } from "../../../components/filters/useFilterPopover";
-import { getSelectProps } from "../../../components/select/selectConfig";
+import FilterPopover from "../../components/filters/FilterPopover";
+import { useFilterPopover } from "../../components/filters/useFilterPopover";
+import { getSelectProps } from "../../components/select/selectConfig";
 
-import ProspectForm from "./ProspectForm";
-import ProspectTable from "./ProspectTable";
-import ProspectKanban from "./ProspectKanban";
-import useProspect from "../hooks/useProspect";
+import ProspectForm from "./components/ProspectForm";
+import ProspectTable from "./components/ProspectTable";
+import ProspectKanban from "./components/ProspectKanban";
+import ProspectView from "./components/ProspectView";
+import useProspect from "./hooks/useProspect";
 
 const STATUS_OPTIONS = [
   { label: "New", value: "New" },
@@ -34,7 +35,7 @@ const SOURCE_OPTIONS = [
   { label: "Walk-in", value: "Walk-in" },
   { label: "Phone Call", value: "Phone Call" },
   { label: "Event", value: "Event" },
-  { label: "Other", value: "Other" },
+  { label: "Others", value: "Others" },
 ];
 
 export default function ProspectPage() {
@@ -59,6 +60,9 @@ export default function ProspectPage() {
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingProspect, setEditingProspect] = useState(null);
+
+  const [viewingProspect, setViewingProspect] = useState(null);
+  const [viewPaneOpen, setViewPaneOpen] = useState(false);
 
   const clearAllFilters = useCallback(() => {
     setFilterStatus(null);
@@ -117,6 +121,16 @@ export default function ProspectPage() {
   const handleCloseForm = () => {
     setFormOpen(false);
     setEditingProspect(null);
+  };
+
+  const handleOpenView = (prospect) => {
+    setViewingProspect(prospect);
+    setViewPaneOpen(true);
+  };
+
+  const handleCloseView = () => {
+    setViewPaneOpen(false);
+    setViewingProspect(null);
   };
 
   const handleSubmit = async (payload) => {
@@ -208,6 +222,7 @@ export default function ProspectPage() {
           <ProspectTable
             prospects={filteredProspects}
             loading={loading}
+            onView={handleOpenView}
             onEdit={handleEdit}
             onDelete={removeProspect}
             onContact={markAsContacted}
@@ -216,7 +231,7 @@ export default function ProspectPage() {
           <ProspectKanban
             prospects={filteredProspects}
             loading={loading}
-            onView={() => {}}
+            onView={handleOpenView}
             onEdit={handleEdit}
             onDelete={removeProspect}
             onContact={markAsContacted}
@@ -233,6 +248,22 @@ export default function ProspectPage() {
         onClose={handleCloseForm}
         onCancel={handleCloseForm}
         loading={loading}
+      />
+
+      <ProspectView
+        open={viewPaneOpen}
+        prospect={viewingProspect}
+        onClose={handleCloseView}
+        onEdit={(prospect) => {
+          handleCloseView();
+          handleEdit(prospect);
+        }}
+        onConvert={async (prospectId) => {
+          const success = await markAsContacted(prospectId);
+          if (success) {
+            handleCloseView();
+          }
+        }}
       />
     </PageBase>
   );

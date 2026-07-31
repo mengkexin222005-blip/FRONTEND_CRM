@@ -59,7 +59,6 @@ export default function Sidebar() {
     () => filterNavItems(getNavLinks(user?.role), user),
     [user]
   );
-
   // Group items to manage strict layout sequence
   const dashboardItems = useMemo(() => navItems.filter(isDashboardItem), [navItems]);
   const moduleItems = useMemo(() => navItems.filter(isModuleItem), [navItems]);

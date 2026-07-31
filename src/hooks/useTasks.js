@@ -212,25 +212,22 @@ export function useTasks() {
   const createTask = async (formData, options = {}) => {
     setSubmitting(true);
     try {
-      const payload = isFormData(formData)
-        ? formData
-        : {
-            subject: formData.subject,
-            description: formData.description || "",
-            taskType: formData.taskType || "Other",
-            priority: formData.priority || "Medium",
-            status: formData.status || "Pending",
-            scope: formData.scope || "Personal",
-            dueDate: formData.dueDate || null,
-            dueTime: formData.dueTime || "",
-            link: formData.link || "",
-            linkName: formData.linkName || "",
-            reminderAt: formData.reminderAt || null,
-            repeat: formData.repeat || "None",
-            assignedTo: formData.assignedTo || null,
-            relatedToType: formData.relatedToType || null,
-            relatedTo: formData.relatedTo || null,
-          };
+      const payload = {
+        subject: formData.subject,
+        description: formData.description || "",
+        taskType: formData.taskType || "Other",
+        priority: formData.priority || "Medium",
+        status: formData.status || "To Do",
+        scope: formData.scope || "Personal",
+        dueDate: formData.dueDate || null,
+        dueTime: formData.dueTime || "",
+        link: formData.link || "",
+        reminderAt: formData.reminderAt || null,
+        repeat: formData.repeat || "None",
+        assignedTo: formData.assignedTo || null,
+        relatedToType: formData.relatedToType || null,
+        relatedTo: formData.relatedTo || null,
+      };
 
       const config = isFormData(formData)
         ? { headers: { "Content-Type": "multipart/form-data" } }
@@ -258,24 +255,21 @@ export function useTasks() {
   const updateTask = async (taskId, formData) => {
     setSubmitting(true);
     try {
-      const payload = isFormData(formData)
-        ? formData
-        : {
-            subject: formData.subject,
-            description: formData.description || "",
-            taskType: formData.taskType || "Other",
-            priority: formData.priority || "Medium",
-            scope: formData.scope || "Personal",
-            dueDate: formData.dueDate || null,
-            dueTime: formData.dueTime || "",
-            link: formData.link || "",
-            linkName: formData.linkName || "",
-            reminderAt: formData.reminderAt || null,
-            repeat: formData.repeat || "None",
-            relatedToType: formData.relatedToType || null,
-            relatedTo: formData.relatedTo || null,
-          };
-      if (!isFormData(formData) && formData.assignedTo !== undefined) {
+      const payload = {
+        subject: formData.subject,
+        description: formData.description || "",
+        taskType: formData.taskType || "Other",
+        priority: formData.priority || "Medium",
+        scope: formData.scope || "Personal",
+        dueDate: formData.dueDate || null,
+        dueTime: formData.dueTime || "",
+        link: formData.link || "",
+        reminderAt: formData.reminderAt || null,
+        repeat: formData.repeat || "None",
+        relatedToType: formData.relatedToType || null,
+        relatedTo: formData.relatedTo || null,
+      };
+      if (formData.assignedTo !== undefined) {
         payload.assignedTo = formData.assignedTo || null;
       }
 

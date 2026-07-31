@@ -40,6 +40,7 @@ import SalesManagerIndex from "./pages/salesManager/Dashboard";
 import SalesManagerLeads from "./pages/salesManager/Leads";
 import SalesManagerClients from "./pages/salesManager/Clients";
 import SalesManagerQuotations from "./pages/salesManager/Quotations";
+import SalesManagerReports from "./pages/salesManager/Reports";
 import SalesManagerTasks from "./pages/salesManager/Tasks";
 import SalesManagerProspects from "./pages/salesManager/Prospects";
 import SalesManagerMeetings from "./pages/salesManager/Meetings";
@@ -54,6 +55,7 @@ import SalesAgentIndex from "./pages/salesAgent/Dashboard";
 import SalesAgentLeads from "./pages/salesAgent/Leads";
 import SalesAgentClients from "./pages/salesAgent/Clients";
 import SalesAgentQuotations from "./pages/salesAgent/Quotations";
+import SalesAgentReports from "./pages/salesAgent/Reports";
 import SalesAgentTasks from "./pages/salesAgent/Tasks";
 import SalesAgentProspects from "./pages/salesAgent/Prospects";
 import SalesAgentMeetings from "./pages/salesAgent/Meetings";
@@ -137,6 +139,7 @@ function App() {
           <Route path="/sales-manager/calls" element={<SalesManagerCalls />} />
           <Route path="/sales-manager/settings" element={<SalesManagerSettings />} />
           <Route path="/sales-manager/profile" element={<SalesManagerProfile />} />
+          <Route path="/sales-manager/reports" element={<SalesManagerReports />} />
           <Route path="/sales-manager/communications" element={<SalesManagerCommunication />} />
           <Route path="/sales-manager/support" element={<SalesManagerSupport />} />
         </Route>
@@ -156,6 +159,7 @@ function App() {
           <Route path="/sales-agent/calls" element={<SalesAgentCalls />} />
           <Route path="/sales-agent/settings" element={<SalesAgentSettings />} />
           <Route path="/sales-agent/profile" element={<SalesAgentProfile />} />
+          <Route path="/sales-agent/reports" element={<SalesAgentReports />} />
           <Route path="/sales-agent/communications" element={<SalesAgentCommunication />} />
           <Route path="/sales-agent/support" element={<SalesAgentSupport />} />
         </Route>
