@@ -4,6 +4,8 @@ import Swal from "sweetalert2";
 import api from "../services/api";
 import { SOCKET_EVENTS } from "../constants/socketEvents";
 
+const isFormData = (value) => value instanceof FormData;
+
 const Toast = Swal.mixin({
   toast: true,
   position: "top-end",
@@ -13,7 +15,7 @@ const Toast = Swal.mixin({
   width: "auto",
 });
 
-const STATUSES = ["To Do", "In Progress", "Completed"];
+const STATUSES = ["Pending", "Ongoing", "Due Soon", "Completed", "Overdue"];
 
 export function useTasks() {
   const [tasks, setTasks] = useState([]);
@@ -210,24 +212,30 @@ export function useTasks() {
   const createTask = async (formData, options = {}) => {
     setSubmitting(true);
     try {
-      const payload = {
-        subject: formData.subject,
-        description: formData.description || "",
-        taskType: formData.taskType || "Other",
-        priority: formData.priority || "Medium",
-        status: formData.status || "To Do",
-        scope: formData.scope || "Personal",
-        dueDate: formData.dueDate || null,
-        dueTime: formData.dueTime || "",
-        link: formData.link || "",
-        reminderAt: formData.reminderAt || null,
-        repeat: formData.repeat || "None",
-        assignedTo: formData.assignedTo || null,
-        relatedToType: formData.relatedToType || null,
-        relatedTo: formData.relatedTo || null,
-      };
+      const payload = isFormData(formData)
+        ? formData
+        : {
+            subject: formData.subject,
+            description: formData.description || "",
+            taskType: formData.taskType || "Other",
+            priority: formData.priority || "Medium",
+            status: formData.status || "Pending",
+            scope: formData.scope || "Personal",
+            dueDate: formData.dueDate || null,
+            dueTime: formData.dueTime || "",
+            link: formData.link || "",
+            reminderAt: formData.reminderAt || null,
+            repeat: formData.repeat || "None",
+            assignedTo: formData.assignedTo || null,
+            relatedToType: formData.relatedToType || null,
+            relatedTo: formData.relatedTo || null,
+          };
 
-      const { data } = await api.post("/api/tasks", payload);
+      const config = isFormData(formData)
+        ? { headers: { "Content-Type": "multipart/form-data" } }
+        : {};
+
+      const { data } = await api.post("/api/tasks", payload, config);
       setTasks((prev) => [data, ...prev]);
 
       !options.silent &&
@@ -249,25 +257,31 @@ export function useTasks() {
   const updateTask = async (taskId, formData) => {
     setSubmitting(true);
     try {
-      const payload = {
-        subject: formData.subject,
-        description: formData.description || "",
-        taskType: formData.taskType || "Other",
-        priority: formData.priority || "Medium",
-        scope: formData.scope || "Personal",
-        dueDate: formData.dueDate || null,
-        dueTime: formData.dueTime || "",
-        link: formData.link || "",
-        reminderAt: formData.reminderAt || null,
-        repeat: formData.repeat || "None",
-        relatedToType: formData.relatedToType || null,
-        relatedTo: formData.relatedTo || null,
-      };
-      if (formData.assignedTo !== undefined) {
+      const payload = isFormData(formData)
+        ? formData
+        : {
+            subject: formData.subject,
+            description: formData.description || "",
+            taskType: formData.taskType || "Other",
+            priority: formData.priority || "Medium",
+            scope: formData.scope || "Personal",
+            dueDate: formData.dueDate || null,
+            dueTime: formData.dueTime || "",
+            link: formData.link || "",
+            reminderAt: formData.reminderAt || null,
+            repeat: formData.repeat || "None",
+            relatedToType: formData.relatedToType || null,
+            relatedTo: formData.relatedTo || null,
+          };
+      if (!isFormData(formData) && formData.assignedTo !== undefined) {
         payload.assignedTo = formData.assignedTo || null;
       }
 
-      const { data } = await api.patch(`/api/tasks/${taskId}`, payload);
+      const config = isFormData(formData)
+        ? { headers: { "Content-Type": "multipart/form-data" } }
+        : {};
+
+      const { data } = await api.patch(`/api/tasks/${taskId}`, payload, config);
 
       const updatedTask = data.task || data;
 
