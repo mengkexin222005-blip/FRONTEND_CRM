@@ -30,12 +30,11 @@ import { formatDate, formatDateTime } from "../../utils/date";
 import { formatPhone } from "../../utils/format";
 import { buildFullAddress } from "../../utils/buildFullAddress";
 
-const AGENT_STATUSES = ["New", "Contacted", "Qualified", "Lost"];
-const LEAD_STAGE_ORDER = ["New", "Contacted", "Qualified"];
+const AGENT_STATUSES = ["Contacted", "Qualified", "Lost"];
+const LEAD_STAGE_ORDER = ["Contacted", "Qualified"];
 const TABS = ["Overview", "Activity"];
 
 const statusConfig = {
-  New: { text: "New", tone: "gray" },
   Contacted: { text: "Contacted", tone: "blue" },
   Qualified: { text: "Qualified", tone: "amber" },
   Lost: { text: "Lost", tone: "red" },

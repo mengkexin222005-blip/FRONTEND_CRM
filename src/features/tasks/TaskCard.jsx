@@ -33,7 +33,7 @@ const TASK_TYPE_ICON = {
   Message: MessageCircle,
   Meeting: CalendarDays,
   Reminder: Bell,
-  Other: FileText,
+  Others: FileText,
 };
 
 const RELATED_ICON = {

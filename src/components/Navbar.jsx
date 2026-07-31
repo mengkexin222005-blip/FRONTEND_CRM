@@ -15,9 +15,10 @@ export default function Navbar() {
 
   // Get the current date and time
   const now = new Date();
-  const day = now.toLocaleDateString([], { weekday: 'short' });
+  const day = now.toLocaleDateString([], { weekday: 'long' });
   const date = now.toLocaleDateString();
   const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  
   // Generate dynamic greeting based on the hour
   const getGreeting = () => {
     const hour = now.getHours();

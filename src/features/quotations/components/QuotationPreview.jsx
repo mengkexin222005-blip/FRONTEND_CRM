@@ -4,9 +4,30 @@ import { formatCurrency } from "../../../utils/currency";
 import { toNumber } from "../utils/quotationCalculations";
 
 export default function QuotationPreview({ details, selectedTemplate, totals }) {
-  const visibleItems = details.items.filter(
-    (item) => item.description || toNumber(item.unitPrice) > 0,
+  const visibleItems = (details.items || []).filter(
+    (item) => item.description || toNumber(item.unitPrice) > 0
   );
+
+  const visibleMaterials = (details.materials || []).filter(
+    (m) => m.material || toNumber(m.unitCost) > 0
+  );
+
+  const visibleMilestones = (details.milestones || []).filter((m) => m.phase);
+
+  const hasEvent =
+    selectedTemplate.sections.includes("event") &&
+    (details.eventName || details.eventVenue || details.eventDate || details.eventGuests);
+
+  const hasOverview =
+    selectedTemplate.sections.includes("overview") &&
+    (details.overviewProjectName || details.overviewObjectives || details.overviewScope);
+
+  const hasPayment =
+    selectedTemplate.sections.includes("payment") &&
+    (details.paymentMethod || details.paymentSchedule || toNumber(details.downPayment) > 0);
+
+  const hasTerms = selectedTemplate.sections.includes("terms") && details.terms?.trim();
+  const hasNotes = selectedTemplate.sections.includes("notes") && details.notes?.trim();
 
   return (
     <article className="mx-auto min-h-[650px] w-full max-w-2xl bg-white px-8 py-7 text-[9px] text-slate-700 shadow-sm">
@@ -23,25 +44,25 @@ export default function QuotationPreview({ details, selectedTemplate, totals }) 
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">QUOTATION</h1>
           <p className="mt-2">Quotation #: <strong>{details.quotationNumber}</strong></p>
           <p>Date: {details.quotationDate}</p>
-          <p>Valid Until: {details.validUntil}</p>
+          {details.validUntil && <p>Valid Until: {details.validUntil}</p>}
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-10 border-b border-red-100 py-5">
         <div>
           <p className="font-semibold uppercase text-red-500">From:</p>
-          <p className="mt-2 font-semibold">{details.companyName}</p>
-          <p>{details.companyAddress || "—"}</p>
-          <p>Phone: {details.companyPhone || "—"}</p>
-          <p>Email: {details.companyEmail || "—"}</p>
+          <p className="mt-2 font-semibold">{details.companyName || "—"}</p>
+          {details.companyAddress && <p>{details.companyAddress}</p>}
+          {details.companyPhone && <p>Phone: {details.companyPhone}</p>}
+          {details.companyEmail && <p>Email: {details.companyEmail}</p>}
         </div>
         <div>
           <p className="font-semibold uppercase text-red-500">To:</p>
           <p className="mt-2 font-semibold">{details.clientName || "—"}</p>
-          <p>{details.clientCompany || "—"}</p>
-          <p>{details.clientAddress || "—"}</p>
-          <p>Phone: {details.clientPhone || "—"}</p>
-          <p>Email: {details.clientEmail || "—"}</p>
+          {details.clientCompany && <p>{details.clientCompany}</p>}
+          {details.clientAddress && <p>{details.clientAddress}</p>}
+          {details.clientPhone && <p>Phone: {details.clientPhone}</p>}
+          {details.clientEmail && <p>Email: {details.clientEmail}</p>}
         </div>
       </div>
 
@@ -53,19 +74,19 @@ export default function QuotationPreview({ details, selectedTemplate, totals }) 
         )}
       </div>
 
-      {selectedTemplate.sections.includes("event") && (
+      {hasEvent && (
         <div className="border-b border-red-100 py-4">
           <p className="font-semibold uppercase text-red-500">Event Details</p>
           <div className="mt-2 grid grid-cols-2 gap-2">
-            <p>Event: {details.eventName || "—"}</p>
-            <p>Venue: {details.eventVenue || "—"}</p>
-            <p>Date: {details.eventDate || "—"}</p>
-            <p>Guests: {details.eventGuests || "—"}</p>
+            {details.eventName && <p>Event: {details.eventName}</p>}
+            {details.eventVenue && <p>Venue: {details.eventVenue}</p>}
+            {details.eventDate && <p>Date: {details.eventDate}</p>}
+            {details.eventGuests && <p>Guests: {details.eventGuests}</p>}
           </div>
         </div>
       )}
 
-      {selectedTemplate.sections.includes("overview") && (
+      {hasOverview && (
         <div className="border-b border-red-100 py-4">
           <p className="font-semibold uppercase text-red-500">Project Overview</p>
           {details.overviewProjectName && <p className="mt-2 font-medium">{details.overviewProjectName}</p>}
@@ -84,7 +105,7 @@ export default function QuotationPreview({ details, selectedTemplate, totals }) 
         </div>
       )}
 
-      {selectedTemplate.sections.includes("items") && (
+      {selectedTemplate.sections.includes("items") && visibleItems.length > 0 && (
         <div>
           <div className="grid grid-cols-[36px_1fr_70px_110px_110px] border-y border-red-100 bg-red-50/40 font-semibold uppercase text-red-500">
             {["#", "Description", "Qty", "Unit Price", "Amount"].map((label) => (
@@ -127,7 +148,7 @@ export default function QuotationPreview({ details, selectedTemplate, totals }) 
         </div>
       )}
 
-      {selectedTemplate.sections.includes("materials") && (
+      {selectedTemplate.sections.includes("materials") && visibleMaterials.length > 0 && (
         <div className="mt-6">
           <p className="mb-2 font-semibold uppercase text-red-500">Materials List</p>
           <div className="grid grid-cols-[1fr_70px_110px_110px] border-y border-red-100 bg-red-50/40 font-semibold uppercase text-red-500">
@@ -135,23 +156,21 @@ export default function QuotationPreview({ details, selectedTemplate, totals }) 
               <span key={label} className="px-2 py-2">{label}</span>
             ))}
           </div>
-          {details.materials
-            .filter((m) => m.material || toNumber(m.unitCost) > 0)
-            .map((material) => {
-              const total = toNumber(material.quantity) * toNumber(material.unitCost);
-              return (
-                <div key={material.id} className="grid grid-cols-[1fr_70px_110px_110px] border-b border-slate-100">
-                  <span className="px-2 py-2">{material.material}</span>
-                  <span className="px-2 py-2">{material.quantity}</span>
-                  <span className="px-2 py-2">{formatCurrency(material.unitCost, details.currency)}</span>
-                  <span className="px-2 py-2 text-right font-medium">{formatCurrency(total, details.currency)}</span>
-                </div>
-              );
-            })}
+          {visibleMaterials.map((material) => {
+            const total = toNumber(material.quantity) * toNumber(material.unitCost);
+            return (
+              <div key={material.id} className="grid grid-cols-[1fr_70px_110px_110px] border-b border-slate-100">
+                <span className="px-2 py-2">{material.material}</span>
+                <span className="px-2 py-2">{material.quantity}</span>
+                <span className="px-2 py-2">{formatCurrency(material.unitCost, details.currency)}</span>
+                <span className="px-2 py-2 text-right font-medium">{formatCurrency(total, details.currency)}</span>
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {selectedTemplate.sections.includes("timeline") && (
+      {selectedTemplate.sections.includes("timeline") && visibleMilestones.length > 0 && (
         <div className="mt-6">
           <p className="mb-2 font-semibold uppercase text-red-500">Timeline / Milestones</p>
           <div className="grid grid-cols-[1fr_110px_110px] border-y border-red-100 bg-red-50/40 font-semibold uppercase text-red-500">
@@ -159,25 +178,27 @@ export default function QuotationPreview({ details, selectedTemplate, totals }) 
               <span key={label} className="px-2 py-2">{label}</span>
             ))}
           </div>
-          {details.milestones
-            .filter((m) => m.phase)
-            .map((milestone) => (
-              <div key={milestone.id} className="grid grid-cols-[1fr_110px_110px] border-b border-slate-100">
-                <span className="px-2 py-2">{milestone.phase}</span>
-                <span className="px-2 py-2">{milestone.startDate || "—"}</span>
-                <span className="px-2 py-2">{milestone.endDate || "—"}</span>
-              </div>
-            ))}
+          {visibleMilestones.map((milestone) => (
+            <div key={milestone.id} className="grid grid-cols-[1fr_110px_110px] border-b border-slate-100">
+              <span className="px-2 py-2">{milestone.phase}</span>
+              <span className="px-2 py-2">{milestone.startDate || "—"}</span>
+              <span className="px-2 py-2">{milestone.endDate || "—"}</span>
+            </div>
+          ))}
         </div>
       )}
 
-      {selectedTemplate.sections.includes("payment") && (
+      {hasPayment && (
         <div className="mt-6 border-t border-red-100 pt-4">
           <p className="font-semibold uppercase text-red-500">Payment Information</p>
           <div className="mt-2 grid grid-cols-3 gap-2">
-            <p>Method: {details.paymentMethod || "—"}</p>
-            <p>Down Payment: {formatCurrency(details.downPayment, details.currency)}</p>
-            <p>Balance: {formatCurrency(details.balance, details.currency)}</p>
+            {details.paymentMethod && <p>Method: {details.paymentMethod}</p>}
+            {toNumber(details.downPayment) > 0 && (
+              <p>Down Payment: {formatCurrency(details.downPayment, details.currency)}</p>
+            )}
+            {toNumber(details.balance) > 0 && (
+              <p>Balance: {formatCurrency(details.balance, details.currency)}</p>
+            )}
           </div>
           {details.paymentSchedule && (
             <p className="mt-2 whitespace-pre-line leading-5 text-slate-500">{details.paymentSchedule}</p>
@@ -187,20 +208,20 @@ export default function QuotationPreview({ details, selectedTemplate, totals }) 
 
       <div className="mt-7 grid grid-cols-2 gap-10">
         <div>
-          {selectedTemplate.sections.includes("terms") && (
+          {hasTerms && (
             <>
               <p className="font-semibold uppercase text-red-500">Terms &amp; Conditions</p>
-              <p className="mt-2 whitespace-pre-line leading-5 text-slate-500">{details.terms || "—"}</p>
+              <p className="mt-2 whitespace-pre-line leading-5 text-slate-500">{details.terms}</p>
             </>
           )}
-          {selectedTemplate.sections.includes("notes") && details.notes && (
+          {hasNotes && (
             <div className="mt-5">
               <p className="font-semibold uppercase text-red-500">Notes</p>
               <p className="mt-2 whitespace-pre-line leading-5 text-slate-500">{details.notes}</p>
             </div>
           )}
         </div>
-        {selectedTemplate.sections.includes("signature") && (
+        {selectedTemplate.sections.includes("signature") && details.preparedBy && (
           <div className="self-end text-center">
             <div className="mx-auto mb-2 w-36 border-b border-slate-400" />
             <p className="font-semibold">{details.preparedBy}</p>

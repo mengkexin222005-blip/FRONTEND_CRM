@@ -3,9 +3,9 @@ import { Link } from "react-router-dom";
 import {
   TableRow,
   TableCell,
-  useTablePagination,
-} from "../../../components/table";
-import LoaderTables from "../../../components/loader/TablesLazyLoader";
+} from "../../../../components/table";
+
+import LoaderTables from "../../../../components/loader/TablesLazyLoader";
 
 // Table headers
 const HEADERS = [
@@ -21,36 +21,15 @@ export default function ReportTable({
   onEdit,
   onDelete,
 }) {
-  const {
-    currentPage,
-    rowsPerPage,
-    totalRows,
-    totalPages,
-    paginatedItems,
-    pageWindow,
-    from,
-    to,
-    goTo,
-    setRowsPerPage,
-  } = useTablePagination(reports, 10);
 
   return (
     <LoaderTables
-      paginatedItems={isLoading ? "loading" : paginatedItems}
+      paginatedItems={isLoading ? "loading" : reports}
       headers={HEADERS.map((h) => h.label)}
       emptyMessage="No reports found."
-      heightClass="h-[540px]"
-      currentPage={currentPage}
-      totalPages={totalPages}
-      totalRows={totalRows}
-      rowsPerPage={rowsPerPage}
-      from={from}
-      to={to}
-      pageWindow={pageWindow}
-      onGoTo={goTo}
-      onRowsPerPageChange={setRowsPerPage}
+      // heightClass="h-full"
       renderRow={(report) => (
-        <TableRow key={report.id}>
+        <TableRow key={report._id}>
           {/* Report Name */}
           <TableCell>
             <Link
@@ -87,7 +66,7 @@ export default function ReportTable({
               </button>
               <button
                 type="button"
-                onClick={() => onDelete?.(report.id)}
+                onClick={() => onDelete?.(report._id)}
                 className="rounded-md border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
               >
                 Delete

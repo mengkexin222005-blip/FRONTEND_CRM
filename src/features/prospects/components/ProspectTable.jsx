@@ -46,6 +46,7 @@ const getStatusClass = (status) => {
 export default function ProspectTable({
   prospects = [],
   loading = false,
+  onView,
   onEdit,
   onDelete,
   onContact,
@@ -79,7 +80,12 @@ export default function ProspectTable({
         heightClass="h-[540px]"
       >
         {paginatedItems.map((prospect) => (
-          <TableRow key={prospect._id} title="Prospect record">
+          <TableRow
+            key={prospect._id}
+            title="Prospect record"
+            onClick={() => onView?.(prospect)}
+            className="cursor-pointer"
+          >
             <TableCell>
               <span className="font-medium text-gray-700">
                 {prospect.companyName || "-"}
@@ -105,14 +111,14 @@ export default function ProspectTable({
             </TableCell>
 
             <TableCell align="text-right">
-              <div className="flex items-center justify-end gap-2">
+              <div
+                className="flex items-center justify-end gap-2"
+                onClick={(event) => event.stopPropagation()}
+              >
                 <button
                   type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onContact?.(prospect._id);
-                  }}
-                  className="text-gray-400 hover:text-emerald-600"
+                  onClick={() => onContact?.(prospect._id)}
+                  className="text-gray-400 hover:text-emerald-600 cursor-pointer"
                   title="Move to leads"
                 >
                   <Phone size={16} />
@@ -120,11 +126,8 @@ export default function ProspectTable({
 
                 <button
                   type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onEdit?.(prospect);
-                  }}
-                  className="text-gray-400 hover:text-sky-600"
+                  onClick={() => onEdit?.(prospect)}
+                  className="text-gray-400 hover:text-sky-600 cursor-pointer"
                   title="Edit prospect"
                 >
                   <Edit2 size={16} />
@@ -132,11 +135,8 @@ export default function ProspectTable({
 
                 <button
                   type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onDelete?.(prospect._id);
-                  }}
-                  className="text-gray-400 hover:text-red-600"
+                  onClick={() => onDelete?.(prospect._id)}
+                  className="text-gray-400 hover:text-red-600 cursor-pointer"
                   title="Delete prospect"
                 >
                   <FileX size={16} />

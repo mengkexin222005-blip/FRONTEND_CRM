@@ -1,5 +1,5 @@
 import React from "react";
-import { Search, Plus, ArrowRight, Layers3, Check, FileText, Download, Pencil } from "lucide-react";
+import { Search, Plus, Layers3, Check, FileText, Download, Pencil } from "lucide-react";
 import { TEMPLATE_CATEGORIES } from "../Templates/templateDefaults";
 import QuotationPreview from "./QuotationPreview";
 import { QuotationSummaryWidget, FormDataPanel, SettingsPanel } from "./QuotationSummary";
@@ -11,12 +11,11 @@ const FIELD_CLASS =
 const PREVIEW_TABS = [
   { id: "preview", label: "Preview Quotation", icon: FileText },
   { id: "data", label: "Form Data", icon: Layers3 },
-  { id: "settings", label: "Settings", icon: SettingsPanel ? FileText : Layers3 }, // Fallback icons
+  { id: "settings", label: "Settings", icon: SettingsPanel ? FileText : Layers3 },
 ];
 
 export function ChooseTemplateStep({
   category,
-  error,
   filteredTemplates,
   onBuildCustom,
   onCategoryChange,
@@ -30,8 +29,9 @@ export function ChooseTemplateStep({
   return (
     <div className="min-h-0 flex-1 overflow-y-auto px-8 py-5">
       <div>
-        <FieldLabel>Quotation Title</FieldLabel>
+        <FieldLabel required>Quotation Title</FieldLabel>
         <input
+          id="quotationTitle"
           value={quotationTitle}
           onChange={(e) => setQuotationTitle(e.target.value)}
           className={`${FIELD_CLASS} py-3`}
@@ -70,18 +70,11 @@ export function ChooseTemplateStep({
         ))}
       </div>
 
-      {error && (
-        <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-xs text-red-600">
-          {error}
-        </div>
-      )}
-
-      {/* Clean Template Grid */}
       <div className="mt-5 grid grid-cols-4 gap-4">
         <button
           type="button"
           onClick={onBuildCustom}
-          className="flex min-h-36 flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 p-5 text-center transition hover:border-red-300 hover:bg-red-50/30"
+          className="flex min-h-36 flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 p-5 text-center transition hover:border-red-300 hover:bg-red-50/30 cursor-pointer"
         >
           <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-50 text-red-500">
             <Plus size={20} />
@@ -98,24 +91,30 @@ export function ChooseTemplateStep({
               key={template.id}
               type="button"
               onClick={() => onSelectTemplate(template)}
-              className={`relative flex min-h-36 flex-col items-start rounded-lg border p-5 text-left transition ${
+              className={`relative flex min-h-36 flex-col justify-between rounded-lg border p-5 text-left transition cursor-pointer ${
                 selected 
                   ? "border-red-400 bg-red-50/40 shadow-sm ring-1 ring-red-400/20" 
                   : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm"
               }`}
             >
-              <div className="flex w-full items-start justify-between gap-2">
-                <span className={`flex h-10 w-10 items-center justify-center rounded-lg shrink-0 ${template.iconClass}`}>
-                  <Icon size={18} />
-                </span>
-                {selected && (
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white shrink-0">
-                    <Check size={11} />
+              <div className="w-full">
+                <div className="flex w-full items-start justify-between gap-2">
+                  <span className={`flex h-10 w-10 items-center justify-center rounded-lg shrink-0 ${template.iconClass}`}>
+                    <Icon size={18} />
                   </span>
-                )}
+                  {selected && (
+                    <span className="flex items-center gap-1 text-[11px] font-semibold text-red-500">
+                      <Check size={13} /> Selected
+                    </span>
+                  )}
+                </div>
+                <h3 className="mt-3 text-xs font-semibold text-slate-800">{template.name}</h3>
+                <p className="mt-1 text-[10px] leading-relaxed text-slate-500 line-clamp-2">{template.description}</p>
               </div>
-              <h3 className="mt-3 text-xs font-semibold text-slate-800">{template.name}</h3>
-              <p className="mt-1 text-[10px] leading-relaxed text-slate-500 line-clamp-2">{template.description}</p>
+
+              <div className="mt-4 border-t border-slate-100 pt-3 text-[11px] font-medium text-slate-500">
+                {template.sections.length} Sections
+              </div>
             </button>
           );
         })}
@@ -147,7 +146,7 @@ export function ReviewStep({
                 key={tab.id}
                 type="button"
                 onClick={() => onTabChange(tab.id)}
-                className={`flex items-center gap-2 border-b-2 px-4 py-3 text-[11px] font-medium ${
+                className={`flex items-center gap-2 border-b-2 px-4 py-3 text-[11px] font-medium cursor-pointer ${
                   activeTab === tab.id ? "border-red-500 text-red-500" : "border-transparent text-slate-600"
                 }`}
               >
@@ -160,7 +159,7 @@ export function ReviewStep({
         <button
           type="button"
           onClick={onEditDetails}
-          className="flex items-center gap-2 rounded-md border border-slate-200 px-4 py-2 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
+          className="flex items-center gap-2 rounded-md border border-slate-200 px-4 py-2 text-[11px] font-medium text-slate-700 hover:bg-slate-50 cursor-pointer"
         >
           <Pencil size={13} />
           Edit Details
@@ -177,7 +176,7 @@ export function ReviewStep({
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="flex items-center gap-2 rounded-md border border-slate-200 px-4 py-2 text-slate-700 hover:bg-slate-50"
+                className="flex items-center gap-2 rounded-md border border-slate-200 px-4 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer"
               >
                 <Download size={13} /> Download PDF
               </button>

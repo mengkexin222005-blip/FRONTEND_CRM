@@ -4,20 +4,34 @@ export const toNumber = (value) => {
 };
 
 export const calculateQuotationTotals = (
-  items,
+  items = [],
   taxRate = 0,
   discount = 0,
 ) => {
-  const subtotal = items.reduce(
-    (sum, item) => sum + toNumber(item.quantity) * toNumber(item.unitPrice),
-    0,
-  );
+  // Always work with an array
+  const safeItems = Array.isArray(items) ? items : [];
+
+  const subtotal = safeItems.reduce((sum, item = {}) => {
+    return (
+      sum +
+      toNumber(item.quantity) *
+        toNumber(item.unitPrice)
+    );
+  }, 0);
+
   const discountAmount = Math.min(
     subtotal,
-    Math.max(0, toNumber(discount)),
+    Math.max(0, toNumber(discount))
   );
-  const taxableAmount = Math.max(0, subtotal - discountAmount);
-  const taxAmount = taxableAmount * (Math.max(0, toNumber(taxRate)) / 100);
+
+  const taxableAmount = Math.max(
+    0,
+    subtotal - discountAmount
+  );
+
+  const taxAmount =
+    taxableAmount *
+    (Math.max(0, toNumber(taxRate)) / 100);
 
   return {
     subtotal,
@@ -30,13 +44,31 @@ export const calculateQuotationTotals = (
 export const createQuotationNumber = () => {
   const year = new Date().getFullYear();
   const suffix = String(Date.now()).slice(-4);
+
   return `QUO-${year}-${suffix}`;
 };
 
-export const toDateInput = (date) => date.toISOString().slice(0, 10);
+export const toDateInput = (date) => {
+  if (!date) return "";
+
+  const parsed = date instanceof Date ? date : new Date(date);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return "";
+  }
+
+  return parsed.toISOString().slice(0, 10);
+};
 
 export const addDays = (date, days) => {
-  const nextDate = new Date(date);
+  const baseDate = date instanceof Date ? date : new Date(date);
+
+  if (Number.isNaN(baseDate.getTime())) {
+    return new Date();
+  }
+
+  const nextDate = new Date(baseDate);
   nextDate.setDate(nextDate.getDate() + days);
+
   return nextDate;
 };

@@ -168,7 +168,7 @@ export default function LeadForm({
                 name="gender"
                 value={formData.gender || ""}
                 onChange={onChange}
-                placeholder="e.g. Male, Female, Other"
+                placeholder="e.g. Male, Female, Others"
                 required
                 disabled={loading}
               />

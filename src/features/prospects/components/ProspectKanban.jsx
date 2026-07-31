@@ -112,7 +112,7 @@ export default function ProspectKanban({
           index={index}
           isLast={index === items.length - 1}
           onClick={() => onView?.(prospect)}
-          wrapperClassName="hover:border-red-200 hover:bg-red-50"
+          wrapperClassName="hover:border-red-200 hover:bg-red-50 cursor-pointer"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
@@ -126,7 +126,7 @@ export default function ProspectKanban({
             </div>
 
             <span className="text-[11px] rounded-full bg-gray-100 text-gray-500 px-2 py-1 shrink-0">
-              {prospect.leadSource || "Other"}
+              {prospect.leadSource || "Others"}
             </span>
           </div>
 
@@ -154,7 +154,7 @@ export default function ProspectKanban({
                 event.stopPropagation();
                 onContact?.(prospect._id);
               }}
-              className="p-1.5 rounded-md text-gray-400 hover:text-emerald-600 hover:bg-white"
+              className="p-1.5 rounded-md text-gray-400 hover:text-emerald-600 hover:bg-white cursor-pointer"
               title="Move to leads"
             >
               <Phone size={15} />
@@ -166,7 +166,7 @@ export default function ProspectKanban({
                 event.stopPropagation();
                 onEdit?.(prospect);
               }}
-              className="p-1.5 rounded-md text-gray-400 hover:text-sky-600 hover:bg-white"
+              className="p-1.5 rounded-md text-gray-400 hover:text-sky-600 hover:bg-white cursor-pointer"
               title="Edit prospect"
             >
               <Edit2 size={15} />
@@ -178,7 +178,7 @@ export default function ProspectKanban({
                 event.stopPropagation();
                 onDelete?.(prospect._id);
               }}
-              className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-white"
+              className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-white cursor-pointer"
               title="Delete prospect"
             >
               <Trash2 size={15} />

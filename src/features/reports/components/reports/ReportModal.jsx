@@ -1,6 +1,6 @@
-import FormDrawer from "../../../components/form/FormDrawer";
-import FormSection from "../../../components/form/FormSection";
-import { FormInput, FormLabel, FormTextarea } from "../../../components/form/FormField";
+import FormDrawer from "../../../../components/form/FormDrawer";
+import FormSection from "../../../../components/form/FormSection";
+import { FormInput, FormLabel, FormTextarea } from "../../../../components/form/FormField";
 
 export default function ReportModal({
   open,

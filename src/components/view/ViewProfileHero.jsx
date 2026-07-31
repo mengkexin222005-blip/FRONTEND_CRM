@@ -3,19 +3,21 @@ import GenderIcon from "../GenderIcon";
 import { getProfileImage } from "../../utils/avatar";
 import { getDisplayName } from "../../utils/name";
 
-/**
- * ViewProfileHero
- *
- * The avatar + name + gender icon + subtitle + badge block shown at the
- * top of every view drawer.
- *
- * @prop {object}          record      - the data object (lead / client / user)
- * @prop {string}          subtitle    - line shown below the name (e.g. "Company · Industry")
- * @prop {React.ReactNode} badge       - status badge / status select rendered below subtitle
- *
- */
-export default function ViewProfileHero({ record, subtitle, badge }) {
-  const profileSrc = getProfileImage(record);
+export default function ViewProfileHero({
+  record,
+  image,
+  title,
+  subtitle,
+  badge,
+}) {
+  const profileSrc = image || getProfileImage(record);
+
+  const displayTitle =
+    title ||
+    getDisplayName(record, {
+      includeMiddleInitial: true,
+      includeSuffix: true,
+    });
 
   return (
     <div className="flex items-center gap-4">
@@ -24,18 +26,21 @@ export default function ViewProfileHero({ record, subtitle, badge }) {
         alt="Profile"
         className="w-20 h-20 rounded-full object-cover border-2 border-gray-200 shrink-0"
       />
+
       <div>
         <div className="flex items-center gap-1.5">
           <h2 className="text-lg font-semibold text-gray-800 leading-tight">
-            {getDisplayName(record, {
-              includeMiddleInitial: true,
-              includeSuffix: true,
-            })}
+            {displayTitle}
           </h2>
-          <GenderIcon gender={record?.sex} />
+
+          {!title && <GenderIcon gender={record?.sex} />}
         </div>
 
-        {subtitle && <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>}
+        {subtitle && (
+          <p className="text-sm text-gray-500 mt-0.5">
+            {subtitle}
+          </p>
+        )}
 
         {badge && <div>{badge}</div>}
       </div>

@@ -12,7 +12,7 @@ const sourceOptions = [
   "Email",
   "Phone Call",
   "Event",
-  "Other",
+  "Others",
 ];
 
 export default function ProspectFilter({

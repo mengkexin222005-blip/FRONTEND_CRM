@@ -1,76 +1,101 @@
-import { FiGrid, FiList } from "react-icons/fi";
+import { LayoutGrid, List } from "lucide-react";
+
+const DEFAULT_VIEW_OPTIONS = [
+  {
+    value: "kanban",
+    icon: LayoutGrid,
+    title: "Kanban view",
+  },
+  {
+    value: "table",
+    icon: List,
+    title: "Table view",
+  },
+];
 
 /**
  * PageToolbar
  *
- * Renders the right-side toolbar used across all CRM pages:
- *   [search input] [filter slot] [view toggle?] [action button?]
+ * Reusable toolbar used across CRM pages.
  *
- * @prop {string}          searchValue      - controlled search input value
- * @prop {(e) => void}     onSearchChange   - onChange handler for the search input
- * @prop {string}          searchPlaceholder- placeholder text for the search input
- * @prop {React.ReactNode} filterSlot       - rendered <FilterPopover> (or null)
- * @prop {string}          [view]           - current view: "kanban" | "table"
- * @prop {(v) => void}     [onViewChange]   - called with "kanban" or "table" when toggled
- * @prop {React.ReactNode} [actionButton]   - 
+ * Layout:
+ * [ Search ] [ Filters ] [ View Toggle ] [ Action Button ]
  *
+ * Props:
+ * @param {string} searchValue
+ * @param {(e: React.ChangeEvent<HTMLInputElement>) => void} onSearchChange
+ * @param {string} searchPlaceholder
+ * @param {React.ReactNode} filterSlot
+ * @param {string} view
+ * @param {(value: string) => void} onViewChange
+ * @param {{
+ *   value: string;
+ *   icon: React.ComponentType<any>;
+ *   title: string;
+ * }[]} viewOptions
+ * @param {React.ReactNode} actionButton
  */
 export default function PageToolbar({
-  searchValue,
+  searchValue = "",
   onSearchChange,
   searchPlaceholder = "Search...",
-  filterSlot,
+  filterSlot = null,
   view,
   onViewChange,
-  actionButton,
+  viewOptions = [],
+  actionButton = null,
 }) {
-  const showViewToggle = view !== undefined && onViewChange !== undefined;
+  const options =
+    viewOptions.length > 0
+      ? viewOptions
+      : DEFAULT_VIEW_OPTIONS;
+
+  const showViewToggle =
+    view !== undefined &&
+    typeof onViewChange === "function" &&
+    options.length > 0;
 
   return (
     <div className="flex items-center gap-2.5">
       {/* Search */}
       <input
         type="text"
-        placeholder={searchPlaceholder}
-        className="border border-gray-300 rounded-md px-3 py-1.75 text-sm focus:outline-none focus:ring-2 focus:ring-red-200 w-56"
         value={searchValue}
         onChange={onSearchChange}
+        placeholder={searchPlaceholder}
+        className="w-56 rounded-md border border-gray-300 px-3 py-1.5 text-sm transition-colors focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-100"
       />
 
-      {/* Filter slot */}
+      {/* Filters */}
       {filterSlot}
 
-      {/* View toggle (kanban / table) */}
+      {/* View Toggle */}
       {showViewToggle && (
-        <div className="flex border border-gray-300 rounded-md overflow-hidden">
-          <button
-            type="button"
-            onClick={() => onViewChange("kanban")}
-            className={`p-2 transition-colors cursor-pointer ${
-              view === "kanban"
-                ? "bg-red-500 text-white"
-                : "bg-white text-gray-500 hover:bg-gray-50"
-            }`}
-            title="Kanban view"
-          >
-            <FiGrid size={16} />
-          </button>
-          <button
-            type="button"
-            onClick={() => onViewChange("table")}
-            className={`p-2 transition-colors cursor-pointer ${
-              view === "table"
-                ? "bg-red-500 text-white"
-                : "bg-white text-gray-500 hover:bg-gray-50"
-            }`}
-            title="Table view"
-          >
-            <FiList size={16} />
-          </button>
+        <div className="flex overflow-hidden rounded-md border border-gray-300 bg-white">
+          {options.map(({ value, icon: Icon, title }) => {
+            const active = view === value;
+
+            return (
+              <button
+                key={value}
+                type="button"
+                title={title}
+                aria-label={title}
+                onClick={() => onViewChange(value)}
+                className={`flex h-9 w-9 cursor-pointer items-center justify-center transition-colors ${
+                  active
+                    ? "bg-red-500 text-white"
+                    : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+                }`}
+              >
+                <Icon size={17} strokeWidth={2} />
+              </button>
+            );
+          })}
         </div>
       )}
 
-      {/* Action button */}
+      {/* Action Button */}
       {actionButton}
     </div>
   );
