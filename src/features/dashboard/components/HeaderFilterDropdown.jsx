@@ -16,6 +16,15 @@ export default function HeaderFilterDropdown({
     options.find((opt) => opt.value === value) || options[0];
 
   useEffect(() => {
+    if (!options.length) return;
+
+    const valueStillExists = options.some((option) => option.value === value);
+    if (!valueStillExists) {
+      onChange(options[0].value);
+    }
+  }, [onChange, options, value]);
+
+  useEffect(() => {
     if (!open) return undefined;
 
     const handlePointerDown = (event) => {
@@ -45,8 +54,9 @@ export default function HeaderFilterDropdown({
         type="button"
         aria-label={ariaLabel}
         aria-expanded={open}
+        disabled={!options.length}
         onClick={() => setOpen((prev) => !prev)}
-        className={`inline-flex items-center justify-between gap-2 rounded-lg border bg-white px-3 py-1.5 text-xs font-medium shadow-sm transition ${
+        className={`inline-flex items-center justify-between gap-2 rounded-lg border bg-white px-3 py-1.5 text-xs font-medium shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${
           open
             ? "border-red-500/50 text-red-600"
             : "border-black/10 text-black/65 hover:border-red-500/30"
