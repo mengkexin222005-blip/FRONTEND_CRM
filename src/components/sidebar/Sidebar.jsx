@@ -9,6 +9,7 @@ import SidebarItem from "./SidebarItem";
 
 const ROLE_ROUTES = {
   Admin: "/admin",
+  "Super Admin": "/superadmin",
   "Sales Manager": "/sales-manager",
   "Sales Agent": "/sales-agent",
   "Support Staff": "/support-staff",

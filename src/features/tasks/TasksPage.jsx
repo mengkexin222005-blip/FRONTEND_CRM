@@ -29,7 +29,7 @@ import TaskKanban from "./TaskKanban";
 import TaskTable from "./TaskTable";
 import TaskModal from "./TaskModal";
 
-const TASK_STATUSES = ["Pending", "Ongoing", "Completed", "Overdue"];
+const TASK_STATUSES = ["Pending", "Ongoing", "Due Soon", "Completed", "Overdue"];
 
 const TASK_STATUS_OPTIONS = TASK_STATUSES.map((status) => ({
   label: status,
@@ -95,6 +95,8 @@ export default function TasksPage() {
     closeModal,
     handleChange,
     handleSelectChange,
+    handleFileChange,
+    handleRemoveFile,
   } = useTaskModal();
 
   useEffect(() => {
@@ -303,33 +305,61 @@ export default function TasksPage() {
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    // Guaranteed inclusion of dueTime and link in the API payload
-    const payload = {
-      ...formData,
-      status: normalizeTaskStatus(formData.status),
-      scope: formData.scope || "Personal",
-      assignedTo:
-        formData.scope === "Personal" ? null : formData.assignedTo || null,
-      dueDate: formData.dueDate || null,
-      dueTime: formData.dueTime || "",
-      link: formData.link || "",
-      reminderAt: formData.reminderAt || null,
-      relatedToType: formData.relatedToType || undefined,
-      relatedTo: formData.relatedTo || undefined,
-    };
+    const data = new FormData();
+    data.append("subject", formData.subject || "");
+    data.append("description", formData.description || "");
+    data.append("taskType", formData.taskType || "Call");
+    data.append("priority", formData.priority || "Low");
+    data.append("status", normalizeTaskStatus(formData.status));
+    data.append("scope", formData.scope || "Personal");
+    data.append("dueDate", formData.dueDate ? formData.dueDate : "");
+
+    // Sanitize dueTime to clear out invalid AM/PM formats before submission
+    let formattedTime = formData.dueTime || "";
+    if (formattedTime.includes("AM") || formattedTime.includes("PM")) {
+      formattedTime = "";
+    }
+    data.append("dueTime", formattedTime);
+
+    data.append("link", formData.link || "");
+    data.append("linkName", formData.linkName || "");
+    data.append("repeat", formData.repeat || "None");
+
+    if (formData.scope !== "Personal" && formData.assignedTo) {
+      data.append("assignedTo", formData.assignedTo);
+    }
+    if (formData.relatedToType) {
+      data.append("relatedToType", formData.relatedToType);
+    }
+    if (formData.relatedTo) {
+      data.append("relatedTo", formData.relatedTo);
+    }
+
+    if (formData.attachments && formData.attachments.length > 0) {
+      formData.attachments.forEach((file) => {
+        if (file instanceof File) {
+          data.append("attachments", file);
+        } else if (typeof file === "string") {
+          data.append("existingAttachments", file);
+        } else if (file?.url) {
+          data.append("existingAttachments", file.url);
+        } else if (file?.path) {
+          data.append("existingAttachments", file.path);
+        }
+      });
+    }
 
     if (mode === "create") {
-      const created = await createTask(payload);
+      const created = await createTask(data);
 
       if (created) {
         closeModal();
       }
     } else if (mode === "edit" && viewingTask) {
-      const updated = await updateTask(viewingTask._id, payload);
+      const updated = await updateTask(viewingTask._id, data);
 
       if (updated) {
         if (origin === "view") {
-          // Re-open in view mode with updated task data so details reflect immediately
           openView(updated);
         } else {
           closeModal();
@@ -532,6 +562,8 @@ export default function TasksPage() {
         loading={submitting}
         onChange={handleChange}
         onSelectChange={handleSelectChange}
+        onFileChange={handleFileChange}
+        onRemoveFile={handleRemoveFile}
         onSwitchToEdit={switchToEdit}
         onSwitchToView={switchToView}
         onSubmit={handleSubmit}

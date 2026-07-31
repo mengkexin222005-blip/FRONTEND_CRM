@@ -11,11 +11,13 @@ const EMPTY_FORM = {
   dueDate: "",
   dueTime: "",
   link: "",
+  linkName: "", // Added to reset linkName on new task creation
   reminderAt: "",
   repeat: "None",
   assignedTo: "",
   relatedToType: "",
   relatedTo: "",
+  attachments: [],
 };
 
 const mapTaskToForm = (task) => ({
@@ -25,8 +27,10 @@ const mapTaskToForm = (task) => ({
   priority: task.priority || "Low",
   scope: task.scope || "Personal",
   dueDate: formatDateInput(task.dueDate),
-  dueTime: task.dueTime || task.time || "",
+  // Slice ensures time is properly formatted to HH:mm for the input field
+  dueTime: task.dueTime ? task.dueTime.slice(0, 5) : task.time ? task.time.slice(0, 5) : "",
   link: task.link || "",
+  linkName: task.linkName || "", // Added to map existing linkName when editing/viewing
   repeat: task.repeat || "None",
   assignedTo:
     typeof task.assignedTo === "object"
@@ -37,11 +41,12 @@ const mapTaskToForm = (task) => ({
     typeof task.relatedTo === "object"
       ? task.relatedTo?._id || ""
       : task.relatedTo || "",
+  attachments: task.attachments || task.files || [],
 });
 
 export function useTaskModal() {
   const [modalOpen, setModalOpen] = useState(false);
-  const [mode, setMode] = useState("create"); // "create" | "view" | "edit"
+  const [mode, setMode] = useState("create");
   const [origin, setOrigin] = useState("view");
   const [activeTab, setActiveTab] = useState("Overview");
   const [formData, setFormData] = useState(EMPTY_FORM);
@@ -113,6 +118,21 @@ export function useTaskModal() {
     });
   }, []);
 
+  const handleFileChange = useCallback((files) => {
+    const newFiles = Array.from(files);
+    setFormData((prev) => ({
+      ...prev,
+      attachments: [...(prev.attachments || []), ...newFiles],
+    }));
+  }, []);
+
+  const handleRemoveFile = useCallback((index) => {
+    setFormData((prev) => ({
+      ...prev,
+      attachments: (prev.attachments || []).filter((_, i) => i !== index),
+    }));
+  }, []);
+
   return {
     modalOpen,
     mode,
@@ -131,5 +151,7 @@ export function useTaskModal() {
     closeModal,
     handleChange,
     handleSelectChange,
+    handleFileChange,
+    handleRemoveFile,
   };
 }

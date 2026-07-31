@@ -14,7 +14,6 @@ import {
   CalendarDays,
   Bell,
   FileText,
-  TriangleAlert,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { getProfileImage } from "../../utils/avatar";
@@ -200,11 +199,7 @@ export default function TaskCard({ task, index, isLast, onClick }) {
                   : ""
             }`}
           >
-            {overdue || dueToday ? (
-              <TriangleAlert size={10} />
-            ) : (
-              <Calendar size={10} />
-            )}
+            <Calendar size={10} />
             {formatDate(task.dueDate)}
           </span>
         )}

@@ -5,6 +5,7 @@ import {PageHeader,PageToolbar} from "../../../components/page";
 import FilterPopover from "../../../components/filters/FilterPopover";
 import {useFilterPopover} from "../../../components/filters/useFilterPopover";
 import {getSelectProps} from "../../../components/select/selectConfig";
+import { useAuth } from "../../../context/AuthContext";
 import UserTable from "../components/UserTable";
 import UserForm from "../components/UserForm";
 import UserView from "../components/UserView";
@@ -13,32 +14,40 @@ import {useUsers} from "../hooks/useUsers";
 import {useUserForm} from "../hooks/useUserForm";
 
 const TAB_STORAGE_KEY="settings_active_tab";
-const TABS=["Users","Edit Access"];
-
-const getInitialTab=()=>{
-  try{
-    const storedTab=sessionStorage.getItem(TAB_STORAGE_KEY);
-    return TABS.includes(storedTab)?storedTab:"Users";
-  }catch{
-    return"Users";
-  }
-};
+const ADMIN_TABS=["Users","Edit Access"];
+const NON_ADMIN_TABS=["Users"];
 
 export default function UsersTab(){
-  const[activeTab,setActiveTab]=useState(getInitialTab);
-  const[search,setSearch]=useState("");
-  const[viewUser,setViewUser]=useState(null);
-  const[filterRole,setFilterRole]=useState(null);
-  const[filterTeam,setFilterTeam]=useState(null);
-  const[filterStatus,setFilterStatus]=useState(null);
+  const { user } = useAuth();
+  const isAdminOrSuperAdmin =
+    user?.role === "Admin" || user?.role === "Super Admin";
 
-  const{
-    users=[],
+  const availableTabs = useMemo(
+    () => (isAdminOrSuperAdmin ? ADMIN_TABS : NON_ADMIN_TABS),
+    [isAdminOrSuperAdmin],
+  );
+
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const storedTab = sessionStorage.getItem(TAB_STORAGE_KEY);
+      return availableTabs.includes(storedTab) ? storedTab : "Users";
+    } catch {
+      return "Users";
+    }
+  });
+  const [search, setSearch] = useState("");
+  const [viewUser, setViewUser] = useState(null);
+  const [filterRole, setFilterRole] = useState(null);
+  const [filterTeam, setFilterTeam] = useState(null);
+  const [filterStatus, setFilterStatus] = useState(null);
+
+  const {
+    users = [],
     loading,
     createUser,
     updateUser,
     deleteUser,
-  }=useUsers();
+  } = useUsers();
 
   const{
     formData,
@@ -62,7 +71,7 @@ export default function UsersTab(){
   }=useUserForm();
 
   const changeTab=tab=>{
-    if(!TABS.includes(tab))return;
+    if(!availableTabs.includes(tab))return;
 
     setActiveTab(tab);
 
@@ -216,7 +225,7 @@ export default function UsersTab(){
   return(
     <div className="flex h-full min-h-0 flex-col px-6 py-5">
       <div className="flex shrink-0 gap-11 border-b border-gray-200">
-        {TABS.map(tab=>(
+        {availableTabs.map(tab=>(
           <button
             key={tab}
             type="button"

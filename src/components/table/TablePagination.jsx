@@ -15,12 +15,15 @@ export default function TablePagination({
 }) {
   return (
     <div
-      className={`flex flex-col md:flex-row md:items-center justify-between ${marginTop ? marginTop : "mt-9"} gap-2`}
+      className={`flex flex-col sm:flex-row sm:items-center justify-between ${
+        marginTop ? marginTop : "mt-6"
+      } gap-3 px-2 w-full flex-wrap text-sm text-gray-500`}
     >
-      <div className="flex items-center gap-2">
-        <span className="text-sm text-gray-700">Show</span>
+      {/* Rows per page dropdown */}
+      <div className="flex items-center gap-2 text-xs sm:text-sm">
+        <span className="text-gray-700">Show</span>
         <select
-          className="border border-gray-300 rounded-md px-2 py-1 text-sm w-14"
+          className="border border-gray-300 rounded-md px-2 py-1 text-xs sm:text-sm bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-red-500"
           value={rowsPerPage}
           onChange={(e) => onRowsPerPageChange(e.target.value)}
         >
@@ -30,14 +33,22 @@ export default function TablePagination({
             </option>
           ))}
         </select>
-        <span className="text-sm text-gray-700">entries</span>
+        <span className="text-gray-700">entries</span>
       </div>
 
-      <div className="text-sm text-gray-600 text-center">
-        Showing {from} to {to} of {totalRows} entries
+      {/* Showing entries text info */}
+      <div className="text-xs sm:text-sm text-gray-600 text-center">
+        {totalRows > 0 ? (
+          <>
+            Showing {from} to {to} of {totalRows} entries
+          </>
+        ) : (
+          "No entries to show"
+        )}
       </div>
 
-      <div className="flex items-center gap-1 justify-center">
+      {/* Pagination buttons */}
+      <div className="flex items-center gap-1 justify-center flex-wrap">
         <button
           onClick={() => onGoTo(currentPage - 1)}
           disabled={currentPage === 1}
@@ -50,7 +61,7 @@ export default function TablePagination({
           <button
             key={num}
             onClick={() => onGoTo(num)}
-            className={`w-8 h-8 rounded-md border text-sm font-medium ${
+            className={`w-8 h-8 rounded-md border text-xs sm:text-sm font-medium transition-colors ${
               currentPage === num
                 ? "bg-red-500 text-white border-red-500"
                 : "bg-white text-gray-700 hover:bg-gray-100 border-gray-300 cursor-pointer"
@@ -62,7 +73,7 @@ export default function TablePagination({
 
         <button
           onClick={() => onGoTo(currentPage + 1)}
-          disabled={currentPage === totalPages}
+          disabled={currentPage === totalPages || totalPages === 0}
           className="p-1.5 rounded-md border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
         >
           <ChevronRight size={16} />

@@ -1,5 +1,6 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { normalizeRoleName } from "../utils/roleRedirect";
 
 export default function PrivateRoute({ roles }) {
   const { accessToken, user } = useAuth();
@@ -8,7 +9,10 @@ export default function PrivateRoute({ roles }) {
     return <Navigate to="/login" replace />;
   }
 
-  if (roles && !roles.includes(user.role)) {
+  const normalizedUserRole = normalizeRoleName(user.role);
+  const normalizedAllowedRoles = (roles ?? []).map(normalizeRoleName);
+
+  if (roles && !normalizedAllowedRoles.includes(normalizedUserRole)) {
     return <Navigate to="/unauthorized" replace />;
   }
 

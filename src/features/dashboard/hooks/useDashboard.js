@@ -15,23 +15,6 @@ const createEmptyDashboardStats = () => ({
   topPerformers: null,
 });
 
-/*
-|--------------------------------------------------------------------------
-| API response helpers
-|--------------------------------------------------------------------------
-| Supports common backend response structures:
-|
-| []
-| { tasks: [] }
-| { meetings: [] }
-| { data: [] }
-| { data: { tasks: [] } }
-| { data: { meetings: [] } }
-| { items: [] }
-| { results: [] }
-|--------------------------------------------------------------------------
-*/
-
 const getNestedPayloads = (payload) => {
   const payloads = [];
 
@@ -165,6 +148,87 @@ const getRequestErrorMessage = (
   );
 };
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const normalizeTaskStatus = (value) => {
+  const status = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ");
+
+  if (status === "completed" || status === "complete" || status === "done") {
+    return "Completed";
+  }
+  if (status === "ongoing" || status === "in progress") {
+    return "Ongoing";
+  }
+  if (status === "overdue") return "Overdue";
+  if (status === "due soon") return "Due Soon";
+  return "Pending";
+};
+
+const getTaskDueDateValue = (task) =>
+  task?.dueDate ||
+  task?.deadline ||
+  task?.deadlineDate ||
+  task?.date ||
+  task?.taskDate ||
+  task?.scheduledDate ||
+  task?.reminderDate ||
+  null;
+
+const parseTaskCalendarDate = (value) => {
+  if (!value) return null;
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : new Date(value.getTime());
+  }
+
+  const rawValue = String(value).trim();
+  const leadingDateMatch = rawValue.match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+  if (leadingDateMatch) {
+    const parsedDate = new Date(
+      Number(leadingDateMatch[1]),
+      Number(leadingDateMatch[2]) - 1,
+      Number(leadingDateMatch[3]),
+    );
+    return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
+  }
+
+  const parsedDate = new Date(rawValue);
+  return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
+};
+
+const getLocalCalendarDayNumber = (date) =>
+  Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / DAY_MS;
+
+export const getDynamicTaskStatus = (task, referenceDate = new Date()) => {
+  const storedStatus = normalizeTaskStatus(task?.status);
+
+  if (storedStatus === "Completed") return "Completed";
+
+  const dueDate = parseTaskCalendarDate(getTaskDueDateValue(task));
+  const now =
+    referenceDate instanceof Date
+      ? referenceDate
+      : new Date(referenceDate);
+
+  if (dueDate && !Number.isNaN(now.getTime())) {
+    const differenceInCalendarDays =
+      getLocalCalendarDayNumber(dueDate) - getLocalCalendarDayNumber(now);
+
+    if (differenceInCalendarDays < 0) return "Overdue";
+    if (differenceInCalendarDays <= 3) return "Due Soon";
+
+    return storedStatus === "Ongoing" ? "Ongoing" : "Pending";
+  }
+
+  if (storedStatus === "Overdue") return "Overdue";
+  return storedStatus === "Ongoing" ? "Ongoing" : "Pending";
+};
+
 export function useDashboard() {
   const [stats, setStats] = useState(
     createEmptyDashboardStats,
@@ -188,16 +252,6 @@ export function useDashboard() {
 
         setError("");
 
-        /*
-         * Dashboard summary:
-         * GET /api/dashboard/stats
-         *
-         * Same task records as the main Tasks page:
-         * GET /api/tasks
-         *
-         * Same meeting records as the main Meetings page:
-         * GET /api/meetings
-         */
         const [
           dashboardResult,
           tasksResult,
@@ -231,10 +285,6 @@ export function useDashboard() {
               )
             : createEmptyDashboardStats();
 
-        /*
-         * Prefer the exact collections returned by
-         * the same endpoints used by the main pages.
-         */
         const tasks =
           tasksResult.status ===
           "fulfilled"
@@ -337,10 +387,62 @@ export function useDashboard() {
     [],
   );
 
-  /*
-   * Load current MongoDB records when the
-   * dashboard opens.
-   */
+  const updateTaskStatus = useCallback(async (task, newStatus) => {
+    try {
+      const taskId = typeof task === "object" ? (task?._id || task?.id) : task;
+      if (!taskId) throw new Error("Invalid task ID");
+      const normalizedTaskId = String(taskId);
+
+      await api.patch(`/api/tasks/${normalizedTaskId}/status`, { status: newStatus });
+
+      setStats((prevStats) => {
+        const updatedTasks = prevStats.tasks.map((t) => {
+          const tId = String(t?._id || t?.id || "");
+          if (tId === normalizedTaskId) {
+            return { ...t, status: newStatus };
+          }
+          return t;
+        });
+
+        return {
+          ...prevStats,
+          tasks: updatedTasks,
+        };
+      });
+    } catch (err) {
+      console.error("Failed to save task status update:", err);
+      throw err;
+    }
+  }, []);
+
+  const updateMeetingStatus = useCallback(async (meeting, newStatus) => {
+    try {
+      const meetingId = typeof meeting === "object" ? (meeting?._id || meeting?.id) : meeting;
+      if (!meetingId) throw new Error("Invalid meeting ID");
+      const normalizedMeetingId = String(meetingId);
+
+      await api.patch(`/api/meetings/${normalizedMeetingId}/status`, { status: newStatus });
+
+      setStats((prevStats) => {
+        const updatedMeetings = prevStats.meetings.map((m) => {
+          const mId = String(m?._id || m?.id || "");
+          if (mId === normalizedMeetingId) {
+            return { ...m, status: newStatus };
+          }
+          return m;
+        });
+
+        return {
+          ...prevStats,
+          meetings: updatedMeetings,
+        };
+      });
+    } catch (err) {
+      console.error("Failed to save meeting status update:", err);
+      throw err;
+    }
+  }, []);
+
   useEffect(() => {
     const controller =
       new AbortController();
@@ -354,10 +456,6 @@ export function useDashboard() {
     };
   }, [fetchDashboard]);
 
-  /*
-   * Reload after returning from the main
-   * Tasks or Meetings page.
-   */
   useEffect(() => {
     const refreshWithoutLoader = () => {
       fetchDashboard({
@@ -409,6 +507,9 @@ export function useDashboard() {
     loading,
     error,
     refreshDashboard,
+    updateTaskStatus,
+    updateMeetingStatus,
+    getDynamicTaskStatus,
   };
 }
 

@@ -24,10 +24,16 @@ import AdminTasks from "./pages/admin/Tasks";
 import AdminProspects from "./pages/admin/Prospects";
 import AdminMeetings from "./pages/admin/Meetings";
 import AdminCalls from "./pages/admin/Calls";
+import AdminTeams from "./pages/admin/Teams";
 import AdminSettings from "./pages/admin/Settings";
 import AdminProfile from "./pages/admin/Profile";
 import AdminCommunication from "./pages/admin/Communications";
 import AdminSupport from "./pages/admin/Support";
+
+// SUPER ADMIN
+import SuperAdminIndex from "./pages/superadmin/Dashboard";
+import SuperAdminUsers from "./pages/superadmin/Users";
+import SuperAdminSettings from "./pages/superadmin/Settings";
 
 // SALES MANAGER
 import SalesManagerIndex from "./pages/salesManager/Dashboard";
@@ -97,11 +103,31 @@ function App() {
         </Route>
       </Route>
 
+      {/* SUPER ADMIN ROUTES */}
+      <Route element={<PrivateRoute roles={["Super Admin"]} />}>
+        <Route element={<AppLayout />}>
+          <Route path="/superadmin" element={<SuperAdminIndex />} />
+          <Route path="/superadmin/users" element={<UserManagementPage />} />
+          <Route path="/superadmin/leads" element={<AdminLeads />} />
+          <Route path="/superadmin/clients" element={<AdminClients />} />
+          <Route path="/superadmin/quotations" element={<AdminQuotations />} />
+          <Route path="/superadmin/tasks" element={<AdminTasks />} />
+          <Route path="/superadmin/prospects" element={<AdminProspects />} />
+          <Route path="/superadmin/meetings" element={<AdminMeetings />} />
+          <Route path="/superadmin/calls" element={<AdminCalls />} />
+          <Route path="/superadmin/settings" element={<SuperAdminSettings />} />
+          <Route path="/superadmin/profile" element={<AdminProfile />} />
+          <Route path="/superadmin/reports" element={<AdminReports />} />
+          <Route path="/superadmin/communications" element={<AdminCommunication />} />
+          <Route path="/superadmin/support" element={<AdminSupport />} />
+          <Route path="/superadmin/teams" element={<AdminTeams />} />
+        </Route>
+      </Route>
+
       {/* SALES MANAGER ROUTES */}
       <Route element={<PrivateRoute roles={["Sales Manager"]} />}>
         <Route element={<AppLayout />}>
           <Route path="/sales-manager" element={<SalesManagerIndex />} />
-          <Route path="/sales-manager/users" element={<UserManagementPage />} />
           <Route path="/sales-manager/leads" element={<SalesManagerLeads />} />
           <Route path="/sales-manager/clients" element={<SalesManagerClients />} />
           <Route path="/sales-manager/quotations" element={<SalesManagerQuotations />} />

@@ -1,12 +1,17 @@
+import { useMemo } from "react";
 import { ChevronDown, Save } from "lucide-react";
 import Select from "react-select"; // Imported react-select
+import Swal from "sweetalert2";
 import { getDisplayName } from "../../../utils/name";
+import { useAuth } from "../../../context/AuthContext";
 import useUserAccess from "../hooks/useUserAccess";
 import AccessCard from "../components/AccessCard";
 import RoleTemplateSelect from "../components/RoleTemplateSelect";
 import { getSelectProps } from "../../../components/select/selectConfig"; // Standard styling hook from your app
 
 export default function EditAccessTab() {
+  const { user: currentUser } = useAuth();
+
   const {
     users,
     selectedUserId,
@@ -26,11 +31,42 @@ export default function EditAccessTab() {
     ? selectedUser.team
     : selectedUser?.team?.name || "—";
 
-  // Map users list to react-select option requirements
-  const userOptions = users.map((user) => ({
-    value: user.employeeId,
-    label: `${getDisplayName(user, { includeMiddleInitial: true, includeSuffix: true })} (${user.employeeId})`,
-  }));
+  const isAdminUser = currentUser?.role === "Admin";
+  const selectedTargetIsAdmin = selectedUser?.role === "Admin";
+  const selectedTargetIsSuperAdmin = selectedUser?.role === "Super Admin";
+
+  const roleOptions = useMemo(() => {
+    const baseRoles = [
+      "Super Admin",
+      "Admin",
+      "Sales Manager",
+      "Sales Agent",
+      "Support Staff",
+    ];
+
+    if (isAdminUser) {
+      return baseRoles
+        .filter((role) => role !== "Super Admin")
+        .map((role) => ({ name: role }));
+    }
+
+    return baseRoles.map((role) => ({ name: role }));
+  }, [isAdminUser]);
+
+  const userOptions = useMemo(() => {
+    return users
+      .filter((user) => {
+        if (isAdminUser) {
+          return user.role !== "Super Admin";
+        }
+        return true;
+      })
+      .map((user) => ({
+        value: user.employeeId,
+        label: `${getDisplayName(user, { includeMiddleInitial: true, includeSuffix: true })} (${user.employeeId})`,
+        role: user.role,
+      }));
+  }, [users, isAdminUser]);
 
   // Find the currently selected option object
   const currentSelectedOption = userOptions.find(option => option.value === selectedUserId) || null;
@@ -67,17 +103,29 @@ export default function EditAccessTab() {
         </div>
 
         {/* ROLE TEMPLATE DROPDOWN */}
-        <RoleTemplateSelect 
-          value={roleTemplate} 
-          onChange={setRoleTemplate} 
-          disabled={!selectedUserId} 
-        />
+        {!selectedTargetIsSuperAdmin ? (
+          <RoleTemplateSelect 
+            value={roleTemplate} 
+            onChange={setRoleTemplate} 
+            roles={roleOptions}
+            disabled={!selectedUserId || (isAdminUser && selectedTargetIsAdmin)} 
+          />
+        ) : (
+          <div className="text-[11px] text-slate-500">
+            Super Admin role cannot be changed here.
+          </div>
+        )}
       </div>
 
       {/* 2. CONDITIONAL RENDERING NG MGA METADATA AT TILES */}
       {selectedUser ? (
         <>
           <div className="mt-2.5 grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[250px_minmax(0,1fr)]">
+            {isAdminUser && selectedTargetIsAdmin && (
+              <div className="col-span-full rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-700">
+                You are viewing another Admin account. Only Super Admin can modify Admin-level access.
+              </div>
+            )}
             {/* USER PROFILE INFO PANEL */}
             <section className="self-start rounded-lg border border-gray-200 bg-white p-4">
               <h3 className="border-b border-gray-200 pb-3 text-sm font-semibold text-slate-800">
@@ -134,14 +182,14 @@ export default function EditAccessTab() {
                 title="Selected Access"
                 items={selectedAccess}
                 selected
-                onClick={toggleAccess}
+                onClick={isAdminUser && selectedTargetIsAdmin ? undefined : toggleAccess}
               />
 
               <div className="border-t border-gray-200">
                 <AccessCard
                   title="Unselected Access"
                   items={unselectedAccess}
-                  onClick={toggleAccess}
+                  onClick={isAdminUser && selectedTargetIsAdmin ? undefined : toggleAccess}
                 />
               </div>
             </div>
@@ -161,7 +209,7 @@ export default function EditAccessTab() {
             <button
               type="button"
               onClick={saveAccess}
-              disabled={saving}
+              disabled={saving || (isAdminUser && selectedTargetIsAdmin)}
               className="flex h-9 min-w-[155px] items-center justify-center gap-2 rounded-md bg-red-600 px-4 text-[11px] font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Save size={14} />

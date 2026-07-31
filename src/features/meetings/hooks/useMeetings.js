@@ -39,13 +39,14 @@ const getMeetingColor = (type = "") => {
 };
 
 const mapMeeting = (meeting) => {
-  const currentStatus = getAutoMeetingStatus(meeting);
+  // Check for manually saved status (checking both status and meetingStatus) before falling back to auto status
+  const currentStatus = meeting.status || meeting.meetingStatus || getAutoMeetingStatus(meeting);
 
   return {
     id: meeting._id,
     _id: meeting._id,
-    title: meeting.meetingTitle,
-    type: meeting.meetingType,
+    title: meeting.meetingTitle || meeting.title,
+    type: meeting.meetingType || meeting.type,
     status: currentStatus,
     date: meeting.date ? new Date(meeting.date).toISOString().split("T")[0] : "",
     startTime: meeting.startTime,
@@ -54,11 +55,11 @@ const mapMeeting = (meeting) => {
     client: meeting.client || "",
     location: meeting.location || "",
     locationScope: meeting.locationScope || "Inside the Philippines",
-    organizer: meeting.host || "",
-    host: meeting.host || "",
+    organizer: meeting.host || meeting.organizer || "",
+    host: meeting.host || meeting.organizer || "",
     notes: meeting.notes || "",
     participants: meeting.participants || [],
-    color: getMeetingColor(meeting.meetingType),
+    color: getMeetingColor(meeting.meetingType || meeting.type),
   };
 };
 
@@ -81,7 +82,16 @@ export function useMeetings() {
   const fetchMeetings = async () => {
     try {
       const { data } = await api.get("/api/meetings");
-      setAllMeetings((data || []).map(mapMeeting));
+      const mapped = (data || []).map(mapMeeting);
+      setAllMeetings(mapped);
+
+      if (selectedMeeting) {
+        const targetId = selectedMeeting.id || selectedMeeting._id;
+        const updatedSelected = mapped.find((m) => m.id === targetId || m._id === targetId);
+        if (updatedSelected) {
+          setSelectedMeeting(updatedSelected);
+        }
+      }
     } catch (error) {
       console.error(error);
       Toast.fire({
@@ -104,14 +114,12 @@ export function useMeetings() {
     const query = (searchQuery || '').toLowerCase().trim();
 
     return (allMeetings || []).filter((meeting) => {
-      // Search Match
       const matchesSearch =
         !query ||
         meeting.title?.toLowerCase().includes(query) ||
         meeting.client?.toLowerCase().includes(query) ||
         meeting.type?.toLowerCase().includes(query);
 
-      // Category Matches
       const matchesDate = !filters?.date || meeting.date === filters.date;
       const matchesType = !filters?.type || filters.type === 'all' || meeting.type === filters.type;
       const matchesStatus = !filters?.status || filters.status === 'all' || meeting.status === filters.status;
@@ -143,6 +151,7 @@ export function useMeetings() {
         meetingTitle: meetingData.title,
         meetingType: meetingData.type,
         status: meetingData.status,
+        meetingStatus: meetingData.status, // Included for backward and forward schema compatibility
         client: meetingData.client,
         date: meetingData.date,
         startTime: meetingData.startTime,
@@ -156,8 +165,10 @@ export function useMeetings() {
   
       if (meetingToEdit) {
         const targetId = meetingToEdit.id || meetingToEdit._id;
-        await api.patch(`/api/meetings/${targetId}`, payload);
+        const { data } = await api.patch(`/api/meetings/${targetId}`, payload);
         Toast.fire({ icon: "success", title: "Meeting updated successfully" });
+        
+        setSelectedMeeting(mapMeeting(data || { ...meetingToEdit, ...payload }));
       } else {
         await api.post("/api/meetings", payload);
         Toast.fire({ icon: "success", title: "Meeting added successfully" });
@@ -165,7 +176,6 @@ export function useMeetings() {
   
       await fetchMeetings();
       closeMeetingForm();
-      setSelectedMeeting(null);
   
     } catch (error) {
       console.error(error);
