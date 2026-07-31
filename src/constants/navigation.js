@@ -92,6 +92,23 @@ export const BASE_NAV = {
 };
 
 export const ROLE_ROUTES = {
+  "Super Admin": [
+    "dashboard",
+    "users",
+    "teams",
+    "reports",
+    "module",
+    "prospects",
+    "leads",
+    "clients",
+    "quotations",
+    "tasks",
+    "meetings",
+    "calls",
+    "communications",
+    "support",
+    "settings",
+  ],
   Admin: [
     "dashboard",
     "users",
@@ -112,7 +129,6 @@ export const ROLE_ROUTES = {
 
   "Sales Manager": [
     "dashboard",
-    "team",
     "reports",
     "module",
     "prospects",
@@ -152,6 +168,7 @@ export const ROLE_ROUTES = {
 
 export const ROLE_BASE_PATH = {
   Admin: "/admin",
+  "Super Admin": "/superadmin",
   "Sales Manager": "/sales-manager",
   "Sales Agent": "/sales-agent",
   "Support Staff": "/support-staff",
