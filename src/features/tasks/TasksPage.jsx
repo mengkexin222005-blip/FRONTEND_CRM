@@ -13,7 +13,6 @@ import {
 import FilterPopover from "../../components/filters/FilterPopover";
 import { useFilterPopover } from "../../components/filters/useFilterPopover";
 import { getSelectProps } from "../../components/select/selectConfig";
-
 import { getDisplayName } from "../../utils/name";
 
 import { usePermissions } from "../../permissions/usePermissions";
@@ -29,33 +28,16 @@ import TaskKanban from "./TaskKanban";
 import TaskTable from "./TaskTable";
 import TaskModal from "./TaskModal";
 
-const TASK_STATUSES = ["Pending", "Ongoing", "Completed", "Overdue"];
-
-const TASK_STATUS_OPTIONS = TASK_STATUSES.map((status) => ({
-  label: status,
-  value: status,
-}));
-
-const PRIORITY_OPTIONS = ["Low", "Medium", "High"].map((priority) => ({
-  label: priority,
-  value: priority,
-}));
-
-const RELATED_TYPE_OPTIONS = ["Lead", "Client", "Quotation"].map((type) => ({
-  label: type,
-  value: type,
-}));
-
-const SCOPE_OPTIONS = ["Personal", "Assigned"].map((scope) => ({
-  label: scope,
-  value: scope,
-}));
+const TASK_STATUSES = ["Pending", "Ongoing", "Due Soon", "Completed", "Overdue"];
+const TASK_STATUS_OPTIONS = TASK_STATUSES.map((status) => ({ label: status, value: status }));
+const PRIORITY_OPTIONS = ["Low", "Medium", "High"].map((priority) => ({ label: priority, value: priority }));
+const RELATED_TYPE_OPTIONS = ["Lead", "Client", "Quotation"].map((type) => ({ label: type, value: type }));
+const SCOPE_OPTIONS = ["Personal", "Assigned"].map((scope) => ({ label: scope, value: scope }));
 
 const normalizeTaskStatus = (status) => {
   if (status === "To Do") return "Pending";
   if (status === "In Progress") return "Ongoing";
   if (TASK_STATUSES.includes(status)) return status;
-
   return "Pending";
 };
 
@@ -95,6 +77,8 @@ export default function TasksPage() {
     closeModal,
     handleChange,
     handleSelectChange,
+    handleFileChange,
+    handleRemoveFile,
   } = useTaskModal();
 
   useEffect(() => {
@@ -137,26 +121,16 @@ export default function TasksPage() {
     activeFilterCount,
     clearAllFilters: handleClear,
   } = useFilterPopover(
-    {
-      filterPriority,
-      filterResponsible,
-      filterStatus,
-      filterRelatedType,
-      filterScope,
-    },
-    clearAllFilters,
+    { filterPriority, filterResponsible, filterStatus, filterRelatedType, filterScope },
+    clearAllFilters
   );
 
   const matchesTaskFilters = useCallback(
     (task) => {
       const query = search.trim().toLowerCase();
       const normalizedStatus = normalizeTaskStatus(task.status);
-
       const assigneeName = task.assignedTo
-        ? getDisplayName(task.assignedTo, {
-            includeMiddleInitial: true,
-            includeSuffix: true,
-          }).toLowerCase()
+        ? getDisplayName(task.assignedTo, { includeMiddleInitial: true, includeSuffix: true }).toLowerCase()
         : "";
 
       const matchesSearch =
@@ -166,52 +140,24 @@ export default function TasksPage() {
         task.priority?.toLowerCase().includes(query) ||
         assigneeName.includes(query);
 
-      const matchesPriority =
-        !filterPriority || task.priority === filterPriority;
-
-      const matchesResponsible =
-        !filterResponsible || task.assignedTo?._id === filterResponsible;
-
+      const matchesPriority = !filterPriority || task.priority === filterPriority;
+      const matchesResponsible = !filterResponsible || task.assignedTo?._id === filterResponsible;
       const matchesStatus = !filterStatus || normalizedStatus === filterStatus;
-
-      const matchesRelatedType =
-        !filterRelatedType || task.relatedToType === filterRelatedType;
-
+      const matchesRelatedType = !filterRelatedType || task.relatedToType === filterRelatedType;
       const matchesScope = !filterScope || task.scope === filterScope;
 
-      return (
-        matchesSearch &&
-        matchesPriority &&
-        matchesResponsible &&
-        matchesStatus &&
-        matchesRelatedType &&
-        matchesScope
-      );
+      return matchesSearch && matchesPriority && matchesResponsible && matchesStatus && matchesRelatedType && matchesScope;
     },
-    [
-      search,
-      filterPriority,
-      filterResponsible,
-      filterStatus,
-      filterRelatedType,
-      filterScope,
-    ],
+    [search, filterPriority, filterResponsible, filterStatus, filterRelatedType, filterScope]
   );
 
   const agentFilterOptions = useMemo(() => {
     const uniqueAgents = new Map();
-
     tasks.forEach((task) => {
-      if (task.assignedTo) {
-        uniqueAgents.set(task.assignedTo._id, task.assignedTo);
-      }
+      if (task.assignedTo) uniqueAgents.set(task.assignedTo._id, task.assignedTo);
     });
-
     return Array.from(uniqueAgents.values()).map((user) => ({
-      label: getDisplayName(user, {
-        includeMiddleInitial: true,
-        includeSuffix: true,
-      }),
+      label: getDisplayName(user, { includeMiddleInitial: true, includeSuffix: true }),
       value: user._id,
     }));
   }, [tasks]);
@@ -226,36 +172,26 @@ export default function TasksPage() {
   const filteredColumns = useMemo(() => {
     return TASK_STATUSES.reduce((grouped, status) => {
       grouped[status] = filteredTasks.filter(
-        (task) => normalizeTaskStatus(task.status) === status,
+        (task) => normalizeTaskStatus(task.status) === status
       );
-
       return grouped;
     }, {});
   }, [filteredTasks]);
 
-  const handleOpenCreate = (status = "Pending") => {
-    openCreate(status);
-  };
+  const handleOpenCreate = (status = "Pending") => openCreate(status);
 
   const handleDragEnd = async (result) => {
     const { destination, source, draggableId } = result;
-
     if (!destination) return;
 
     const sourceStatus = source.droppableId;
     const destinationStatus = destination.droppableId;
+    if (destinationStatus === sourceStatus && destination.index === source.index) return;
 
-    const isSameColumn = destinationStatus === sourceStatus;
-    const isSamePosition = destination.index === source.index;
-
-    if (isSameColumn && isSamePosition) return;
-
-    if (isSameColumn) {
+    if (destinationStatus === sourceStatus) {
       const column = [...(filteredColumns[sourceStatus] || [])];
-
       const [moved] = column.splice(source.index, 1);
       if (!moved) return;
-
       column.splice(destination.index, 0, moved);
 
       const updates = column.map((task, index) => ({
@@ -263,95 +199,74 @@ export default function TasksPage() {
         status: sourceStatus,
         position: index,
       }));
-
       await reorderTasks(updates);
       return;
     }
 
     const sourceColumn = [...(filteredColumns[sourceStatus] || [])];
     const destinationColumn = [...(filteredColumns[destinationStatus] || [])];
-
     const [moved] = sourceColumn.splice(source.index, 1);
     if (!moved) return;
 
-    destinationColumn.splice(destination.index, 0, {
-      ...moved,
-      status: destinationStatus,
-    });
+    destinationColumn.splice(destination.index, 0, { ...moved, status: destinationStatus });
 
     const updates = [
-      ...sourceColumn.map((task, index) => ({
-        _id: task._id,
-        status: sourceStatus,
-        position: index,
-      })),
-      ...destinationColumn.map((task, index) => ({
-        _id: task._id,
-        status: destinationStatus,
-        position: index,
-      })),
+      ...sourceColumn.map((task, index) => ({ _id: task._id, status: sourceStatus, position: index })),
+      ...destinationColumn.map((task, index) => ({ _id: task._id, status: destinationStatus, position: index })),
     ];
 
-    await updateTaskStatus(
-      draggableId,
-      destinationStatus,
-      destination.index,
-      updates,
-    );
+    await updateTaskStatus(draggableId, destinationStatus, destination.index, updates);
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    const data = new FormData();
+    data.append("subject", formData.subject || "");
+    data.append("description", formData.description || "");
+    data.append("taskType", formData.taskType || "Call");
+    data.append("priority", formData.priority || "Low");
+    data.append("status", normalizeTaskStatus(formData.status));
+    data.append("scope", formData.scope || "Personal");
+    data.append("dueDate", formData.dueDate ? formData.dueDate : "");
 
-    // Guaranteed inclusion of dueTime and link in the API payload
-    const payload = {
-      ...formData,
-      status: normalizeTaskStatus(formData.status),
-      scope: formData.scope || "Personal",
-      assignedTo:
-        formData.scope === "Personal" ? null : formData.assignedTo || null,
-      dueDate: formData.dueDate || null,
-      dueTime: formData.dueTime || "",
-      link: formData.link || "",
-      reminderAt: formData.reminderAt || null,
-      relatedToType: formData.relatedToType || undefined,
-      relatedTo: formData.relatedTo || undefined,
-    };
+    let formattedTime = formData.dueTime || "";
+    if (formattedTime.includes("AM") || formattedTime.includes("PM")) formattedTime = "";
+    data.append("dueTime", formattedTime);
+
+    data.append("link", formData.link || "");
+    data.append("linkName", formData.linkName || ""); // <--- Ensures linkName is saved properly
+    data.append("repeat", formData.repeat || "None");
+
+    if (formData.scope !== "Personal" && formData.assignedTo) data.append("assignedTo", formData.assignedTo);
+    if (formData.relatedToType) data.append("relatedToType", formData.relatedToType);
+    if (formData.relatedTo) data.append("relatedTo", formData.relatedTo);
+
+    if (formData.attachments && formData.attachments.length > 0) {
+      formData.attachments.forEach((file) => {
+        if (file instanceof File) data.append("attachments", file);
+        else if (typeof file === "string") data.append("existingAttachments", file);
+        else if (file?.url) data.append("existingAttachments", file.url);
+        else if (file?.path) data.append("existingAttachments", file.path);
+      });
+    }
 
     if (mode === "create") {
-      const created = await createTask(payload);
-
-      if (created) {
-        closeModal();
-      }
+      const created = await createTask(data);
+      if (created) closeModal();
     } else if (mode === "edit" && viewingTask) {
-      const updated = await updateTask(viewingTask._id, payload);
-
+      const updated = await updateTask(viewingTask._id, data);
       if (updated) {
-        if (origin === "view") {
-          // Re-open in view mode with updated task data so details reflect immediately
-          openView(updated);
-        } else {
-          closeModal();
-        }
+        if (origin === "view") openView(updated);
+        else closeModal();
       }
     }
   };
 
-  const handleUpdateStatus = async (taskId, newStatus) => {
-    return updateTaskStatus(taskId, normalizeTaskStatus(newStatus), 0);
-  };
-
-  const handleUpdatePriority = async (taskId, newPriority) => {
-    return updateTaskPriority(taskId, newPriority);
-  };
-
+  const handleUpdateStatus = async (taskId, newStatus) => updateTaskStatus(taskId, normalizeTaskStatus(newStatus), 0);
+  const handleUpdatePriority = async (taskId, newPriority) => updateTaskPriority(taskId, newPriority);
   const handleDelete = async (taskId) => {
     const deleted = await deleteTask(taskId);
-
-    if (deleted) {
-      closeModal();
-    }
+    if (deleted) closeModal();
   };
 
   return (
@@ -359,13 +274,8 @@ export default function TasksPage() {
       <div className="flex items-center justify-between mb-4">
         <PageHeader
           title="Tasks"
-          subtitle={
-            isCurrentAgent
-              ? "Organize and track your assigned tasks and follow-ups"
-              : "View and manage tasks across your team"
-          }
+          subtitle={isCurrentAgent ? "Organize and track your assigned tasks and follow-ups" : "View and manage tasks across your team"}
         />
-
         <PageToolbar
           searchValue={search}
           onSearchChange={(event) => setSearch(event.target.value)}
@@ -386,17 +296,10 @@ export default function TasksPage() {
                   {...getSelectProps({ variant: "filter" })}
                   placeholder="All types"
                   options={RELATED_TYPE_OPTIONS}
-                  value={
-                    RELATED_TYPE_OPTIONS.find(
-                      (option) => option.value === filterRelatedType,
-                    ) || null
-                  }
-                  onChange={(option) =>
-                    setFilterRelatedType(option?.value || null)
-                  }
+                  value={RELATED_TYPE_OPTIONS.find((option) => option.value === filterRelatedType) || null}
+                  onChange={(option) => setFilterRelatedType(option?.value || null)}
                 />
               </div>
-
               {!isCurrentAgent && (
                 <div>
                   <p className="text-xs text-gray-400 mb-1">Responsible</p>
@@ -404,36 +307,22 @@ export default function TasksPage() {
                     {...getSelectProps({ variant: "filter" })}
                     placeholder="All responsibles"
                     options={agentFilterOptions}
-                    value={
-                      agentFilterOptions.find(
-                        (option) => option.value === filterResponsible,
-                      ) || null
-                    }
-                    onChange={(option) =>
-                      setFilterResponsible(option?.value || null)
-                    }
+                    value={agentFilterOptions.find((option) => option.value === filterResponsible) || null}
+                    onChange={(option) => setFilterResponsible(option?.value || null)}
                     isSearchable
                   />
                 </div>
               )}
-
               <div>
                 <p className="text-xs text-gray-400 mb-1">Priority</p>
                 <Select
                   {...getSelectProps({ variant: "filter" })}
                   placeholder="All priorities"
                   options={PRIORITY_OPTIONS}
-                  value={
-                    PRIORITY_OPTIONS.find(
-                      (option) => option.value === filterPriority,
-                    ) || null
-                  }
-                  onChange={(option) =>
-                    setFilterPriority(option?.value || null)
-                  }
+                  value={PRIORITY_OPTIONS.find((option) => option.value === filterPriority) || null}
+                  onChange={(option) => setFilterPriority(option?.value || null)}
                 />
               </div>
-
               {view === "table" && (
                 <div>
                   <p className="text-xs text-gray-400 mb-1">Status</p>
@@ -441,29 +330,18 @@ export default function TasksPage() {
                     {...getSelectProps({ variant: "filter" })}
                     placeholder="All statuses"
                     options={TASK_STATUS_OPTIONS}
-                    value={
-                      TASK_STATUS_OPTIONS.find(
-                        (option) => option.value === filterStatus,
-                      ) || null
-                    }
-                    onChange={(option) =>
-                      setFilterStatus(option?.value || null)
-                    }
+                    value={TASK_STATUS_OPTIONS.find((option) => option.value === filterStatus) || null}
+                    onChange={(option) => setFilterStatus(option?.value || null)}
                   />
                 </div>
               )}
-
               <div>
                 <p className="text-xs text-gray-400 mb-1">Scope</p>
                 <Select
                   {...getSelectProps({ variant: "filter" })}
                   placeholder="All scopes"
                   options={SCOPE_OPTIONS}
-                  value={
-                    SCOPE_OPTIONS.find(
-                      (option) => option.value === filterScope,
-                    ) || null
-                  }
+                  value={SCOPE_OPTIONS.find((option) => option.value === filterScope) || null}
                   onChange={(option) => setFilterScope(option?.value || null)}
                 />
               </div>
@@ -477,8 +355,7 @@ export default function TasksPage() {
                 className="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-md cursor-pointer"
               >
                 <span className="flex items-center gap-2 text-sm">
-                  <FaPlus size={11} />
-                  Add Task
+                  <FaPlus size={11} /> Add Task
                 </span>
               </button>
             )
@@ -532,6 +409,8 @@ export default function TasksPage() {
         loading={submitting}
         onChange={handleChange}
         onSelectChange={handleSelectChange}
+        onFileChange={handleFileChange}
+        onRemoveFile={handleRemoveFile}
         onSwitchToEdit={switchToEdit}
         onSwitchToView={switchToView}
         onSubmit={handleSubmit}
