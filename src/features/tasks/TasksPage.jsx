@@ -1,370 +1,575 @@
-import {
-  Pencil,
-  User,
-  Calendar,
-  ExternalLink,
-  Paperclip,
-} from "lucide-react";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { FaPlus } from "react-icons/fa";
+import { useLocation } from "react-router-dom";
+import Select from "react-select";
 
-import { useAuth } from "../../context/AuthContext";
-import { getProfileImage } from "../../utils/avatar";
+import {
+  PageBase,
+  PageHeader,
+  PageToolbar,
+  PageContentState,
+} from "../../components/page";
+
+import FilterPopover from "../../components/filters/FilterPopover";
+import { useFilterPopover } from "../../components/filters/useFilterPopover";
+import { getSelectProps } from "../../components/select/selectConfig";
+
 import { getDisplayName } from "../../utils/name";
-import { formatDate, isDueToday, isOverdue } from "../../utils/date";
 
-import {
-  BaseTable,
-  TableRow,
-  TableCell,
-  useTablePagination,
-} from "../../components/table";
+import { usePermissions } from "../../permissions/usePermissions";
+import { useAuth } from "../../context/AuthContext";
+import { useTasks } from "../../hooks/useTasks";
+import { useTaskModal } from "./hooks/useTaskModal";
+import { useUsers } from "../users/hooks/useUsers";
+import { useLeads } from "../leads/hooks/useLeads";
+import { useClients } from "../clients/hooks/useClients";
+import { useQuotations } from "../quotations/hooks/useQuotations";
 
-import LoaderTables from "../../components/loader/TablesLazyLoader";
-import UserDisplayName from "../../components/UserDisplayName";
-import StatusDropdown from "../../components/select/StatusDropdown";
-
-import {
-  canFullyEditTask,
-  getTaskEditDisabledReason,
-} from "./utils/taskPermissions";
+import TaskKanban from "./TaskKanban";
+import TaskTable from "./TaskTable";
+import TaskModal from "./TaskModal";
 
 const TASK_STATUSES = ["Pending", "Ongoing", "Due Soon", "Completed", "Overdue"];
-const TASK_PRIORITIES = ["Low", "Medium", "High"];
 
-const TASK_STATUS_TONE = {
-  Pending: "yellow",
-  Ongoing: "blue",
-  "Due Soon": "orange",
-  Completed: "green",
-  Overdue: "red",
+const TASK_STATUS_OPTIONS = TASK_STATUSES.map((status) => ({
+  label: status,
+  value: status,
+}));
+
+const PRIORITY_OPTIONS = ["Low", "Medium", "High"].map((priority) => ({
+  label: priority,
+  value: priority,
+}));
+
+const RELATED_TYPE_OPTIONS = ["Lead", "Client", "Quotation"].map((type) => ({
+  label: type,
+  value: type,
+}));
+
+const SCOPE_OPTIONS = ["Personal", "Assigned"].map((scope) => ({
+  label: scope,
+  value: scope,
+}));
+
+const normalizeTaskStatus = (status) => {
+  if (status === "To Do") return "Pending";
+  if (status === "In Progress") return "Ongoing";
+  if (TASK_STATUSES.includes(status)) return status;
+
+  return "Pending";
 };
 
-const TASK_PRIORITY_TONE = {
-  Low: "blue",
-  Medium: "yellow",
-  High: "red",
-};
-
-const parseSingleAttachment = (rawAtt) => {
-  if (!rawAtt) return null;
-  if (typeof rawAtt === "object") {
-    const url = rawAtt.url || rawAtt.link || rawAtt.path || rawAtt.fileUrl;
-    const name = rawAtt.name || rawAtt.title || rawAtt.fileName || "Document";
-    if (!url && !name) return null;
-    return {
-      name,
-      url: url ? (!/^https?:\/\//i.test(url) ? `${window.location.origin}/${url.replace(/^\/+/, "")}` : url) : "#",
-    };
-  }
-  if (typeof rawAtt === "string") {
-    const trimmed = rawAtt.trim();
-    if (!trimmed || trimmed === "-") return null;
-    const finalUrl = !/^https?:\/\//i.test(trimmed) 
-      ? `${window.location.origin}/${trimmed.replace(/^\/+/, "")}` 
-      : trimmed;
-    return {
-      name: trimmed.split("/").pop() || "Document",
-      url: finalUrl,
-    };
-  }
-  return null;
-};
-
-const getTaskLinkAndAttachments = (task) => {
-  let linkItem = null;
-  const attachmentList = [];
-
-  const rawLink = task?.link || task?.url || task?.externalLink;
-  
-  const customName = 
-    task?.linkName || 
-    task?.link_name || 
-    task?.urlName || 
-    task?.linkTitle || 
-    task?.metadata?.linkName || 
-    task?.linkMetadata?.name ||
-    (typeof task?.link === "object" ? task?.link?.name : null);
-
-  const trimmedCustomName = typeof customName === "string" ? customName.trim() : "";
-
-  if (rawLink) {
-    if (typeof rawLink === "string" && rawLink.trim() !== "") {
-      const formattedUrl = rawLink.startsWith("http") ? rawLink : `https://${rawLink}`;
-      const displayName = trimmedCustomName !== "" ? trimmedCustomName : rawLink;
-
-      linkItem = {
-        name: displayName,
-        url: formattedUrl,
-      };
-    } else if (typeof rawLink === "object") {
-      const parsed = parseSingleAttachment(rawLink);
-      if (parsed) {
-        linkItem = { 
-          ...parsed, 
-          name: trimmedCustomName !== "" ? trimmedCustomName : (rawLink.url || rawLink.link || parsed.name) 
-        };
-      }
-    }
-  }
-
-  const rawAtts = task?.attachments || task?.files || task?.file || task?.documents;
-  if (rawAtts) {
-    (Array.isArray(rawAtts) ? rawAtts : [rawAtts]).forEach((item) => {
-      const parsed = parseSingleAttachment(item);
-      if (parsed) attachmentList.push(parsed);
-    });
-  }
-
-  return { linkItem, attachmentList };
-};
-
-const getDynamicTaskStatus = (task) => {
-  const rawStatus = String(task?.status || "Pending").trim().toLowerCase();
-  if (["completed", "complete", "done"].includes(rawStatus)) return "Completed";
-
-  const dueDateStr = task?.dueDate || task?.date || task?.taskDate;
-  if (!dueDateStr) return ["ongoing", "in progress"].includes(rawStatus) ? "Ongoing" : "Pending";
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const due = new Date(dueDateStr);
-  if (Number.isNaN(due.getTime())) return "Pending";
-  due.setHours(0, 0, 0, 0);
-
-  const diffDays = Math.round((due.getTime() - today.getTime()) / 86400000);
-  if (diffDays < 0) return "Overdue";
-  if (diffDays <= 2) return "Due Soon";
-  return ["ongoing", "in progress"].includes(rawStatus) ? "Ongoing" : "Pending";
-};
-
-const getResponsibleName = (task) => {
-  const assigned = task.assignedTo;
-  const createdBy = task.createdBy;
-
-  if (task.scope === "Personal") {
-    return {
-      label: createdBy ? (
-        <UserDisplayName user={createdBy}>
-          {getDisplayName(createdBy, { includeMiddleInitial: true, includeSuffix: true })}
-        </UserDisplayName>
-      ) : "Unknown",
-      type: "personal",
-      user: createdBy || null,
-    };
-  }
-
-  if (!assigned) return { label: "Unassigned", type: "unassigned", user: null };
-
-  return {
-    label: (
-      <UserDisplayName user={assigned}>
-        {getDisplayName(assigned, { includeMiddleInitial: true, includeSuffix: true })}
-      </UserDisplayName>
-    ),
-    type: "assigned",
-    user: assigned,
-  };
-};
-
-export default function TaskTable({
-  tasks = [],
-  permissions = {},
-  onEdit,
-  onView,
-  onUpdateStatus,
-  onUpdatePriority,
-  isLoading = false,
-}) {
+export default function TasksPage() {
+  const permissions = usePermissions("tasks");
   const { user: currentUser } = useAuth();
-  const canEdit = permissions.canEdit !== false;
-
-  const normalizedTasks = tasks.map((task) => ({
-    ...task,
-    status: getDynamicTaskStatus(task),
-  }));
-
-  const columns = [
-    { label: "Title" },
-    { label: "Priority" },
-    { label: "Task Owner" },
-    { label: "Link / Files" },
-    { label: "Deadline" },
-    { label: "Status" },
-    ...(canEdit ? [{ label: "", align: "text-right" }] : []),
-  ];
+  const isCurrentAgent = currentUser?.role === "Sales Agent";
+  const location = useLocation();
 
   const {
-    currentPage,
-    rowsPerPage,
-    totalRows,
-    totalPages,
-    paginatedItems,
-    pageWindow,
-    from,
-    to,
-    goTo,
-    setRowsPerPage,
-  } = useTablePagination(normalizedTasks, 10);
+    tasks = [],
+    loading,
+    submitting,
+    reorderTasks,
+    updateTaskStatus,
+    updateTaskPriority,
+    createTask,
+    updateTask,
+    deleteTask,
+  } = useTasks();
 
-  if (isLoading) {
-    return (
-      <LoaderTables
-        paginatedItems="loading"
-        headers={columns.map((c) => c.label)}
-        emptyMessage="No tasks found."
-        heightClass="h-112.5"
-        currentPage={currentPage}
-        totalPages={totalPages}
-        totalRows={totalRows}
-        rowsPerPage={rowsPerPage}
-        from={from}
-        to={to}
-        pageWindow={pageWindow}
-        onGoTo={goTo}
-        onRowsPerPageChange={setRowsPerPage}
-        renderRow={() => <TableRow />}
-      />
+  const {
+    modalOpen,
+    mode,
+    origin,
+    activeTab,
+    setActiveTab,
+    formData,
+    viewingTask,
+    activities,
+    activitiesLoading,
+    openCreate,
+    openView,
+    openEdit,
+    switchToEdit,
+    switchToView,
+    closeModal,
+    handleChange,
+    handleSelectChange,
+    handleFileChange,
+    handleRemoveFile,
+  } = useTaskModal();
+
+  useEffect(() => {
+    if (location.state?.openCreate) {
+      openCreate("Pending");
+      window.history.replaceState({}, "");
+    }
+  }, [location.state, openCreate]);
+
+  const { users: assignableUsers = [] } = useUsers({
+    skip: !permissions.canAssign,
+    mode: "assignable",
+    resource: "task",
+  });
+
+  const { leads = [] } = useLeads();
+  const { clients = [] } = useClients();
+  const { quotations = [] } = useQuotations();
+
+  const [view, setView] = useState("table");
+  const [search, setSearch] = useState("");
+  const [filterPriority, setFilterPriority] = useState(null);
+  const [filterResponsible, setFilterResponsible] = useState(null);
+  const [filterStatus, setFilterStatus] = useState(null);
+  const [filterRelatedType, setFilterRelatedType] = useState(null);
+  const [filterScope, setFilterScope] = useState(null);
+
+  const clearAllFilters = useCallback(() => {
+    setFilterPriority(null);
+    setFilterResponsible(null);
+    setFilterStatus(null);
+    setFilterRelatedType(null);
+    setFilterScope(null);
+  }, []);
+
+  const {
+    filterOpen,
+    setFilterOpen,
+    filterRef,
+    activeFilterCount,
+    clearAllFilters: handleClear,
+  } = useFilterPopover(
+    {
+      filterPriority,
+      filterResponsible,
+      filterStatus,
+      filterRelatedType,
+      filterScope,
+    },
+    clearAllFilters,
+  );
+
+  const matchesTaskFilters = useCallback(
+    (task) => {
+      const query = search.trim().toLowerCase();
+      const normalizedStatus = normalizeTaskStatus(task.status);
+
+      const assigneeName = task.assignedTo
+        ? getDisplayName(task.assignedTo, {
+            includeMiddleInitial: true,
+            includeSuffix: true,
+          }).toLowerCase()
+        : "";
+
+      const matchesSearch =
+        !query ||
+        task.subject?.toLowerCase().includes(query) ||
+        normalizedStatus.toLowerCase().includes(query) ||
+        task.priority?.toLowerCase().includes(query) ||
+        assigneeName.includes(query);
+
+      const matchesPriority =
+        !filterPriority || task.priority === filterPriority;
+
+      const matchesResponsible =
+        !filterResponsible || task.assignedTo?._id === filterResponsible;
+
+      const matchesStatus = !filterStatus || normalizedStatus === filterStatus;
+
+      const matchesRelatedType =
+        !filterRelatedType || task.relatedToType === filterRelatedType;
+
+      const matchesScope = !filterScope || task.scope === filterScope;
+
+      return (
+        matchesSearch &&
+        matchesPriority &&
+        matchesResponsible &&
+        matchesStatus &&
+        matchesRelatedType &&
+        matchesScope
+      );
+    },
+    [
+      search,
+      filterPriority,
+      filterResponsible,
+      filterStatus,
+      filterRelatedType,
+      filterScope,
+    ],
+  );
+
+  const agentFilterOptions = useMemo(() => {
+    const uniqueAgents = new Map();
+
+    tasks.forEach((task) => {
+      if (task.assignedTo) {
+        uniqueAgents.set(task.assignedTo._id, task.assignedTo);
+      }
+    });
+
+    return Array.from(uniqueAgents.values()).map((user) => ({
+      label: getDisplayName(user, {
+        includeMiddleInitial: true,
+        includeSuffix: true,
+      }),
+      value: user._id,
+    }));
+  }, [tasks]);
+
+  const filteredTasks = useMemo(() => {
+    return tasks.filter(matchesTaskFilters).map((task) => ({
+      ...task,
+      status: normalizeTaskStatus(task.status),
+    }));
+  }, [tasks, matchesTaskFilters]);
+
+  const filteredColumns = useMemo(() => {
+    return TASK_STATUSES.reduce((grouped, status) => {
+      grouped[status] = filteredTasks.filter(
+        (task) => normalizeTaskStatus(task.status) === status,
+      );
+
+      return grouped;
+    }, {});
+  }, [filteredTasks]);
+
+  const handleOpenCreate = (status = "Pending") => {
+    openCreate(status);
+  };
+
+  const handleDragEnd = async (result) => {
+    const { destination, source, draggableId } = result;
+
+    if (!destination) return;
+
+    const sourceStatus = source.droppableId;
+    const destinationStatus = destination.droppableId;
+
+    const isSameColumn = destinationStatus === sourceStatus;
+    const isSamePosition = destination.index === source.index;
+
+    if (isSameColumn && isSamePosition) return;
+
+    if (isSameColumn) {
+      const column = [...(filteredColumns[sourceStatus] || [])];
+
+      const [moved] = column.splice(source.index, 1);
+      if (!moved) return;
+
+      column.splice(destination.index, 0, moved);
+
+      const updates = column.map((task, index) => ({
+        _id: task._id,
+        status: sourceStatus,
+        position: index,
+      }));
+
+      await reorderTasks(updates);
+      return;
+    }
+
+    const sourceColumn = [...(filteredColumns[sourceStatus] || [])];
+    const destinationColumn = [...(filteredColumns[destinationStatus] || [])];
+
+    const [moved] = sourceColumn.splice(source.index, 1);
+    if (!moved) return;
+
+    destinationColumn.splice(destination.index, 0, {
+      ...moved,
+      status: destinationStatus,
+    });
+
+    const updates = [
+      ...sourceColumn.map((task, index) => ({
+        _id: task._id,
+        status: sourceStatus,
+        position: index,
+      })),
+      ...destinationColumn.map((task, index) => ({
+        _id: task._id,
+        status: destinationStatus,
+        position: index,
+      })),
+    ];
+
+    await updateTaskStatus(
+      draggableId,
+      destinationStatus,
+      destination.index,
+      updates,
     );
-  }
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    const data = new FormData();
+    data.append("subject", formData.subject || "");
+    data.append("description", formData.description || "");
+    data.append("taskType", formData.taskType || "Call");
+    data.append("priority", formData.priority || "Low");
+    data.append("status", normalizeTaskStatus(formData.status));
+    data.append("scope", formData.scope || "Personal");
+    data.append("dueDate", formData.dueDate ? formData.dueDate : "");
+
+    // Sanitize dueTime to clear out invalid AM/PM formats before submission
+    let formattedTime = formData.dueTime || "";
+    if (formattedTime.includes("AM") || formattedTime.includes("PM")) {
+      formattedTime = "";
+    }
+    data.append("dueTime", formattedTime);
+
+    data.append("link", formData.link || "");
+    data.append("linkName", formData.linkName || "");
+    data.append("repeat", formData.repeat || "None");
+
+    if (formData.scope !== "Personal" && formData.assignedTo) {
+      data.append("assignedTo", formData.assignedTo);
+    }
+    if (formData.relatedToType) {
+      data.append("relatedToType", formData.relatedToType);
+    }
+    if (formData.relatedTo) {
+      data.append("relatedTo", formData.relatedTo);
+    }
+
+    if (formData.attachments && formData.attachments.length > 0) {
+      formData.attachments.forEach((file) => {
+        if (file instanceof File) {
+          data.append("attachments", file);
+        } else if (typeof file === "string") {
+          data.append("existingAttachments", file);
+        } else if (file?.url) {
+          data.append("existingAttachments", file.url);
+        } else if (file?.path) {
+          data.append("existingAttachments", file.path);
+        }
+      });
+    }
+
+    if (mode === "create") {
+      const created = await createTask(data);
+
+      if (created) {
+        closeModal();
+      }
+    } else if (mode === "edit" && viewingTask) {
+      const updated = await updateTask(viewingTask._id, data);
+
+      if (updated) {
+        if (origin === "view") {
+          openView(updated);
+        } else {
+          closeModal();
+        }
+      }
+    }
+  };
+
+  const handleUpdateStatus = async (taskId, newStatus) => {
+    return updateTaskStatus(taskId, normalizeTaskStatus(newStatus), 0);
+  };
+
+  const handleUpdatePriority = async (taskId, newPriority) => {
+    return updateTaskPriority(taskId, newPriority);
+  };
+
+  const handleDelete = async (taskId) => {
+    const deleted = await deleteTask(taskId);
+
+    if (deleted) {
+      closeModal();
+    }
+  };
 
   return (
-    <BaseTable 
-      columns={columns} 
-      empty={paginatedItems.length === 0 ? "No tasks found." : null} 
-      colSpan={columns.length} 
-      heightClass="h-112.5"
-      paginationProps={{
-        currentPage,
-        totalPages,
-        totalRows,
-        rowsPerPage,
-        from,
-        to,
-        pageWindow,
-        onGoTo: goTo,
-        onRowsPerPageChange: setRowsPerPage,
-      }}
-    >
-      {paginatedItems.map((task) => {
-        const dynamicStatus = getDynamicTaskStatus(task);
-        const overdue = isOverdue(task.dueDate, dynamicStatus);
-        const dueToday = isDueToday(task.dueDate, dynamicStatus);
-        const responsible = getResponsibleName(task);
-        const responsiblePhoto = getProfileImage(responsible.user);
-        const canEditCurrentTask = canFullyEditTask(task, currentUser, permissions);
-        const editDisabledReason = getTaskEditDisabledReason(task, currentUser, permissions);
-        const { linkItem, attachmentList } = getTaskLinkAndAttachments(task);
-        const hasContent = linkItem || attachmentList.length > 0;
+    <PageBase>
+      <div className="flex items-center justify-between mb-4">
+        <PageHeader
+          title="Tasks"
+          subtitle={
+            isCurrentAgent
+              ? "Organize and track your assigned tasks and follow-ups"
+              : "View and manage tasks across your team"
+          }
+        />
 
-        return (
-          <TableRow key={task._id} onClick={() => onView?.(task)}>
-            <TableCell className="max-w-72 !py-2">
-              <div className="min-w-0">
-                <p className="font-medium truncate">
-                  {task.taskType && task.taskType !== "Other" ? `${task.taskType}: ` : ""}
-                  {task.subject}
-                </p>
-                {task.description && (
-                  <p className="text-xs text-gray-400 truncate mt-0.5">{task.description}</p>
-                )}
-              </div>
-            </TableCell>
-
-            <TableCell className="!py-2">
-              <div onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
-                <StatusDropdown
-                  status={task.priority || "Medium"}
-                  statuses={TASK_PRIORITIES}
-                  toneMap={TASK_PRIORITY_TONE}
-                  disabled={!canEdit}
-                  onSelect={(val) => onUpdatePriority?.(task._id, val)}
+        <PageToolbar
+          searchValue={search}
+          onSearchChange={(event) => setSearch(event.target.value)}
+          searchPlaceholder="Search tasks..."
+          view={view}
+          onViewChange={setView}
+          filterSlot={
+            <FilterPopover
+              filterRef={filterRef}
+              filterOpen={filterOpen}
+              onToggle={() => setFilterOpen((previous) => !previous)}
+              activeFilterCount={activeFilterCount}
+              onClearAll={handleClear}
+            >
+              <div>
+                <p className="text-xs text-gray-400 mb-1">Related Type</p>
+                <Select
+                  {...getSelectProps({ variant: "filter" })}
+                  placeholder="All types"
+                  options={RELATED_TYPE_OPTIONS}
+                  value={
+                    RELATED_TYPE_OPTIONS.find(
+                      (option) => option.value === filterRelatedType,
+                    ) || null
+                  }
+                  onChange={(option) =>
+                    setFilterRelatedType(option?.value || null)
+                  }
                 />
               </div>
-            </TableCell>
 
-            <TableCell className="!py-2">
-              <div className="flex items-center gap-2 whitespace-nowrap">
-                {responsible.user ? (
-                  <img src={responsiblePhoto} alt="" className="w-7 h-7 rounded-full object-cover border border-gray-300 shrink-0" />
-                ) : (
-                  <span className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-                    <User size={13} className="text-gray-400" />
-                  </span>
-                )}
-                <span className={`text-sm truncate max-w-36 inline-flex items-center ${responsible.type === "unassigned" ? "text-gray-400 italic" : "text-gray-700"}`}>
-                  {responsible.label}
-                </span>
-                <span className={`w-2 h-2 rounded-full shrink-0 ${task.scope === "Personal" ? "bg-indigo-500" : "bg-teal-500"}`} title={task.scope} />
-              </div>
-            </TableCell>
-
-            <TableCell className="max-w-[180px] !py-2">
-              {hasContent ? (
-                <div className="flex flex-col gap-0.5 truncate" onClick={(e) => e.stopPropagation()}>
-                  {linkItem && (
-                    <a href={linkItem.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs flex items-center gap-1 truncate" title={linkItem.name}>
-                      <ExternalLink size={11} className="shrink-0" />
-                      <span className="truncate">{linkItem.name}</span>
-                    </a>
-                  )}
-                  {attachmentList.map((file, idx) => (
-                    <a 
-                      key={idx} 
-                      href={file.url} 
-                      download={file.name} 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className="text-gray-700 hover:text-red-500 text-xs flex items-center gap-1 truncate" 
-                      title={file.name}
-                    >
-                      <Paperclip size={11} className="shrink-0 text-red-500" />
-                      <span className="truncate">{file.name}</span>
-                    </a>
-                  ))}
+              {!isCurrentAgent && (
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">Responsible</p>
+                  <Select
+                    {...getSelectProps({ variant: "filter" })}
+                    placeholder="All responsibles"
+                    options={agentFilterOptions}
+                    value={
+                      agentFilterOptions.find(
+                        (option) => option.value === filterResponsible,
+                      ) || null
+                    }
+                    onChange={(option) =>
+                      setFilterResponsible(option?.value || null)
+                    }
+                    isSearchable
+                  />
                 </div>
-              ) : (
-                <span className="text-sm text-gray-400">—</span>
               )}
-            </TableCell>
 
-            <TableCell className="!py-2">
-              {task.dueDate ? (
-                <span className={`flex items-center gap-1 text-sm ${overdue ? "text-red-500 font-medium" : dueToday ? "text-amber-500 font-medium" : "text-gray-600"}`}>
-                  <Calendar size={12} className="shrink-0" />
-                  {formatDate(task.dueDate)}
-                </span>
-              ) : (
-                <span className="text-sm text-gray-400">—</span>
-              )}
-            </TableCell>
-
-            <TableCell className="!py-2">
-              <div onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
-                <StatusDropdown
-                  status={dynamicStatus}
-                  statuses={TASK_STATUSES}
-                  toneMap={TASK_STATUS_TONE}
-                  disabled={!canEdit}
-                  onSelect={(val) => onUpdateStatus?.(task._id, val)}
+              <div>
+                <p className="text-xs text-gray-400 mb-1">Priority</p>
+                <Select
+                  {...getSelectProps({ variant: "filter" })}
+                  placeholder="All priorities"
+                  options={PRIORITY_OPTIONS}
+                  value={
+                    PRIORITY_OPTIONS.find(
+                      (option) => option.value === filterPriority,
+                    ) || null
+                  }
+                  onChange={(option) =>
+                    setFilterPriority(option?.value || null)
+                  }
                 />
               </div>
-            </TableCell>
 
-            {canEdit && (
-              <TableCell className="text-right !py-2">
-                <button
-                  disabled={!canEditCurrentTask}
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); onEdit?.(task); }}
-                  className={`p-1.5 rounded-md transition-colors ${!canEditCurrentTask ? "text-gray-300 cursor-not-allowed" : "text-gray-400 hover:text-[#ef4444] cursor-pointer"}`}
-                  title={!canEditCurrentTask ? editDisabledReason : "Edit task"}
-                >
-                  <Pencil size={15} />
-                </button>
-              </TableCell>
-            )}
-          </TableRow>
-        );
-      })}
-    </BaseTable>
+              {view === "table" && (
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">Status</p>
+                  <Select
+                    {...getSelectProps({ variant: "filter" })}
+                    placeholder="All statuses"
+                    options={TASK_STATUS_OPTIONS}
+                    value={
+                      TASK_STATUS_OPTIONS.find(
+                        (option) => option.value === filterStatus,
+                      ) || null
+                    }
+                    onChange={(option) =>
+                      setFilterStatus(option?.value || null)
+                    }
+                  />
+                </div>
+              )}
+
+              <div>
+                <p className="text-xs text-gray-400 mb-1">Scope</p>
+                <Select
+                  {...getSelectProps({ variant: "filter" })}
+                  placeholder="All scopes"
+                  options={SCOPE_OPTIONS}
+                  value={
+                    SCOPE_OPTIONS.find(
+                      (option) => option.value === filterScope,
+                    ) || null
+                  }
+                  onChange={(option) => setFilterScope(option?.value || null)}
+                />
+              </div>
+            </FilterPopover>
+          }
+          actionButton={
+            permissions.canCreate && (
+              <button
+                type="button"
+                onClick={() => handleOpenCreate("Pending")}
+                className="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-md cursor-pointer"
+              >
+                <span className="flex items-center gap-2 text-sm">
+                  <FaPlus size={11} />
+                  Add Task
+                </span>
+              </button>
+            )
+          }
+        />
+      </div>
+
+      <PageContentState>
+        {view === "kanban" ? (
+          <TaskKanban
+            columns={filteredColumns}
+            statuses={TASK_STATUSES}
+            permissions={permissions}
+            onDragEnd={handleDragEnd}
+            onAddTask={(status) => handleOpenCreate(status)}
+            onCardClick={(task) => openView(task)}
+            onEdit={(task) => openEdit(task)}
+            onUpdateStatus={handleUpdateStatus}
+            onUpdatePriority={handleUpdatePriority}
+            isLoading={loading}
+          />
+        ) : (
+          <TaskTable
+            tasks={filteredTasks}
+            permissions={permissions}
+            onView={(task) => openView(task)}
+            onEdit={(task) => openEdit(task)}
+            onUpdateStatus={handleUpdateStatus}
+            onUpdatePriority={handleUpdatePriority}
+            isLoading={loading}
+          />
+        )}
+      </PageContentState>
+
+      <TaskModal
+        open={modalOpen}
+        mode={mode}
+        origin={origin}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        formData={formData}
+        viewingTask={viewingTask}
+        activities={activities}
+        activitiesLoading={activitiesLoading}
+        currentUser={currentUser}
+        assignableUsers={assignableUsers}
+        leads={leads}
+        clients={clients}
+        quotations={quotations}
+        permissions={permissions}
+        loading={submitting}
+        onChange={handleChange}
+        onSelectChange={handleSelectChange}
+        onFileChange={handleFileChange}
+        onRemoveFile={handleRemoveFile}
+        onSwitchToEdit={switchToEdit}
+        onSwitchToView={switchToView}
+        onSubmit={handleSubmit}
+        onDelete={handleDelete}
+        onClose={closeModal}
+      />
+    </PageBase>
   );
 }
