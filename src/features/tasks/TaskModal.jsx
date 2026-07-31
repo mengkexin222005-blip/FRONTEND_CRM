@@ -68,6 +68,7 @@ const TASK_TYPE_LABELS = {
   Call: "Call",
   Email: "Email",
   Message: "Message",
+  Other: "Other",
   Others: "Others",
 };
 
@@ -75,6 +76,7 @@ const TASK_TYPE_ICON = {
   Call: Phone,
   Email: Mail,
   Message: MessageCircle,
+  Other: FileText,
   Others: FileText,
 };
 
