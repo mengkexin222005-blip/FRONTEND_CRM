@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import Select from "react-select";
 import {
   Pencil,
@@ -11,10 +11,10 @@ import {
   Mail,
   MessageCircle,
   CalendarDays,
-  Bell,
-  Magnet,
-  UserCheck,
   ExternalLink,
+  Paperclip,
+  Upload,
+  X,
 } from "lucide-react";
 
 import { getSelectProps } from "../../components/select/selectConfig";
@@ -49,6 +49,7 @@ import {
 const STATUSES = ["Pending", "Ongoing", "Completed", "Overdue"];
 const REPEATS = ["None", "Daily", "Weekly", "Monthly"];
 const RELATED_TYPES = ["Lead", "Client", "Quotation"];
+const RELATED_TYPE_OPTIONS = RELATED_TYPES.map((type) => ({ label: type, value: type }));
 
 const PRIORITY_COLORS = {
   Low: "blue",
@@ -80,8 +81,8 @@ const TASK_TYPE_ICON = {
 };
 
 const RELATED_TYPE_ICON = {
-  Lead: Magnet,
-  Client: UserCheck,
+  Lead: ExternalLink,
+  Client: User,
   Quotation: FileText,
 };
 
@@ -97,7 +98,6 @@ const getRelatedLabel = (task) => {
   return null;
 };
 
-// Formats 24h string ("14:30") to 12h format ("2:30 PM")
 const formatTimeString = (timeStr) => {
   if (!timeStr || typeof timeStr !== "string" || !timeStr.trim()) return "—";
   const parts = timeStr.trim().split(":");
@@ -127,12 +127,16 @@ export default function TaskModal({
   loading = false,
   onChange,
   onSelectChange,
+  onFileChange,
+  onRemoveFile,
   onSwitchToEdit,
   onSwitchToView,
   onSubmit,
   onDelete,
   onClose,
 }) {
+  const fileInputRef = useRef(null);
+
   const assigneeOptions = useMemo(() => {
     return assignableUsers.map((u) => ({
       label: `${getDisplayName(u, { includeSuffix: true })} — ${u.role}`,
@@ -213,16 +217,18 @@ export default function TaskModal({
     const TypeIcon = TASK_TYPE_ICON[t.taskType];
     const RelatedIcon = RELATED_TYPE_ICON[t.relatedToType];
 
-    // Safely extract and format task link
     const rawLink = t.link || "";
     const taskUrl = rawLink
       ? rawLink.startsWith("http://") || rawLink.startsWith("https://")
         ? rawLink
         : `https://${rawLink}`
       : null;
+      
+    // Fixed: Falls back to rawLink if linkName is not provided or empty
+    const taskLinkName = (t.linkName && t.linkName.trim() !== "") ? t.linkName : rawLink;
 
-    // Safely fallback to time or dueTime
     const taskDueTime = t.dueTime || t.time || "";
+    const taskFiles = t.attachments || t.files || t.documents || [];
 
     return (
       <div className="flex flex-row flex-1 min-h-0 h-full">
@@ -274,7 +280,7 @@ export default function TaskModal({
                 {t.description}
               </p>
             ) : (
-              <p className="text-sm text-gray-400 italic">Add Description</p>
+              <p className="text-sm text-gray-400 italic">No description</p>
             )}
           </div>
 
@@ -299,29 +305,58 @@ export default function TaskModal({
           <p className="text-sm font-semibold text-gray-800 mb-4">Details</p>
 
           <div className="flex flex-col gap-4">
-            {/* Link Field Display */}
             <div>
               <div className="flex items-center gap-1.5 mb-1">
                 <ExternalLink size={11} className="text-gray-400" />
                 <p className="text-[10px] text-gray-400 uppercase tracking-wider">
-                  Link
+                  Link & Files
                 </p>
               </div>
-              {taskUrl ? (
-                <a
-                  href={taskUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 
-                    bg-blue-50 border border-blue-200 text-blue-600 rounded-md 
-                    hover:bg-blue-100 transition-colors w-full justify-center truncate"
-                  title={rawLink}
-                >
-                  Open Link <ExternalLink size={12} className="shrink-0" />
-                </a>
-              ) : (
-                <p className="text-sm font-medium text-gray-400 italic">—</p>
-              )}
+              <div className="flex flex-col gap-1.5">
+                {taskUrl ? (
+                  <a
+                    href={taskUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-sm text-blue-600 hover:underline truncate"
+                    title={rawLink}
+                  >
+                    <ExternalLink size={14} className="shrink-0 text-blue-500" />
+                    <span className="truncate">{taskLinkName}</span>
+                  </a>
+                ) : null}
+
+                {taskFiles.length > 0 ? (
+                  taskFiles.map((file, index) => {
+                    const fileUrl =
+                      typeof file === "string"
+                        ? file
+                        : file.url || file.path || "#";
+                    const fileName =
+                      typeof file === "string"
+                        ? file.split("/").pop()
+                        : file.name || file.fileName || `Document ${index + 1}`;
+
+                    return (
+                      <a
+                        key={index}
+                        href={fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 text-sm text-red-500 hover:underline truncate"
+                        title={fileName}
+                      >
+                        <Paperclip size={14} className="shrink-0 text-red-500" />
+                        <span className="truncate">{fileName}</span>
+                      </a>
+                    );
+                  })
+                ) : null}
+
+                {!taskUrl && taskFiles.length === 0 && (
+                  <p className="text-sm font-medium text-gray-400 italic">—</p>
+                )}
+              </div>
             </div>
 
             <div>
@@ -397,7 +432,6 @@ export default function TaskModal({
               )}
             </div>
 
-            {/* Time Field Display */}
             <div>
               <div className="flex items-center gap-1.5 mb-0.5">
                 <Clock size={11} className="text-gray-400" />
@@ -482,6 +516,8 @@ export default function TaskModal({
     const selectedRelated =
       relatedOptions.find((o) => o.value === formData.relatedTo) || null;
 
+    const currentFiles = formData.attachments || formData.files || formData.documents || [];
+
     return (
       <form id="task-form" onSubmit={onSubmit} className="space-y-4">
         <div className="flex-1 overflow-y-auto min-h-0 space-y-4 px-1">
@@ -540,7 +576,7 @@ export default function TaskModal({
             </div>
           </div>
 
-          {isCreate && (
+          {(isCreate || isEdit) && (
             <div>
               <FormLabel required>Status</FormLabel>
               <Select
@@ -571,7 +607,6 @@ export default function TaskModal({
                 onChange={onChange}
               />
             </div>
-            {/* Due Time Input */}
             <div>
               <FormLabel>Due Time</FormLabel>
               <FormInput
@@ -670,7 +705,7 @@ export default function TaskModal({
               <Select
                 {...getSelectProps({ isSearchable: false })}
                 placeholder="Select type..."
-                options={RELATED_TYPES.map((t) => ({ label: t, value: t }))}
+                options={RELATED_TYPE_OPTIONS}
                 value={
                   formData.relatedToType
                     ? {
@@ -703,16 +738,88 @@ export default function TaskModal({
             </div>
           </div>
 
-          {/* Link Input */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <FormLabel>Link Name</FormLabel>
+              <FormInput
+                type="text"
+                name="linkName"
+                value={formData.linkName || ""}
+                onChange={onChange}
+                placeholder="e.g. Google Doc / Proposal"
+              />
+            </div>
+            <div>
+              <FormLabel>Link URL</FormLabel>
+              <FormInput
+                type="text"
+                name="link"
+                value={formData.link || ""}
+                onChange={onChange}
+                placeholder="e.g. https://example.com/document"
+              />
+            </div>
+          </div>
+
           <div>
-            <FormLabel>Link</FormLabel>
-            <FormInput
-              type="text"
-              name="link"
-              value={formData.link || ""}
-              onChange={onChange}
-              placeholder="e.g. https://example.com/document"
+            <FormLabel>Upload Files & Documents</FormLabel>
+            <input
+              type="file"
+              ref={fileInputRef}
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                  onFileChange?.(e.target.files);
+                  e.target.value = "";
+                }
+              }}
             />
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className="border-2 border-dashed border-gray-300 hover:border-red-400 rounded-lg p-4 flex flex-col items-center justify-center cursor-pointer transition-colors bg-gray-50 hover:bg-red-50/20"
+            >
+              <Upload size={20} className="text-gray-400 mb-1" />
+              <p className="text-xs font-medium text-gray-600">
+                Click to attach files or documents
+              </p>
+              <p className="text-[10px] text-gray-400 mt-0.5">
+                PDF, DOCX, PNG, JPG, XLSX (Max 10MB)
+              </p>
+            </div>
+
+            {currentFiles.length > 0 && (
+              <div className="mt-3 flex flex-col gap-2">
+                {currentFiles.map((file, idx) => {
+                  const fileName =
+                    typeof file === "string"
+                      ? file.split("/").pop()
+                      : file.name || file.fileName || `File ${idx + 1}`;
+
+                  return (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between p-2 bg-gray-100 border rounded-md text-xs"
+                    >
+                      <div className="flex items-center gap-2 truncate pr-2">
+                        <Paperclip size={14} className="text-gray-500 shrink-0" />
+                        <span className="truncate font-medium text-gray-700">
+                          {fileName}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => onRemoveFile?.(idx)}
+                        className="text-gray-400 hover:text-red-500 p-1 rounded transition-colors shrink-0 cursor-pointer"
+                        title="Remove file"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div>
