@@ -14,7 +14,6 @@ import {
   CalendarDays,
   Bell,
   FileText,
-  TriangleAlert,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { getProfileImage } from "../../utils/avatar";
@@ -33,7 +32,7 @@ const TASK_TYPE_ICON = {
   Message: MessageCircle,
   Meeting: CalendarDays,
   Reminder: Bell,
-  Others: FileText,
+  Other: FileText,
 };
 
 const RELATED_ICON = {
@@ -200,11 +199,7 @@ export default function TaskCard({ task, index, isLast, onClick }) {
                   : ""
             }`}
           >
-            {overdue || dueToday ? (
-              <TriangleAlert size={10} />
-            ) : (
-              <Calendar size={10} />
-            )}
+            <Calendar size={10} />
             {formatDate(task.dueDate)}
           </span>
         )}
