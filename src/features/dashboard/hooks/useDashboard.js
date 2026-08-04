@@ -5,6 +5,8 @@ import {
 } from "react";
 
 import api from "../../../services/api";
+import { useSocket } from "../../../hooks/useSocket";
+import { SOCKET_EVENTS } from "../../../constants/socketEvents";
 
 const createEmptyDashboardStats = () => ({
   kpi: {},
@@ -404,6 +406,19 @@ export function useDashboard() {
           return t;
         });
 
+        // Dispatch a client-side event so other hooks/pages refresh when
+        // the dashboard updates a task status (covers cases where backend
+        // socket events are not emitted or delayed).
+        try {
+          window.dispatchEvent(
+            new CustomEvent("crm:task:updated", {
+              detail: { id: normalizedTaskId, status: newStatus },
+            }),
+          );
+        } catch (e) {
+          // ignore dispatch errors in non-browser environments
+        }
+
         return {
           ...prevStats,
           tasks: updatedTasks,
@@ -421,16 +436,29 @@ export function useDashboard() {
       if (!meetingId) throw new Error("Invalid meeting ID");
       const normalizedMeetingId = String(meetingId);
 
-      await api.patch(`/api/meetings/${normalizedMeetingId}/status`, { status: newStatus });
+      await api.patch(`/api/meetings/${normalizedMeetingId}`, {
+        status: newStatus,
+        meetingStatus: newStatus,
+      });
 
       setStats((prevStats) => {
         const updatedMeetings = prevStats.meetings.map((m) => {
           const mId = String(m?._id || m?.id || "");
           if (mId === normalizedMeetingId) {
-            return { ...m, status: newStatus };
+            return { ...m, status: newStatus, meetingStatus: newStatus };
           }
           return m;
         });
+
+        try {
+          window.dispatchEvent(
+            new CustomEvent("crm:meeting:updated", {
+              detail: { id: normalizedMeetingId, status: newStatus },
+            }),
+          );
+        } catch (e) {
+          // ignore dispatch errors in non-browser environments
+        }
 
         return {
           ...prevStats,
@@ -455,6 +483,35 @@ export function useDashboard() {
       controller.abort();
     };
   }, [fetchDashboard]);
+
+  // Keep dashboard in sync with real-time task updates
+  useSocket(
+    SOCKET_EVENTS.TASK_CREATED,
+    useCallback(() => {
+      void fetchDashboard({ showLoading: false });
+    }, [fetchDashboard]),
+  );
+
+  useSocket(
+    SOCKET_EVENTS.TASK_UPDATED,
+    useCallback(() => {
+      void fetchDashboard({ showLoading: false });
+    }, [fetchDashboard]),
+  );
+
+  useSocket(
+    SOCKET_EVENTS.TASK_ASSIGNED,
+    useCallback(() => {
+      void fetchDashboard({ showLoading: false });
+    }, [fetchDashboard]),
+  );
+
+  useSocket(
+    SOCKET_EVENTS.TASK_STATUS_CHANGED,
+    useCallback(() => {
+      void fetchDashboard({ showLoading: false });
+    }, [fetchDashboard]),
+  );
 
   useEffect(() => {
     const refreshWithoutLoader = () => {

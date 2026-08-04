@@ -2,6 +2,20 @@ import { useState, useMemo, useEffect } from "react";
 import api from '../../../services/api';
 import Swal from 'sweetalert2';
 import { getAutoMeetingStatus } from '../utils/meetingUtils';
+import { useSocketContext } from '../../../context/SocketContext';
+import { SOCKET_EVENTS } from '../../../constants/socketEvents';
+
+const normalizeMeetingStatus = (value) => {
+  const status = String(value || '').trim().toLowerCase();
+  if (status === 'completed' || status === 'complete' || status === 'done') return 'Completed';
+  if (status === 'in progress') return 'In Progress';
+  if (status === 'ongoing') return 'Ongoing';
+  if (status === 'cancelled' || status === 'canceled') return 'Cancelled';
+  if (status === 'rescheduled') return 'Rescheduled';
+  if (status === 'no show') return 'No Show';
+  if (status === 'scheduled' || !status) return 'Scheduled';
+  return value;
+};
 
 const Toast = Swal.mixin({
   toast: true,
@@ -57,6 +71,7 @@ const mapMeeting = (meeting) => {
     locationScope: meeting.locationScope || "Inside the Philippines",
     organizer: meeting.host || meeting.organizer || "",
     host: meeting.host || meeting.organizer || "",
+    createdBy: meeting.createdBy || meeting.creator || meeting.userId || null,
     notes: meeting.notes || "",
     participants: meeting.participants || [],
     color: getMeetingColor(meeting.meetingType || meeting.type),
@@ -78,6 +93,7 @@ export function useMeetings() {
   const [meetingToEdit, setMeetingToEdit] = useState(null);
   const [activeView, setActiveView] = useState('Month');
   const [filters, setFilters] = useState(initialFilters);
+  const socketCtx = useSocketContext();
 
   const fetchMeetings = async () => {
     try {
@@ -105,6 +121,49 @@ export function useMeetings() {
     fetchMeetings();
   }, []);
 
+  // Listen for client-side meeting updates dispatched by dashboard actions
+  useEffect(() => {
+    const handler = (e) => {
+      try {
+        const id = e?.detail?.id;
+        if (id) {
+          void fetchMeetings();
+        }
+      } catch (err) {
+        console.error("Error handling crm:meeting:updated event", err);
+      }
+    };
+
+    window.addEventListener("crm:meeting:updated", handler);
+    return () => window.removeEventListener("crm:meeting:updated", handler);
+  }, []);
+
+  // Websocket listeners for meeting events so participant dashboards refresh immediately
+  useEffect(() => {
+    try {
+      const socket = socketCtx?.socket;
+      if (!socket) return undefined;
+
+      const createdHandler = () => {
+        void fetchMeetings();
+      };
+
+      const updatedHandler = () => {
+        void fetchMeetings();
+      };
+
+      socket.on(SOCKET_EVENTS.MEETING_CREATED, createdHandler);
+      socket.on(SOCKET_EVENTS.MEETING_UPDATED, updatedHandler);
+
+      return () => {
+        socket.off(SOCKET_EVENTS.MEETING_CREATED, createdHandler);
+        socket.off(SOCKET_EVENTS.MEETING_UPDATED, updatedHandler);
+      };
+    } catch (err) {
+      console.error('Socket meeting listeners setup failed', err);
+    }
+  }, [fetchMeetings, socketCtx]);
+
   const filterOptions = useMemo(() => {
     const types = Array.from(new Set((allMeetings || []).map((m) => m.type).filter(Boolean)));
     return { types };
@@ -114,6 +173,9 @@ export function useMeetings() {
     const query = (searchQuery || '').toLowerCase().trim();
 
     return (allMeetings || []).filter((meeting) => {
+      const currentStatus = meeting.status || meeting.meetingStatus || getAutoMeetingStatus(meeting);
+      const normalizedStatus = normalizeMeetingStatus(currentStatus);
+
       const matchesSearch =
         !query ||
         meeting.title?.toLowerCase().includes(query) ||
@@ -122,7 +184,7 @@ export function useMeetings() {
 
       const matchesDate = !filters?.date || meeting.date === filters.date;
       const matchesType = !filters?.type || filters.type === 'all' || meeting.type === filters.type;
-      const matchesStatus = !filters?.status || filters.status === 'all' || meeting.status === filters.status;
+      const matchesStatus = !filters?.status || filters.status === 'all' || normalizedStatus === filters.status;
 
       return matchesSearch && matchesDate && matchesType && matchesStatus;
     });
@@ -147,6 +209,8 @@ export function useMeetings() {
 
   const handleAddMeeting = async (meetingData) => {
     try {
+      const participantIds = meetingData.participantIds || [];
+
       const payload = {
         meetingTitle: meetingData.title,
         meetingType: meetingData.type,
@@ -160,20 +224,68 @@ export function useMeetings() {
         location: meetingData.location,
         locationScope: meetingData.locationScope,
         notes: meetingData.notes,
-        participants: meetingData.participants || [],
+        // Send both human-readable participants and IDs for backend compatibility
+        participants: (meetingData.participantIds && meetingData.participantIds.length)
+          ? meetingData.participantIds
+          : (meetingData.participants || []),
+        participantIds,
+        // Also set assignedTo/attendees to help dashboards that look at these fields
+        assignedTo: participantIds,
+        attendees: participantIds,
       };
   
       if (meetingToEdit) {
         const targetId = meetingToEdit.id || meetingToEdit._id;
         const { data } = await api.patch(`/api/meetings/${targetId}`, payload);
         Toast.fire({ icon: "success", title: "Meeting updated successfully" });
-        
+
         setSelectedMeeting(mapMeeting(data || { ...meetingToEdit, ...payload }));
       } else {
-        await api.post("/api/meetings", payload);
+        const { data } = await api.post("/api/meetings", payload);
+        const created = data || null;
+
         Toast.fire({ icon: "success", title: "Meeting added successfully" });
+
+        // If backend accepted participant IDs, create notifications for them
+        try {
+          const participantIds = payload.participantIds || (meetingData.participantIds || []);
+          if (Array.isArray(participantIds) && participantIds.length) {
+            await Promise.allSettled(
+              participantIds.map((userId) =>
+                api.post('/api/notifications', {
+                  userId,
+                  title: 'You were added to a meeting',
+                  message: `You were added to meeting: ${meetingData.title}`,
+                  meta: { type: 'meeting:invited', meetingId: created?._id || created?.id || null },
+                }),
+              ),
+            );
+          }
+        } catch (err) {
+          console.error('Failed to create notifications for meeting participants', err);
+        }
+
+        // Inform other parts of the UI
+        try {
+          const createdId = created?._id || created?.id;
+          window.dispatchEvent(
+            new CustomEvent('crm:meeting:updated', { detail: { id: String(createdId || '') } }),
+          );
+        } catch (e) {
+          // ignore
+        }
+        // Emit socket event so participant clients can refresh immediately (server should broadcast to target users)
+        try {
+          const socket = socketCtx?.socket;
+          const participantIds = payload.participantIds || (meetingData.participantIds || []);
+          if (socket && socket.emit) {
+            socket.emit(SOCKET_EVENTS.MEETING_CREATED, { meeting: created, participantIds });
+          }
+        } catch (err) {
+          console.error('Failed to emit meeting.created socket event', err);
+        }
       }
-  
+
       await fetchMeetings();
       closeMeetingForm();
   
@@ -186,6 +298,23 @@ export function useMeetings() {
     }
   };
 
+  // Refresh when dashboard dispatches meeting updates
+  useEffect(() => {
+    const handler = (e) => {
+      try {
+        const id = e?.detail?.id;
+        if (id) {
+          void fetchMeetings();
+        }
+      } catch (err) {
+        console.error("Error handling crm:meeting:updated event", err);
+      }
+    };
+
+    window.addEventListener("crm:meeting:updated", handler);
+    return () => window.removeEventListener("crm:meeting:updated", handler);
+  }, []);
+
   const handleDeleteMeeting = async (meetingId) => {
     try {
       await api.delete(`/api/meetings/${meetingId}`);
@@ -195,6 +324,38 @@ export function useMeetings() {
     } catch (error) {
       console.error(error);
       Toast.fire({ icon: "error", title: "Unable to delete meeting" });
+    }
+  };
+
+  const updateMeetingStatus = async (meetingId, newStatus) => {
+    try {
+      if (!meetingId) throw new Error("Invalid meeting id");
+
+      await api.patch(`/api/meetings/${meetingId}`, {
+        status: newStatus,
+        meetingStatus: newStatus,
+      });
+
+      // Refresh local meetings list
+      await fetchMeetings();
+
+      // Notify other parts of the UI (dashboard, other hooks)
+      try {
+        window.dispatchEvent(
+          new CustomEvent("crm:meeting:updated", {
+            detail: { id: String(meetingId), status: newStatus },
+          }),
+        );
+      } catch (e) {
+        // ignore
+      }
+
+      Toast.fire({ icon: "success", title: `Meeting status updated to ${newStatus}` });
+      return true;
+    } catch (error) {
+      console.error("Failed to update meeting status", error);
+      Toast.fire({ icon: "error", title: error.response?.data?.error || "Unable to update meeting status" });
+      return false;
     }
   };
 
@@ -219,5 +380,6 @@ export function useMeetings() {
     closeMeetingForm,
     handleAddMeeting,
     handleDeleteMeeting,
+    updateMeetingStatus,
   };
 }

@@ -30,7 +30,11 @@ const NO_DATE = "__no_date__";
 const MEETING_STATUS_OPTIONS = [
   "Scheduled",
   "In Progress",
+  "Ongoing",
   "Rescheduled",
+  "Completed",
+  "Cancelled",
+  "No Show",
 ];
 
 const parseDate = (value) => {
@@ -336,6 +340,7 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user: currentUser } = useAuth();
+  const isSuperAdmin = String(currentUser?.roleTemplate || currentUser?.role || "").toLowerCase() === "superadmin";
   const { stats, loading, error, updateTaskStatus, updateMeetingStatus } = useDashboard();
 
   const currentUserId = String(currentUser?._id || currentUser?.id || "");
@@ -360,13 +365,23 @@ export default function DashboardPage() {
   const [meetingDateFilter, setMeetingDateFilter] = useState("all");
 
   useEffect(() => {
-    const checkActiveMeetings = () => {
+    const getMeetingStatusValue = (meeting) => {
+    if (!meeting || typeof meeting !== "object") return "Scheduled";
+    return (
+      meeting.status ||
+      meeting.meetingStatus ||
+      meeting.state ||
+      "Scheduled"
+    );
+  };
+
+  const checkActiveMeetings = () => {
       if (!localMeetings || localMeetings.length === 0) return;
 
       const now = new Date();
 
       localMeetings.forEach((meeting) => {
-        const currentStatus = normalizeMeetingStatus(meeting.status);
+        const currentStatus = normalizeMeetingStatus(getMeetingStatusValue(meeting));
         if (currentStatus === "In Progress" || currentStatus === "Completed" || currentStatus === "Cancelled") {
           return;
         }
@@ -424,7 +439,11 @@ export default function DashboardPage() {
     const normalizedMeetingId = String(meetingId);
 
     setLocalMeetings((prev) =>
-      prev.map((m) => (String(m._id || m.id || "") === normalizedMeetingId ? { ...m, status: newStatus } : m))
+      prev.map((m) =>
+        String(m._id || m.id || "") === normalizedMeetingId
+          ? { ...m, status: newStatus, meetingStatus: newStatus }
+          : m,
+      ),
     );
 
     if (updateMeetingStatus) {
@@ -443,8 +462,19 @@ export default function DashboardPage() {
     }
   };
 
+  const getMeetingStatusValue = (meeting) => {
+    if (!meeting || typeof meeting !== "object") return "Scheduled";
+    return (
+      meeting.status ||
+      meeting.meetingStatus ||
+      meeting.state ||
+      "Scheduled"
+    );
+  };
+
   const tasks = useMemo(() => {
     return localTasks.filter((task) => {
+      if (isSuperAdmin) return true;
       const creatorId = String(task.createdBy?._id || task.createdBy?.id || task.createdBy || "");
       const isCreator = creatorId === currentUserId;
       const assigneeId = String(task.assignedTo?._id || task.assignedTo?.id || task.assignedTo || "");
@@ -463,29 +493,53 @@ export default function DashboardPage() {
     });
   }, [localTasks, currentUserId]);
 
+  const getUserIdFromValue = (value) => {
+    if (!value) return "";
+    if (typeof value === "string") return value;
+    if (typeof value === "number") return String(value);
+    if (typeof value === "object") {
+      return (
+        value._id ||
+        value.id ||
+        value.userId ||
+        value.user?.id ||
+        value.user?._id ||
+        value.uid ||
+        ""
+      );
+    }
+    return "";
+  };
+
+  const isMeetingAssignedOrHostedByCurrentUser = (meeting) => {
+    const creatorId = getUserIdFromValue(meeting?.userId || meeting?.createdBy || meeting?.creator || meeting?.creator?.user || meeting?.creator);
+    const hostId = getUserIdFromValue(meeting?.host || meeting?.organizer || meeting?.host?.user || meeting?.organizer?.user);
+    const assignedUsers = meeting?.assignedTo || meeting?.participants || meeting?.attendees || [];
+
+    if (String(creatorId) === currentUserId) return true;
+    if (String(hostId) === currentUserId) return true;
+
+    if (Array.isArray(assignedUsers)) {
+      return assignedUsers.some((u) => {
+        const uId = getUserIdFromValue(u);
+        return String(uId) === currentUserId;
+      });
+    }
+
+    const assignedUserId = getUserIdFromValue(assignedUsers);
+    return String(assignedUserId) === currentUserId;
+  };
+
   const meetings = useMemo(() => {
     return localMeetings.filter((meeting) => {
-      const isCompleted = normalizeTaskStatus(meeting.status) === "completed";
+      const isCompleted = normalizeMeetingStatus(getMeetingStatusValue(meeting)) === "Completed";
       if (isCompleted) return false;
 
+      if (isSuperAdmin) return true;
       if (!currentUserId) return true;
-
-      const creatorId = String(
-        meeting?.userId || meeting?.createdBy || meeting?.creator?._id || meeting?.creator?.id || ""
-      );
-      const assignedUsers = meeting?.assignedTo || meeting?.participants || meeting?.attendees || [];
-
-      const isCreator = creatorId === currentUserId;
-      const isParticipant = Array.isArray(assignedUsers)
-        ? assignedUsers.some((u) => {
-            const uId = typeof u === "object" ? (u?._id || u?.id) : u;
-            return String(uId) === currentUserId;
-          })
-        : false;
-
-      return isCreator || isParticipant;
+      return isMeetingAssignedOrHostedByCurrentUser(meeting);
     });
-  }, [localMeetings, currentUserId]);
+  }, [localMeetings, currentUserId, isSuperAdmin]);
 
   const taskStatusOptions = [
     { value: "all", label: "All Statuses" },
@@ -535,7 +589,7 @@ export default function DashboardPage() {
   const filteredMeetings = useMemo(() => {
     const filtered = meetings.filter((m) => {
       const meetingId = m?._id || m?.id;
-      const currentStatus = localMeetings.find(item => (item?._id || item?.id) === meetingId)?.status || m.status;
+      const currentStatus = localMeetings.find(item => (item?._id || item?.id) === meetingId)?.status || localMeetings.find(item => (item?._id || item?.id) === meetingId)?.meetingStatus || m.status || m.meetingStatus;
       const normalizedStatus = normalizeMeetingStatus(currentStatus);
       
       const rawDateVal = getMeetingDateValue(m);
@@ -667,7 +721,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <MyMeetingsTable meetings={filteredMeetings} hideFilter onStatusChange={handleMeetingStatusChange} />
+            <MyMeetingsTable meetings={filteredMeetings} hideFilter onStatusChange={handleMeetingStatusChange} currentUserId={currentUserId} isSuperAdmin={isSuperAdmin} />
           </section>
 
         </div>

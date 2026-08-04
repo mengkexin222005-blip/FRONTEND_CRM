@@ -235,12 +235,11 @@ export default function LeadTable({
   }
 
   return (
-    <>
+    <div className="flex flex-col h-[calc(100vh-210px)] justify-between">
       <BaseTable
         columns={columns}
         empty={paginatedItems.length === 0 ? "No leads found." : null}
         colSpan={columns.length}
-        heightClass="h-112.5"
       >
         {paginatedItems.map((lead) => (
           <TableRow key={lead._id} onClick={() => onView(lead)}>
@@ -340,6 +339,7 @@ export default function LeadTable({
         pageWindow={pageWindow}
         onGoTo={goTo}
         onRowsPerPageChange={setRowsPerPage}
+        marginTop="mt-2"
       />
 
       <LeadActionConfirmModal
@@ -351,6 +351,6 @@ export default function LeadTable({
         onClose={handleCancel}
         onConfirm={handleConfirm}
       />
-    </>
+    </div>
   );
 }

@@ -7,11 +7,12 @@ const EMPTY_FORM = {
   description: "",
   taskType: "Call",
   priority: "Low",
+  status: "Pending",
   scope: "Personal",
   dueDate: "",
   dueTime: "",
   link: "",
-  linkName: "", // Added to reset linkName on new task creation
+  linkName: "",
   reminderAt: "",
   repeat: "None",
   assignedTo: "",
@@ -20,36 +21,55 @@ const EMPTY_FORM = {
   attachments: [],
 };
 
-const mapTaskToForm = (task) => ({
+const getTaskAttachments = (task) => {
+  const files =
+    task?.attachments ??
+    task?.files ??
+    task?.documents ??
+    task?.file ??
+    [];
+
+  if (Array.isArray(files)) {
+    return files;
+  }
+
+  return files ? [files] : [];
+};
+
+const mapTaskToForm = (task = {}) => ({
   subject: task.subject || "",
   description: task.description || "",
   taskType: task.taskType || "Call",
   priority: task.priority || "Low",
+  status: task.status || "Pending",
   scope: task.scope || "Personal",
   dueDate: formatDateInput(task.dueDate),
-  // Slice ensures time is properly formatted to HH:mm for the input field
-  dueTime: task.dueTime ? task.dueTime.slice(0, 5) : task.time ? task.time.slice(0, 5) : "",
+  dueTime: task.dueTime || task.time || "",
   link: task.link || "",
-  linkName: task.linkName || "", // Added to map existing linkName when editing/viewing
+  linkName: task.linkName || task.link_name || "",
+  reminderAt: task.reminderAt || "",
   repeat: task.repeat || "None",
+
   assignedTo:
     typeof task.assignedTo === "object"
       ? task.assignedTo?._id || ""
       : task.assignedTo || "",
+
   relatedToType: task.relatedToType || "",
+
   relatedTo:
     typeof task.relatedTo === "object"
       ? task.relatedTo?._id || ""
       : task.relatedTo || "",
-  attachments: task.attachments || task.files || [],
-});
 
-export function useTaskModal() {
+  attachments: getTaskAttachments(task),
+});
+  export function useTaskModal() {
   const [modalOpen, setModalOpen] = useState(false);
   const [mode, setMode] = useState("create");
   const [origin, setOrigin] = useState("view");
   const [activeTab, setActiveTab] = useState("Overview");
-  const [formData, setFormData] = useState(EMPTY_FORM);
+  const [formData, setFormData] = useState({ ...EMPTY_FORM });
   const [viewingTask, setViewingTask] = useState(null);
 
   const { activities, loading: activitiesLoading } = useActivities(
@@ -57,79 +77,124 @@ export function useTaskModal() {
     viewingTask?._id,
   );
 
-  const openCreate = useCallback((presetStatus) => {
+  const openCreate = useCallback((presetStatus = "Pending") => {
     setFormData({
       ...EMPTY_FORM,
-      status: presetStatus || "Pending",
+      status: presetStatus,
     });
+
     setViewingTask(null);
     setMode("create");
+    setOrigin("direct");
+    setActiveTab("Overview");
     setModalOpen(true);
   }, []);
 
   const openView = useCallback((task) => {
+    if (!task) return;
+
     setViewingTask(task);
     setFormData(mapTaskToForm(task));
     setMode("view");
     setOrigin("view");
+    setActiveTab("Overview");
     setModalOpen(true);
   }, []);
 
   const openEdit = useCallback((task) => {
+    if (!task) return;
+
     setViewingTask(task);
     setFormData(mapTaskToForm(task));
     setMode("edit");
     setOrigin("direct");
+    setActiveTab("Overview");
     setModalOpen(true);
   }, []);
 
   const switchToEdit = useCallback(() => {
+    if (!viewingTask) return;
+
+    setFormData(mapTaskToForm(viewingTask));
     setMode("edit");
     setOrigin("view");
-  }, []);
+  }, [viewingTask]);
 
   const switchToView = useCallback(() => {
     if (viewingTask) {
       setFormData(mapTaskToForm(viewingTask));
     }
+
     setMode("view");
   }, [viewingTask]);
 
   const closeModal = useCallback(() => {
-    setActiveTab("Overview");
     setModalOpen(false);
-    setViewingTask(null);
     setMode("create");
-    setFormData(EMPTY_FORM);
+    setOrigin("view");
+    setActiveTab("Overview");
+    setViewingTask(null);
+    setFormData({ ...EMPTY_FORM });
   }, []);
 
-  const handleChange = useCallback((e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    const handleChange = useCallback((event) => {
+    const { name, value, type, checked } = event.target;
+
+    setFormData((previous) => {
+      const nextFormData = {
+        ...previous,
+        [name]: type === "checkbox" ? checked : value,
+      };
+
+      if (name === "scope" && value === "Personal") {
+        nextFormData.assignedTo = "";
+      }
+
+      return nextFormData;
+    });
   }, []);
 
   const handleSelectChange = useCallback((name, value) => {
-    setFormData((prev) => {
-      const next = { ...prev, [name]: value };
+    setFormData((previous) => {
+      const nextFormData = {
+        ...previous,
+        [name]: value,
+      };
+
       if (name === "relatedToType") {
-        next.relatedTo = "";
+        nextFormData.relatedTo = "";
       }
-      return next;
+
+      if (name === "scope" && value === "Personal") {
+        nextFormData.assignedTo = "";
+      }
+
+      return nextFormData;
     });
   }, []);
 
   const handleFileChange = useCallback((files) => {
-    const newFiles = Array.from(files);
-    setFormData((prev) => ({
-      ...prev,
-      attachments: [...(prev.attachments || []), ...newFiles],
+    if (!files) return;
+
+    const fileArray = Array.isArray(files)
+      ? files
+      : Array.from(files);
+
+    setFormData((previous) => ({
+      ...previous,
+      attachments: [
+        ...(previous.attachments || []),
+        ...fileArray.filter(Boolean),
+      ],
     }));
   }, []);
 
   const handleRemoveFile = useCallback((index) => {
-    setFormData((prev) => ({
-      ...prev,
-      attachments: (prev.attachments || []).filter((_, i) => i !== index),
+    setFormData((previous) => ({
+      ...previous,
+      attachments: (previous.attachments || []).filter(
+        (_, fileIndex) => fileIndex !== index,
+      ),
     }));
   }, []);
 

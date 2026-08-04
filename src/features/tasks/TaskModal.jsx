@@ -1,3 +1,4 @@
+// TaskModal.jsx
 import { useMemo, useRef } from "react";
 import Select from "react-select";
 import {
@@ -60,6 +61,7 @@ const PRIORITY_COLORS = {
 const STATUS_COLORS = {
   Pending: "gray",
   Ongoing: "amber",
+  "Due Soon": "orange",
   Completed: "green",
   Overdue: "red",
 };
@@ -114,6 +116,8 @@ export default function TaskModal({
   open,
   mode,
   origin,
+  activeTab,
+  onTabChange,
   formData,
   viewingTask,
   activities = [],
@@ -224,7 +228,6 @@ export default function TaskModal({
         : `https://${rawLink}`
       : null;
       
-    // Fixed: Falls back to rawLink if linkName is not provided or empty
     const taskLinkName = (t.linkName && t.linkName.trim() !== "") ? t.linkName : rawLink;
 
     const taskDueTime = t.dueTime || t.time || "";
@@ -368,7 +371,7 @@ export default function TaskModal({
               </div>
               <p className="text-sm font-medium text-gray-700">
                 {t.scope === "Personal"
-                  ? t.createdBy?._id === currentUser?.id
+                  ? (typeof t.createdBy === "object" ? t.createdBy?._id : t.createdBy) === (currentUser?._id || currentUser?.id)
                     ? "Personal (You)"
                     : `Personal (${createdByName})`
                   : "Assigned"}
@@ -462,7 +465,7 @@ export default function TaskModal({
                   "Unassigned"
                 )}
               </p>
-              {t.scope !== "Personal" && t.assignedTo?.role && (
+              {t.scope !== "Personal" && (typeof t.assignedTo === "object" ? t.assignedTo?.role : null) && (
                 <p className="text-xs text-gray-400">{t.assignedTo.role}</p>
               )}
             </div>
@@ -703,7 +706,10 @@ export default function TaskModal({
             <div>
               <FormLabel>Related Type</FormLabel>
               <Select
-                {...getSelectProps({ isSearchable: false })}
+                {...getSelectProps({
+                  isSearchable: false,
+                  isClearable: true,
+                })}
                 placeholder="Select type..."
                 options={RELATED_TYPE_OPTIONS}
                 value={

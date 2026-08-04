@@ -16,13 +16,24 @@ import LoaderTables from "../../../components/loader/TablesLazyLoader";
 import UserDisplayName from "../../../components/UserDisplayName";
 import StatusDropdown from "../../../components/select/StatusDropdown";
 
-const MEETING_STATUSES = ["Scheduled", "Ongoing", "Completed", "Cancelled"];
+const MEETING_STATUSES = [
+  "Scheduled",
+  "In Progress",
+  "Ongoing",
+  "Rescheduled",
+  "Completed",
+  "Cancelled",
+  "No Show",
+];
 
 const MEETING_STATUS_TONE = {
   Scheduled: "blue",
+  "In Progress": "cyan",
   Ongoing: "yellow",
+  Rescheduled: "purple",
   Completed: "green",
   Cancelled: "red",
+  "No Show": "gray",
 };
 
 const getHostDetails = (meeting) => {
@@ -116,12 +127,11 @@ export default function MeetingTable({
   }
 
   return (
-    <>
+    <div className="flex flex-col h-[calc(100vh-210px)] justify-between">
       <BaseTable
         columns={columns}
         empty={paginatedItems.length === 0 ? "No meetings found." : null}
         colSpan={columns.length}
-        heightClass="h-112.5"
       >
         {paginatedItems.map((meeting) => {
           const hostDetails = getHostDetails(meeting);
@@ -193,7 +203,7 @@ export default function MeetingTable({
               <TableCell>
                 <div onClick={(e) => e.stopPropagation()}>
                   <StatusDropdown
-                    status={meeting.status || "Scheduled"}
+                    status={meeting.status || meeting.meetingStatus || "Scheduled"}
                     statuses={MEETING_STATUSES}
                     toneMap={MEETING_STATUS_TONE}
                     disabled={!canEdit}
@@ -249,7 +259,8 @@ export default function MeetingTable({
         pageWindow={pageWindow}
         onGoTo={goTo}
         onRowsPerPageChange={setRowsPerPage}
+        marginTop="mt-2"
       />
-    </>
+    </div>
   );
 }

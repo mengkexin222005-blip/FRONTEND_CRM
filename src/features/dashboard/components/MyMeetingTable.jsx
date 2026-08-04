@@ -17,6 +17,10 @@ import {
   UserRound,
   Video,
   Check,
+  Paperclip,
+  ExternalLink,
+  Video as ZoomIcon,
+  MapPin,
 } from "lucide-react";
 
 const VISIBLE_CARDS = 4;
@@ -53,6 +57,21 @@ const getMeetingType = (m) =>
 
 const getMeetingStatus = (m) =>
   m?.status || m?.meetingStatus || m?.state || "Scheduled";
+
+const getMeetingLink = (m) =>
+  m?.meetingLink || m?.link || m?.url || m?.location || m?.venue || "";
+
+const getMeetingFiles = (m) => {
+  const files = m?.files || m?.attachments || m?.documents || [];
+  if (Array.isArray(files)) return files;
+  if (typeof files === "string" && files.trim()) return [files];
+  return [];
+};
+
+const isUrlString = (str) => {
+  if (typeof str !== "string") return false;
+  return str.startsWith("http://") || str.startsWith("https://") || str.includes("www.") || str.includes(".com");
+};
 
 const getObjectName = (record) => {
   if (!record || typeof record !== "object") return "";
@@ -480,8 +499,7 @@ export default function MyMeetingsTable({ meetings = [], hideFilter = false, onS
   const [selectedTime, setSelectedTime] = useState(ALL_VALUES);
   const [localMeetingStatuses, setLocalMeetingStatuses] = useState({});
 
-  // EDIT CARD HEIGHT HERE (e.g., change base 210 and limits 150, 220)
-  const [layout, setLayout] = useState({ cardWidth: 0, cardHeight: 210, gap: 16, scale: 1 });
+  const [layout, setLayout] = useState({ cardWidth: 0, cardHeight: 225, gap: 16, scale: 1 });
 
   const handleStatusUpdate = (meeting, newStatus) => {
     const meetingId = meeting?._id || meeting?.id;
@@ -493,22 +511,44 @@ export default function MyMeetingsTable({ meetings = [], hideFilter = false, onS
     }
   };
 
+  const getUserIdFromValue = (value) => {
+    if (!value) return "";
+    if (typeof value === "string") return value;
+    if (typeof value === "number") return String(value);
+    if (typeof value === "object") {
+      return (
+        value._id ||
+        value.id ||
+        value.userId ||
+        value.user?.id ||
+        value.user?._id ||
+        value.uid ||
+        ""
+      );
+    }
+    return "";
+  };
+
   const userRelatedMeetings = useMemo(() => {
     if (isSuperAdmin || !currentUserId) return meetings;
 
     return meetings.filter((m) => {
-      const creatorId = m?.userId || m?.createdBy || m?.creator?._id || m?.creator?.id;
+      const creatorId = getUserIdFromValue(m?.userId || m?.createdBy || m?.creator || m?.creator?.user);
+      const hostId = getUserIdFromValue(m?.host || m?.organizer || m?.host?.user || m?.organizer?.user);
       const assignedUsers = m?.assignedTo || m?.participants || m?.attendees || [];
       
       const isCreator = creatorId && String(creatorId) === String(currentUserId);
+      const isHost = hostId && String(hostId) === String(currentUserId);
       const isParticipant = Array.isArray(assignedUsers)
         ? assignedUsers.some((u) => {
-            const uId = typeof u === "object" ? (u?._id || u?.id) : u;
+            const uId = getUserIdFromValue(u);
             return String(uId) === String(currentUserId);
           })
         : false;
 
-      return isCreator || isParticipant;
+      const assignedUserId = getUserIdFromValue(assignedUsers);
+
+      return isCreator || isHost || isParticipant || String(assignedUserId) === String(currentUserId);
     });
   }, [meetings, currentUserId, isSuperAdmin]);
 
@@ -597,8 +637,7 @@ export default function MyMeetingsTable({ meetings = [], hideFilter = false, onS
         setAnimated(false);
         setLayout({
           cardWidth: Math.max(0, cardWidth),
-          // MODIFIED HEIGHT: Adjusted base height to 210 and limits to 150-220
-          cardHeight: clamp(210 * scale, 150, 220),
+          cardHeight: clamp(225 * scale, 160, 235),
           gap,
           scale,
         });
@@ -785,6 +824,8 @@ export default function MyMeetingsTable({ meetings = [], hideFilter = false, onS
                 const meetingId = meeting?._id || meeting?.id;
                 const clientName = getClientName(meeting);
                 const meetingType = getMeetingType(meeting);
+                const meetingLink = getMeetingLink(meeting);
+                const meetingFiles = getMeetingFiles(meeting);
                 const currentStatus = localMeetingStatuses[meetingId]
                   ? normalizeStatus(localMeetingStatuses[meetingId])
                   : normalizeStatus(getMeetingStatus(meeting));
@@ -799,11 +840,13 @@ export default function MyMeetingsTable({ meetings = [], hideFilter = false, onS
 
                     <div className="flex h-full min-w-0 flex-col">
                       <div className="min-w-0">
-                        <div className="flex min-w-0 items-center" style={{ gap: `${clamp(7 * scale, 4, 7)}px` }}>
-                          <Video size={iconSize} strokeWidth={2} className="shrink-0 text-red-600" />
-                          <p className="min-w-0 truncate font-semibold uppercase tracking-[0.05em] text-red-600" style={{ fontSize: `${typeSize}px`, lineHeight: 1 }}>
-                            {meetingType}
-                          </p>
+                        <div className="flex min-w-0 items-center justify-between" style={{ gap: `${clamp(7 * scale, 4, 7)}px` }}>
+                          <div className="flex min-w-0 items-center" style={{ gap: `${clamp(7 * scale, 4, 7)}px` }}>
+                            <Video size={iconSize} strokeWidth={2} className="shrink-0 text-red-600" />
+                            <p className="min-w-0 truncate font-semibold uppercase tracking-[0.05em] text-red-600" style={{ fontSize: `${typeSize}px`, lineHeight: 1 }}>
+                              {meetingType}
+                            </p>
+                          </div>
                         </div>
 
                         <h3 className="line-clamp-2 min-w-0 font-semibold text-black/85" style={{ marginTop: `${clamp(9 * scale, 5, 9)}px`, fontSize: `${titleSize}px`, lineHeight: 1.35 }}>
@@ -811,30 +854,86 @@ export default function MyMeetingsTable({ meetings = [], hideFilter = false, onS
                         </h3>
                       </div>
 
-                      <div className="flex min-w-0 items-center text-black/50" style={{ gap: `${clamp(6 * scale, 3, 6)}px`, marginTop: `${clamp(12 * scale, 6, 12)}px`, fontSize: `${clientSize}px` }}>
+                      <div className="flex min-w-0 items-center text-black/50" style={{ gap: `${clamp(6 * scale, 3, 6)}px`, marginTop: `${clamp(6 * scale, 3, 6)}px`, fontSize: `${clientSize}px` }}>
                         <UserRound size={smallIconSize} className="shrink-0 text-red-600" />
                         <span className="truncate" title={clientName}>{clientName}</span>
                       </div>
 
-                      <div className="mt-auto border-t border-black/[0.08]" style={{ paddingTop: `${clamp(10 * scale, 5, 10)}px` }}>
-                        <div className="flex min-w-0 items-center justify-between gap-2">
-                          <div className="flex min-w-0 flex-1 flex-col text-black/45" style={{ gap: `${clamp(2 * scale, 1, 3)}px`, fontSize: `${metaSize}px` }}>
-                            <div className="flex min-w-0 items-center" style={{ gap: `${clamp(5 * scale, 2, 5)}px` }}>
-                              <CalendarDays size={smallIconSize} className="shrink-0" />
-                              <span className="truncate">{formatMeetingDate(meeting)}</span>
-                            </div>
-                            <div className="flex min-w-0 items-center" style={{ gap: `${clamp(5 * scale, 2, 5)}px` }}>
-                              <Clock size={smallIconSize} className="shrink-0" />
-                              <span className="truncate">{formatMeetingTime(meeting)}</span>
-                            </div>
+                      <div className="mt-auto flex flex-col gap-1.5 min-w-0">
+                        {/* MEETING LINK DISPLAY WITH ZOOM ICON */}
+                        {meetingLink && (
+                          <div className="min-w-0 flex flex-col">
+                            {isUrlString(meetingLink) ? (
+                              <a
+                                href={meetingLink.startsWith("http") ? meetingLink : `https://${meetingLink}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex max-w-full items-center gap-1.5 truncate rounded-lg border border-purple-500/20 bg-purple-500/[0.03] px-2.5 py-1 text-xs text-purple-600 hover:bg-purple-500/[0.08] transition"
+                                style={{ fontSize: `${clamp(11 * scale, 8, 11)}px` }}
+                                title={meetingLink}
+                              >
+                                <ZoomIcon size={12} className="shrink-0 text-purple-600" />
+                                <span className="truncate">{meetingLink}</span>
+                              </a>
+                            ) : (
+                              <div
+                                className="inline-flex max-w-full items-center gap-1.5 truncate rounded-lg border border-black/10 bg-black/[0.02] px-2.5 py-1 text-xs text-black/70"
+                                style={{ fontSize: `${clamp(11 * scale, 8, 11)}px` }}
+                                title={meetingLink}
+                              >
+                                <MapPin size={12} className="shrink-0 text-black/50" />
+                                <span className="truncate">{meetingLink}</span>
+                              </div>
+                            )}
                           </div>
+                        )}
 
-                          <div className="shrink-0">
-                            <ColorPillMeetingStatusDropdown
-                              currentStatus={currentStatus}
-                              onSelect={(status) => handleStatusUpdate(meeting, status)}
-                              scale={scale}
-                            />
+                        {/* FILE ATTACHMENTS DISPLAY MATCHING TASKS */}
+                        {meetingFiles.length > 0 && (
+                          <div className="flex flex-col gap-1 min-w-0">
+                            {meetingFiles.map((file, fileIdx) => {
+                              const fileName = typeof file === "string" ? file.split("/").pop() || file : file?.name || "Attachment";
+                              const fileUrl = typeof file === "string" ? file : file?.url || file?.link || "#";
+                              return (
+                                <a
+                                  key={fileIdx}
+                                  href={fileUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="inline-flex max-w-full items-center gap-1.5 truncate rounded-lg border border-black/10 bg-black/[0.02] px-2.5 py-1 text-xs text-black/70 hover:bg-black/[0.05] transition"
+                                  style={{ fontSize: `${clamp(11 * scale, 8, 11)}px` }}
+                                  title={fileName}
+                                >
+                                  <Paperclip size={12} className="shrink-0 text-black/50" />
+                                  <span className="truncate">{fileName}</span>
+                                </a>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        <div className="border-t border-black/[0.08] pt-2 mt-1">
+                          <div className="flex min-w-0 items-center justify-between gap-2">
+                            <div className="flex min-w-0 flex-1 flex-col text-black/45" style={{ gap: `${clamp(2 * scale, 1, 3)}px`, fontSize: `${metaSize}px` }}>
+                              <div className="flex min-w-0 items-center" style={{ gap: `${clamp(5 * scale, 2, 5)}px` }}>
+                                <CalendarDays size={smallIconSize} className="shrink-0" />
+                                <span className="truncate">{formatMeetingDate(meeting)}</span>
+                              </div>
+                              <div className="flex min-w-0 items-center" style={{ gap: `${clamp(5 * scale, 2, 5)}px` }}>
+                                <Clock size={smallIconSize} className="shrink-0" />
+                                <span className="truncate">{formatMeetingTime(meeting)}</span>
+                              </div>
+                            </div>
+
+                            <div className="shrink-0">
+                              <ColorPillMeetingStatusDropdown
+                                currentStatus={currentStatus}
+                                onSelect={(status) => handleStatusUpdate(meeting, status)}
+                                scale={scale}
+                              />
+                            </div>
                           </div>
                         </div>
                       </div>

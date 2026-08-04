@@ -99,7 +99,7 @@ export default function CallsTable({
   };
 
   return (
-    <>
+    <div className="flex flex-col h-[calc(100vh-210px)] justify-between">
       <BaseTable
         columns={columns}
         empty={
@@ -110,8 +110,6 @@ export default function CallsTable({
               : null
         }
         colSpan={columns.length}
-        minHeightClass="min-h-[calc(100vh-345px)]"
-        heightClass="h-[540px]"
       >
         {paginatedItems.map((call) => (
           <TableRow
@@ -230,7 +228,8 @@ export default function CallsTable({
         pageWindow={pageWindow}
         onGoTo={goTo}
         onRowsPerPageChange={setRowsPerPage}
+        marginTop="mt-2"
       />
-    </>
+    </div>
   );
 }

@@ -15,6 +15,7 @@ import { useFilterPopover } from "../../components/filters/useFilterPopover";
 import { getSelectProps } from "../../components/select/selectConfig";
 
 import { getDisplayName } from "../../utils/name";
+import { getDynamicTaskStatus } from "../dashboard/hooks/useDashboard";
 
 import { usePermissions } from "../../permissions/usePermissions";
 import { useAuth } from "../../context/AuthContext";
@@ -29,6 +30,7 @@ import TaskKanban from "./TaskKanban";
 import TaskTable from "./TaskTable";
 import TaskModal from "./TaskModal";
 
+// Added "Due Soon" to match dashboard statuses
 const TASK_STATUSES = ["Pending", "Ongoing", "Due Soon", "Completed", "Overdue"];
 
 const TASK_STATUS_OPTIONS = TASK_STATUSES.map((status) => ({
@@ -51,12 +53,8 @@ const SCOPE_OPTIONS = ["Personal", "Assigned"].map((scope) => ({
   value: scope,
 }));
 
-const normalizeTaskStatus = (status) => {
-  if (status === "To Do") return "Pending";
-  if (status === "In Progress") return "Ongoing";
-  if (TASK_STATUSES.includes(status)) return status;
-
-  return "Pending";
+const normalizeTaskStatus = (task) => {
+  return getDynamicTaskStatus(task);
 };
 
 export default function TasksPage() {
@@ -152,7 +150,7 @@ export default function TasksPage() {
   const matchesTaskFilters = useCallback(
     (task) => {
       const query = search.trim().toLowerCase();
-      const normalizedStatus = normalizeTaskStatus(task.status);
+      const normalizedStatus = normalizeTaskStatus(task);
 
       const assigneeName = task.assignedTo
         ? getDisplayName(task.assignedTo, {
@@ -221,14 +219,14 @@ export default function TasksPage() {
   const filteredTasks = useMemo(() => {
     return tasks.filter(matchesTaskFilters).map((task) => ({
       ...task,
-      status: normalizeTaskStatus(task.status),
+      status: normalizeTaskStatus(task),
     }));
   }, [tasks, matchesTaskFilters]);
 
   const filteredColumns = useMemo(() => {
     return TASK_STATUSES.reduce((grouped, status) => {
       grouped[status] = filteredTasks.filter(
-        (task) => normalizeTaskStatus(task.status) === status,
+        (task) => normalizeTaskStatus(task) === status,
       );
 
       return grouped;
@@ -305,6 +303,7 @@ export default function TasksPage() {
   const handleSubmit = async (event) => {
     event.preventDefault();
 
+    // Construct FormData object to correctly transmit text inputs, links, linkName, and files
     const data = new FormData();
     data.append("subject", formData.subject || "");
     data.append("description", formData.description || "");
@@ -312,29 +311,34 @@ export default function TasksPage() {
     data.append("priority", formData.priority || "Low");
     data.append("status", normalizeTaskStatus(formData.status));
     data.append("scope", formData.scope || "Personal");
-    data.append("dueDate", formData.dueDate ? formData.dueDate : "");
-
-    // Sanitize dueTime to clear out invalid AM/PM formats before submission
-    let formattedTime = formData.dueTime || "";
-    if (formattedTime.includes("AM") || formattedTime.includes("PM")) {
-      formattedTime = "";
-    }
-    data.append("dueTime", formattedTime);
-
+    data.append("dueDate", formData.dueDate || "");
+    data.append("dueTime", formData.dueTime || "");
     data.append("link", formData.link || "");
     data.append("linkName", formData.linkName || "");
     data.append("repeat", formData.repeat || "None");
 
-    if (formData.scope !== "Personal" && formData.assignedTo) {
-      data.append("assignedTo", formData.assignedTo);
-    }
-    if (formData.relatedToType) {
-      data.append("relatedToType", formData.relatedToType);
-    }
-    if (formData.relatedTo) {
-      data.append("relatedTo", formData.relatedTo);
+    // During editing, send empty values too so the backend can clear old
+    // assignee/relationship values instead of silently retaining them.
+    if (mode === "edit") {
+      data.append(
+        "assignedTo",
+        formData.scope === "Personal" ? "" : formData.assignedTo || "",
+      );
+      data.append("relatedToType", formData.relatedToType || "");
+      data.append("relatedTo", formData.relatedTo || "");
+    } else {
+      if (formData.scope !== "Personal" && formData.assignedTo) {
+        data.append("assignedTo", formData.assignedTo);
+      }
+      if (formData.relatedToType) {
+        data.append("relatedToType", formData.relatedToType);
+      }
+      if (formData.relatedTo) {
+        data.append("relatedTo", formData.relatedTo);
+      }
     }
 
+    // Safely append files or retain existing attachments
     if (formData.attachments && formData.attachments.length > 0) {
       formData.attachments.forEach((file) => {
         if (file instanceof File) {
@@ -349,22 +353,27 @@ export default function TasksPage() {
       });
     }
 
-    if (mode === "create") {
-      const created = await createTask(data);
+    try {
+      if (mode === "create") {
+        const created = await createTask(data);
 
-      if (created) {
-        closeModal();
-      }
-    } else if (mode === "edit" && viewingTask) {
-      const updated = await updateTask(viewingTask._id, data);
-
-      if (updated) {
-        if (origin === "view") {
-          openView(updated);
-        } else {
+        if (created) {
           closeModal();
         }
+      } else if (mode === "edit" && viewingTask?._id) {
+        const updated = await updateTask(viewingTask._id, data);
+
+        if (updated) {
+          await Promise.resolve();
+          if (origin === "view") {
+            openView(updated);
+          } else {
+            closeModal();
+          }
+        }
       }
+    } catch (error) {
+      console.error("Failed to save task:", error);
     }
   };
 

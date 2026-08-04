@@ -75,6 +75,22 @@ export function useNotifications() {
         setUnreadCount((prev) => prev + 1);
         // Play notification sound if enabled
         playNotificationSound(soundEnabled);
+
+        try {
+          // If notification references a meeting invitation, trigger a meeting refresh
+          const meta = incoming?.meta || incoming?.data || {};
+          if (meta && (meta.type === 'meeting:invited' || meta.meetingId)) {
+            try {
+              window.dispatchEvent(
+                new CustomEvent('crm:meeting:updated', { detail: { id: String(meta.meetingId || '') } }),
+              );
+            } catch (e) {
+              // ignore
+            }
+          }
+        } catch (err) {
+          // ignore
+        }
       },
       [soundEnabled],
     ),

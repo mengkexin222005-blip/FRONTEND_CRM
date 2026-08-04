@@ -43,6 +43,7 @@ export default function MeetingsPage() {
     closeMeetingForm,
     handleAddMeeting,
     handleDeleteMeeting,
+    updateMeetingStatus,
   } = useMeetings();
 
   const [view, setView] = useState("calendar");
@@ -280,6 +281,7 @@ export default function MeetingsPage() {
               onView={setSelectedMeeting}
               onEdit={openEditMeeting}
               onDelete={handleDeleteMeeting}
+              onUpdateStatus={updateMeetingStatus}
             />
           )}
         </div>

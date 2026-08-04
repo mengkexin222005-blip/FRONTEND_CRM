@@ -1,10 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import CreatableSelect from 'react-select/creatable';
 import { Plus, X } from 'lucide-react';
 
+import { useUsers } from '../../users/hooks/useUsers';
 import FormDrawer from '../../../components/form/FormDrawer';
 import FormSection from '../../../components/form/FormSection';
 import { FormLabel, FormInput, FormTextarea } from '../../../components/form/FormField';
 import { getAutoMeetingStatus } from '../utils/meetingUtils';
+import { getDisplayName } from '../../../utils/name';
+import { getSelectProps } from '../../../components/select/selectConfig';
 
 function MeetingFormContent({ meeting, onSubmit }) {
   // --- Form Local State ---
@@ -12,7 +16,7 @@ function MeetingFormContent({ meeting, onSubmit }) {
   const [status, setStatus] = useState(
     meeting?.status ?? (meeting ? getAutoMeetingStatus(meeting) : 'Scheduled')
   );
-  const [location, setLocation] = useState(meeting?.location ?? '');
+  const [location, setLocation] = useState(meeting?.location ?? meeting?.link ?? meeting?.url ?? '');
   const [locationScope, setLocationScope] = useState(meeting?.locationScope ?? 'Inside the Philippines');
   const [type, setType] = useState(meeting?.type ?? '');
   const [client, setClient] = useState(meeting?.client ?? '');
@@ -21,23 +25,60 @@ function MeetingFormContent({ meeting, onSubmit }) {
   const [endTime, setEndTime] = useState(meeting?.endTime ?? '');
   const [notes, setNotes] = useState(meeting?.notes ?? '');
   const [host, setHost] = useState(meeting?.host ?? meeting?.organizer ?? '');
-  const [participants, setParticipants] = useState(meeting?.participants ?? []);
-  const [participantName, setParticipantName] = useState('');
-  const [isAddingParticipant, setIsAddingParticipant] = useState(false);
+  const [participants, setParticipants] = useState([]);
+  const [inputValue, setInputValue] = useState('');
+  const { users = [] } = useUsers();
 
-  const addParticipant = () => {
-    const trimmedName = participantName.trim();
-    if (!trimmedName) return;
-    setParticipants((prev) => [...prev, trimmedName]);
-    setParticipantName('');
-    setIsAddingParticipant(false);
+  const createParticipantOption = (participant) => {
+    if (!participant) return null;
+    if (typeof participant === 'string') {
+      return { label: participant, value: participant, isCustom: true };
+    }
+
+    const displayName = getDisplayName(participant, {
+      fallback:
+        participant.email || participant.name || participant.fullName || participant.firstName || participant.lastName || participant._id || participant.id || '',
+    });
+
+    return {
+      label: displayName,
+      value: participant._id || participant.id || participant.userId || displayName,
+      user: participant,
+      isCustom: false,
+    };
   };
 
-  const handleParticipantKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault(); 
-      addParticipant();
-    }
+  useEffect(() => {
+    setParticipants((meeting?.participants || []).map(createParticipantOption).filter(Boolean));
+  }, [meeting]);
+
+  // Automatically determine placeholder/label context based on user-chosen meeting type
+  const lowerType = type.trim().toLowerCase();
+  const isOnlineType = lowerType.includes("online") || lowerType.includes("virtual") || lowerType.includes("zoom") || lowerType.includes("teams") || lowerType.includes("meet");
+
+  const userOptions = useMemo(
+    () =>
+      users.map((user) => ({
+        value: user._id || user.id || user.userId || user.email || getDisplayName(user),
+        label: getDisplayName(user, { includeMiddleInitial: true, fallback: user.email || user.name || user._id || user.id || '' }),
+        user,
+      })),
+    [users],
+  );
+
+  const handleParticipantsChange = (selectedOptions) => {
+    setParticipants(selectedOptions || []);
+    setInputValue('');
+  };
+
+  const handleCreateParticipant = (inputValue) => {
+    const trimmedName = inputValue.trim();
+    if (!trimmedName) return;
+    setParticipants((prev) => [
+      ...prev,
+      { label: trimmedName, value: trimmedName, isCustom: true },
+    ]);
+    setInputValue('');
   };
 
   const removeParticipant = (index) => {
@@ -50,6 +91,19 @@ function MeetingFormContent({ meeting, onSubmit }) {
       alert("Please complete all required fields.");
       return;
     }
+
+    const normalizedParticipants = participants
+      .map((participant) => {
+        if (!participant) return null;
+        if (participant.user) return participant.label || participant.value;
+        return participant.value || participant.label || null;
+      })
+      .filter(Boolean);
+
+    const participantIds = participants
+      .filter((participant) => participant?.user)
+      .map((participant) => participant.value)
+      .filter(Boolean);
 
     await onSubmit({
       ...(meeting?._id ? { _id: meeting._id } : {}),
@@ -64,7 +118,8 @@ function MeetingFormContent({ meeting, onSubmit }) {
       type,
       client,
       host,
-      participants,
+      participants: normalizedParticipants,
+      participantIds,
       notes,
     });
   };
@@ -116,6 +171,7 @@ function MeetingFormContent({ meeting, onSubmit }) {
                 <option value="Internal Meeting" />
                 <option value="Presentation" />
                 <option value="Online" />
+                <option value="On-site" />
                 <option value="Training" />
                 <option value="Sales Meeting" />
               </datalist>
@@ -134,12 +190,12 @@ function MeetingFormContent({ meeting, onSubmit }) {
 
           <div className="grid gap-3">
             <div>
-              <FormLabel required>Location</FormLabel>
+              <FormLabel required>Location / Meeting Link</FormLabel>
               <FormInput
                 type="text"
                 required
                 value={location}
-                placeholder="e.g. Google Meet, Conference Room A"
+                placeholder={isOnlineType ? "e.g. https://meet.google.com/abc-defg-hij" : "e.g. Google Meet, Conference Room A"}
                 onChange={(e) => setLocation(e.target.value)}
               />
             </div>
@@ -221,55 +277,43 @@ function MeetingFormContent({ meeting, onSubmit }) {
       {/* Section 3: Participants */}
       <FormSection title="Participants">
         <div className="space-y-3">
-          {isAddingParticipant ? (
-            <div className="flex items-center gap-2 max-w-md animate-in fade-in duration-150">
-              <FormInput
-                type="text"
-                autoFocus
-                value={participantName}
-                onChange={(e) => setParticipantName(e.target.value)}
-                onKeyDown={handleParticipantKeyDown}
-                placeholder="Enter participant name..."
-              />
-              <button
-                type="button"
-                onClick={addParticipant}
-                className="h-9 px-4 text-xs font-semibold bg-gray-800 text-white rounded-md hover:bg-gray-900 transition-colors cursor-pointer shrink-0"
-              >
-                Add
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsAddingParticipant(false);
-                  setParticipantName('');
-                }}
-                className="p-2 text-gray-400 hover:text-gray-600 rounded-md transition-colors"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setIsAddingParticipant(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-dashed border-gray-300 text-gray-600 rounded-md hover:border-gray-400 hover:text-gray-800 transition-all cursor-pointer bg-white"
-            >
-              <Plus size={14} /> Add Participant/s
-            </button>
-          )}
+          <CreatableSelect
+            {...getSelectProps({ theme: 'red', variant: 'form', isSearchable: true, isClearable: true })}
+            isMulti
+            options={userOptions}
+            value={participants}
+            onChange={(val) => handleParticipantsChange(val)}
+            onCreateOption={handleCreateParticipant}
+            inputValue={inputValue}
+            onInputChange={(val, meta) => {
+              if (meta && meta.action === 'input-change') setInputValue(val);
+              if (meta && meta.action === 'set-value') setInputValue('');
+            }}
+            blurInputOnSelect
+            backspaceRemovesValue
+            hideSelectedOptions
+            controlShouldRenderValue={false}
+            placeholder="Search or type participant name..."
+            formatCreateLabel={(inputValue) => `Add "${inputValue}" as participant`}
+            noOptionsMessage={() => 'Type a name to add a non-user participant'}
+            styles={{
+              menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+            }}
+          />
 
           <div className="flex flex-wrap gap-1.5 pt-1">
             {participants.length > 0 ? (
-              participants.map((person, index) => (
-                <span 
-                  key={`${person}-${index}`} 
+              participants.map((participant, index) => (
+                <span
+                  key={`${participant.value}-${index}`}
                   className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 pl-3 pr-1 py-1 text-xs font-medium text-gray-600 shadow-sm"
                 >
-                  <span className="truncate max-w-45">{person}</span>
-                  <button 
-                    type="button" 
-                    onClick={() => removeParticipant(index)} 
+                  <span className="truncate max-w-[10rem]">
+                    {participant.label}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeParticipant(index)}
                     className="flex h-4 w-4 items-center justify-center rounded-full text-gray-400 hover:bg-gray-200 hover:text-red-500 transition-colors cursor-pointer"
                   >
                     <X size={10} />

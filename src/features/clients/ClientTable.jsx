@@ -146,12 +146,11 @@ export default function ClientTable({
   }
 
   return (
-    <>
+    <div className="flex flex-col h-[calc(100vh-210px)] justify-between">
       <BaseTable
         columns={columns}
         empty={paginatedItems.length === 0 ? "No clients found." : null}
         colSpan={columns.length}
-        heightClass="h-112.5"
       >
         {paginatedItems.map((client) => (
           <TableRow key={client._id} onClick={() => onView(client)}>
@@ -241,7 +240,8 @@ export default function ClientTable({
         pageWindow={pageWindow}
         onGoTo={goTo}
         onRowsPerPageChange={setRowsPerPage}
+        marginTop="mt-2"
       />
-    </>
+    </div>
   );
 }

@@ -55,6 +55,12 @@ export default function MeetingDetails({
   }
 
   const statusBadge = getStatusBadge(meeting.status);
+  const creatorLabel =
+    typeof meeting.createdBy === "string"
+      ? meeting.createdBy
+      : meeting.createdBy && typeof meeting.createdBy === "object"
+      ? meeting.createdBy.name || meeting.createdBy.fullName || meeting.createdBy.email || `${meeting.createdBy.firstName || ""} ${meeting.createdBy.lastName || ""}`.trim()
+      : "Unknown";
 
   const details = [
     {
@@ -103,7 +109,10 @@ export default function MeetingDetails({
   ];
 
   return (
-    <div className="flex h-full min-h-0 flex-col rounded-md border border-gray-200 bg-white shadow-sm">
+    <div className="relative flex h-full min-h-0 flex-col rounded-md border border-gray-200 bg-white shadow-sm">
+      <div className="absolute top-2 right-3 z-10 rounded px-2 py-0.5 text-[10px] font-medium text-gray-400 select-none pointer-events-none">
+        Created by: {creatorLabel}
+      </div>
       {/* Header */}
       <div className="flex items-start justify-between border-b border-gray-100 px-3 py-2 shrink-0">
         <div>
@@ -163,23 +172,32 @@ export default function MeetingDetails({
 
           {meeting.participants?.length ? (
             <div className="space-y-1">
-              {meeting.participants.map((person, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-2 rounded-md border border-gray-100 px-2 py-1"
-                >
-                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-gray-100 text-[8px] font-semibold text-gray-600">
-                    {person
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")}
-                  </div>
+              {meeting.participants.map((participant, index) => {
+                const label =
+                  typeof participant === "string"
+                    ? participant
+                    : participant.name || participant.fullName || participant.email || participant.firstName || participant.lastName || participant._id || participant.id || "Unknown";
+                const initials = String(label)
+                  .split(" ")
+                  .filter(Boolean)
+                  .map((n) => n[0])
+                  .join("");
 
-                  <span className="truncate text-[10px] text-gray-700">
-                    {person}
-                  </span>
-                </div>
-              ))}
+                return (
+                  <div
+                    key={index}
+                    className="flex items-center gap-2 rounded-md border border-gray-100 px-2 py-1"
+                  >
+                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-gray-100 text-[8px] font-semibold text-gray-600">
+                      {initials || "?"}
+                    </div>
+
+                    <span className="truncate text-[10px] text-gray-700">
+                      {label}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className="rounded-md border border-dashed border-gray-200 py-3 text-center text-[11px] text-gray-400">

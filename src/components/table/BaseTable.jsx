@@ -1,5 +1,3 @@
-import TablePagination from "./TablePagination";
-
 export default function BaseTable({
   columns,
   children,

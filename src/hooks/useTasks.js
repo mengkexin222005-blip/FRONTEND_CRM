@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import Swal from "sweetalert2";
 import api from "../services/api";
 import { SOCKET_EVENTS } from "../constants/socketEvents";
+import { buildTaskPayload } from "../features/tasks/utils/taskPayload";
 
 const isFormData = (value) => value instanceof FormData;
 
@@ -36,6 +37,24 @@ export function useTasks() {
 
   useEffect(() => {
     fetchTasks();
+  }, [fetchTasks]);
+
+  // Listen for client-side task updates dispatched by dashboard actions
+  useEffect(() => {
+    const handler = (e) => {
+      try {
+        const id = e?.detail?.id;
+        if (id) {
+          // Refresh tasks to reflect the change made on the dashboard
+          void fetchTasks();
+        }
+      } catch (err) {
+        console.error("Error handling crm:task:updated event", err);
+      }
+    };
+
+    window.addEventListener("crm:task:updated", handler);
+    return () => window.removeEventListener("crm:task:updated", handler);
   }, [fetchTasks]);
 
   // Websocket listeners
@@ -212,26 +231,11 @@ export function useTasks() {
   const createTask = async (formData, options = {}) => {
     setSubmitting(true);
     try {
-      const payload = {
-        subject: formData.subject,
-        description: formData.description || "",
-        taskType: formData.taskType || "Other",
-        priority: formData.priority || "Medium",
-        status: formData.status || "To Do",
-        scope: formData.scope || "Personal",
-        dueDate: formData.dueDate || null,
-        dueTime: formData.dueTime || "",
-        link: formData.link || "",
-        reminderAt: formData.reminderAt || null,
-        repeat: formData.repeat || "None",
-        assignedTo: formData.assignedTo || null,
-        relatedToType: formData.relatedToType || null,
-        relatedTo: formData.relatedTo || null,
-      };
+      const payload = isFormData(formData)
+        ? formData
+        : buildTaskPayload(formData);
 
-      const config = isFormData(formData)
-        ? { headers: { "Content-Type": "multipart/form-data" } }
-        : {};
+      const config = isFormData(formData) ? {} : {};
 
       const { data } = await api.post("/api/tasks", payload, config);
       setTasks((prev) => [data, ...prev]);
@@ -255,33 +259,24 @@ export function useTasks() {
   const updateTask = async (taskId, formData) => {
     setSubmitting(true);
     try {
-      const payload = {
-        subject: formData.subject,
-        description: formData.description || "",
-        taskType: formData.taskType || "Other",
-        priority: formData.priority || "Medium",
-        scope: formData.scope || "Personal",
-        dueDate: formData.dueDate || null,
-        dueTime: formData.dueTime || "",
-        link: formData.link || "",
-        reminderAt: formData.reminderAt || null,
-        repeat: formData.repeat || "None",
-        relatedToType: formData.relatedToType || null,
-        relatedTo: formData.relatedTo || null,
-      };
-      if (formData.assignedTo !== undefined) {
-        payload.assignedTo = formData.assignedTo || null;
-      }
+      const payload = isFormData(formData)
+        ? formData
+        : buildTaskPayload(formData, { includeStatus: true });
 
-      const config = isFormData(formData)
-        ? { headers: { "Content-Type": "multipart/form-data" } }
-        : {};
+      const config = isFormData(formData) ? {} : {};
 
       const { data } = await api.patch(`/api/tasks/${taskId}`, payload, config);
 
       const updatedTask = data.task || data;
 
-      setTasks((prev) => prev.map((t) => (t._id === taskId ? updatedTask : t)));
+      if (updatedTask?._id) {
+        setTasks((prev) => {
+          const nextTasks = prev.map((t) => (t._id === taskId ? updatedTask : t));
+          return nextTasks;
+        });
+      } else {
+        await fetchTasks();
+      }
 
       Toast.fire({
         icon: "success",
