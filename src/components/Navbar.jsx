@@ -31,11 +31,13 @@ export default function Navbar() {
   const roleRoutes = {
     Admin: "/admin",
     "Sales Manager": "/sales-manager",
+    "Super Admin": "/superadmin",
     "Sales Agent": "/sales-agent",
     "Support Staff": "/support-staff",
   };
 
-  const profilePath = `${roleRoutes[user?.role]}/profile`;
+  const normalizedRole = String(user?.role || "").trim();
+  const profilePath = `${roleRoutes[normalizedRole] || "/dashboard"}/profile`;
 
   const [open, setOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);

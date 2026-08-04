@@ -1,37 +1,24 @@
+import TablePagination from "./TablePagination";
+
 export default function BaseTable({
   columns,
   children,
   empty,
   colSpan,
-  minHeightClass = "",
-  heightClass = "",
+  minHeightClass = "min-h-[calc(100vh-300px)]",
+  heightClass = "h-[450px]",
 }) {
   return (
     <div
-      className={`
-        w-full
-        overflow-x-auto
-        ${minHeightClass}
-        ${heightClass}
-      `}
+      className={`overflow-x-auto ${minHeightClass} ${heightClass} overflow-y-auto`}
     >
       <table className="min-w-full divide-y divide-gray-200">
-        <thead className="sticky top-0 z-10 bg-white">
+        <thead className="sticky top-0 z-10 bg-white text-left">
           <tr>
             {columns.map((col) => (
               <th
                 key={col.key || col.label}
-                className={`
-                  border-b border-gray-200
-                  bg-white
-                  p-2
-                  text-left
-                  text-sm
-                  font-medium
-                  uppercase
-                  text-gray-500
-                  ${col.align || ""}
-                `}
+                className={`p-2 text-sm ${col.align || "text-left"} font-medium text-gray-500 uppercase bg-white border-b border-gray-200`}
               >
                 {col.label}
               </th>
@@ -39,7 +26,7 @@ export default function BaseTable({
           </tr>
         </thead>
 
-        <tbody className="divide-y divide-gray-200 bg-white">
+        <tbody className="bg-white divide-y divide-gray-200 border-b border-gray-300">
           {empty ? (
             <tr>
               <td

@@ -11,6 +11,7 @@ const EMPTY_FORM = {
   dueDate: "",
   dueTime: "",
   link: "",
+  linkName: "", // Added to reset linkName on new task creation
   reminderAt: "",
   repeat: "None",
   assignedTo: "",
@@ -29,6 +30,7 @@ const mapTaskToForm = (task) => ({
   // Slice ensures time is properly formatted to HH:mm for the input field
   dueTime: task.dueTime ? task.dueTime.slice(0, 5) : task.time ? task.time.slice(0, 5) : "",
   link: task.link || "",
+  linkName: task.linkName || "", // Added to map existing linkName when editing/viewing
   repeat: task.repeat || "None",
   assignedTo:
     typeof task.assignedTo === "object"
