@@ -1,5 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 import { X, Archive, ArchiveRestore, Trash2, User, Mail, Shield } from "lucide-react";
+import { getAvatarUrl } from "../../utils/avatar";
+import ConfirmModal from "../../../../components/modal/ConfirmModal";
 
 export default function ConversationInfoDrawer({
   activeThread,
@@ -8,6 +10,9 @@ export default function ConversationInfoDrawer({
   onArchiveThread,
   onDeleteThread,
 }) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null);
+
   if (!activeThread) return null;
 
   const initials = (activeThread.name || "")
@@ -16,9 +21,28 @@ export default function ConversationInfoDrawer({
     .join("")
     .toUpperCase();
 
-  const profileImage = activeThread.avatar || activeThread.profilePicture || activeThread.image;
+  const profileImage = getAvatarUrl(
+    activeThread.avatar ||
+    activeThread.profilePicture ||
+    activeThread.avatarUrl ||
+    activeThread.image
+  );
+
+  const openDeleteConfirm = () => {
+    setPendingAction("delete");
+    setConfirmOpen(true);
+  };
+
+  const handleConfirm = async () => {
+    if (pendingAction === "delete") {
+      await onDeleteThread(activeThread.id);
+    }
+    setConfirmOpen(false);
+    setPendingAction(null);
+  };
 
   return (
+    <>
     <aside className="w-72 shrink-0 border-l border-slate-200 bg-white flex flex-col h-full overflow-y-auto transition-all">
       {/* Header with Close Button */}
       <div className="flex h-14 items-center justify-between border-b border-slate-100 px-4 shrink-0">
@@ -118,7 +142,7 @@ export default function ConversationInfoDrawer({
 
         <button
           type="button"
-          onClick={() => onDeleteThread(activeThread.id)}
+          onClick={openDeleteConfirm}
           className="w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs text-red-600 hover:bg-red-50 transition cursor-pointer"
         >
           <Trash2 size={15} />
@@ -126,5 +150,20 @@ export default function ConversationInfoDrawer({
         </button>
       </div>
     </aside>
+
+    <ConfirmModal
+      open={confirmOpen}
+      title="Delete conversation?"
+      description={`This will remove ${activeThread.name || "this contact"} from your conversations list and hide the thread from future refreshes.`}
+      warning="This action cannot be undone."
+      confirmText="Delete conversation"
+      confirmClass="bg-red-600 hover:bg-red-700"
+      onClose={() => {
+        setConfirmOpen(false);
+        setPendingAction(null);
+      }}
+      onConfirm={handleConfirm}
+    />
+    </>
   );
 }

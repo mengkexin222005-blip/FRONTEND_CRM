@@ -1,5 +1,6 @@
 import React from "react";
 import { MoreVertical } from "lucide-react";
+import { getAvatarUrl } from "../../utils/avatar";
 
 export default function ChatHeader({ activeThread, getRoleBadgeStyles, onToggleDrawer, isDrawerOpen }) {
   const initials = (activeThread?.name || "")
@@ -8,14 +9,29 @@ export default function ChatHeader({ activeThread, getRoleBadgeStyles, onToggleD
     .join("")
     .toUpperCase();
 
+  const profileImage = getAvatarUrl(
+    activeThread?.avatar ||
+    activeThread?.profilePicture ||
+    activeThread?.avatarUrl ||
+    activeThread?.image
+  );
+
   return (
     <div className="flex h-14 items-center justify-between border-b border-slate-200 bg-white px-6 shrink-0">
       {/* User Info Section */}
       <div className="flex items-center gap-3">
         <div className="relative">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-700 border border-slate-200">
-            {initials || "U"}
-          </div>
+          {profileImage ? (
+            <img
+              src={profileImage}
+              alt={activeThread?.name}
+              className="h-10 w-10 rounded-full object-cover border border-slate-200"
+            />
+          ) : (
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-700 border border-slate-200">
+              {initials || "U"}
+            </div>
+          )}
           {activeThread?.online && (
             <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" />
           )}
