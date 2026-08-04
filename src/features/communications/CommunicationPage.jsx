@@ -13,10 +13,13 @@ export default function CommunicationPage() {
     setActiveThreadId,
     activeMessages,
     sendMessage,
+    editMessage,
+    deleteMessage,
     archiveThread,
     deleteThread,
     loading,
     fetchConversation,
+    initializeConversation,
   } = useCommunications();
 
   if (loading && (!threads || threads.length === 0)) {
@@ -43,6 +46,9 @@ export default function CommunicationPage() {
           onArchiveThread={archiveThread}
           onDeleteThread={deleteThread}
           fetchConversation={fetchConversation}
+          initializeConversation={initializeConversation}
+          onEditMessage={editMessage}
+          onDeleteMessage={deleteMessage}
         />
       </div>
     </PageBase>

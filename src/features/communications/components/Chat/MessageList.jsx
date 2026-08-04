@@ -1,17 +1,59 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
+import MessageBubble from "./MessageBubble";
 
-export default function MessageList({ activeMessages = [] }) {
+const formatDayLabel = (value) => {
+  const date = value ? new Date(value) : new Date();
+
+  if (Number.isNaN(date.getTime())) {
+    return "Today";
+  }
+
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  const isSameDay = (a, b) => a.toDateString() === b.toDateString();
+
+  if (isSameDay(date, today)) return "Today";
+  if (isSameDay(date, yesterday)) return "Yesterday";
+
+  return date.toLocaleDateString([], {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+};
+
+export default function MessageList({
+  activeMessages = [],
+  onEditMessage,
+  onDeleteMessage,
+}) {
   const messagesEndRef = useRef(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+    });
   }, [activeMessages]);
 
-  if (!activeMessages || activeMessages.length === 0) {
+  const groupedMessages = useMemo(() => {
+    const groups = [];
+    activeMessages.forEach((msg) => {
+      const dayKey = msg.createdAt ? new Date(msg.createdAt).toDateString() : "unknown";
+      const lastGroup = groups[groups.length - 1];
+
+      if (!lastGroup || lastGroup.dayKey !== dayKey) {
+        groups.push({ dayKey, label: formatDayLabel(msg.createdAt), messages: [msg] });
+      } else {
+        lastGroup.messages.push(msg);
+      }
+    });
+
+    return groups;
+  }, [activeMessages]);
+
+  if (activeMessages.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center p-6 text-center text-xs text-slate-400">
         No messages yet. Start the conversation by sending a message below.
@@ -20,37 +62,30 @@ export default function MessageList({ activeMessages = [] }) {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 space-y-3">
-      {activeMessages.map((msg) => {
-        const isMe = msg.sender === "me";
-
-        return (
-          <div
-            key={msg.id || msg._id}
-            className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}
-          >
-            {/* Message Bubble */}
-            <div
-              className={`max-w-[70%] rounded-2xl px-4 py-2 text-sm font-normal shadow-sm ${
-                isMe
-                  ? "bg-[#E7000B] text-white rounded-br-none"
-                  : "bg-white text-slate-800 border border-slate-100 rounded-bl-none"
-              }`}
-            >
-              <p className="whitespace-pre-wrap wrap-break-word leading-relaxed">{msg.text}</p>
-            </div>
-
-            {/* Timestamp Outside the Bubble */}
-            <span
-              className={`mt-1 text-[2px] font-[5px] text-slate-400 px-1 ${
-                isMe ? "text-right" : "text-left"
-              }`}
-            >
-              {msg.time}
+    <div className="flex-1 overflow-y-auto p-4">
+      {groupedMessages.map((group) => (
+        <div key={group.dayKey} className="mb-3">
+          <div className="mb-3 flex items-center gap-3">
+            <div className="h-px flex-1" />
+            <span className="px-3 py-1 text-[7px] font-semibold text-slate-400">
+              {group.label}
             </span>
+            <div className="h-px flex-1" />
           </div>
-        );
-      })}
+
+          <div className="space-y-3">
+            {group.messages.map((msg) => (
+              <MessageBubble
+                key={msg.id || msg._id}
+                msg={msg}
+                onEdit={onEditMessage}
+                onDelete={onDeleteMessage}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+
       <div ref={messagesEndRef} />
     </div>
   );

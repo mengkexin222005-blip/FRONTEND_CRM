@@ -3,6 +3,7 @@ import SearchBar from "./SearchBar";
 import ChatFilters from "./ChatFilters";
 import ConversationList from "./ConversationList";
 import api from "../../../../services/api";
+import { getAvatarUrl } from "../../utils/avatar";
 
 export default function ChatSidebar({
   threads,
@@ -10,6 +11,9 @@ export default function ChatSidebar({
   activeThreadId,
   setActiveThreadId,
   fetchConversation,
+  initializeConversation,
+  onArchiveThread,
+  onDeleteThread,
   getRoleBadgeStyles,
 }) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -43,7 +47,6 @@ export default function ChatSidebar({
     }
   });
 
-  // Stored Database Users Query
   useEffect(() => {
     let active = true;
 
@@ -64,7 +67,7 @@ export default function ChatSidebar({
 
         if (query) {
           rawUsers = rawUsers.filter((u) =>
-            `${u.firstName || ""} ${u.lastName || ""} ${u.email || ""}`.toLowerCase().includes(query)
+            `${u.firstName || ""} ${u.lastName || ""}`.toLowerCase().includes(query)
           );
         }
 
@@ -84,27 +87,24 @@ export default function ChatSidebar({
     };
   }, [userSearch, showNew]);
 
-  // INSTANT SINGLE-CLICK SELECTION HANDLER
   const handleSelectUserToChat = (u) => {
     const otherId = u._id || u.employeeId || u.id;
     const name =
       `${u.firstName || ""} ${u.lastName || ""}`.trim() ||
       u.email ||
       "User";
-  
-    // 1. Immediately update threads list
+    const avatar = u.avatar || u.profilePicture || u.avatarUrl || u.image || null;
+
     setThreads((prev) => {
-      const exists = prev.some(
-        (t) => String(t.id) === String(otherId)
-      );
-  
+      const exists = prev.some((t) => String(t.id) === String(otherId));
       if (exists) return prev;
-  
+
       return [
         {
           id: otherId,
           name,
           role: u.role || "User",
+          avatar,
           lastMessage: "",
           time: "Just now",
           unread: 0,
@@ -114,16 +114,16 @@ export default function ChatSidebar({
         ...prev,
       ];
     });
-  
-    // 2. Instantly set active thread
-    setActiveThreadId(otherId);
 
-    // 3. Immediately close suggestions view and clear search
+    if (typeof initializeConversation === "function") {
+      initializeConversation(otherId);
+    }
+
+    setActiveThreadId(otherId);
     setShowNew(false);
     setUserSearch("");
     setUserResults([]);
 
-    // 4. Fetch messages in background without blocking UI render
     if (typeof fetchConversation === "function") {
       fetchConversation(otherId).catch((err) =>
         console.error("Failed to load conversation:", err)
@@ -164,18 +164,18 @@ export default function ChatSidebar({
               userResults.map((u) => {
                 const fullName = `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.email || "User";
                 const initial = (fullName[0] || "U").toUpperCase();
+                const avatar = u.avatar || u.profilePicture || u.avatarUrl || u.image;
 
                 return (
                   <button
-                  key={u._id || u.employeeId || u.id}
-                  type="button"
-                  onClick={() => handleSelectUserToChat(u)}
+                    key={u._id || u.employeeId || u.id}
+                    type="button"
+                    onClick={() => handleSelectUserToChat(u)}
                     className="w-full text-left px-3 py-2.5 hover:bg-slate-50 rounded-lg transition border border-transparent hover:border-slate-100 cursor-pointer block"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-full bg-red-50 text-[#E7000B] flex items-center justify-center text-xs font-bold shrink-0 border border-red-100">
-                        {initial}
-                      </div>
+                      <UserAvatar avatarUrl={avatar} fullName={fullName} initial={initial} />
+
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-1">
                           <span className="truncate text-xs font-semibold text-slate-800">{fullName}</span>
@@ -203,11 +203,35 @@ export default function ChatSidebar({
                 prev.map((t) => (String(t.id) === String(id) ? { ...t, unread: 0 } : t))
               );
             }}
+            onArchiveThread={onArchiveThread}
+            onDeleteThread={onDeleteThread}
             onActivateNewConversation={handleActivateNewConversation}
             getRoleBadgeStyles={getRoleBadgeStyles}
           />
         )}
       </div>
     </aside>
+  );
+}
+
+function UserAvatar({ avatarUrl, fullName, initial }) {
+  const [imgError, setImgError] = useState(false);
+  const formattedUrl = getAvatarUrl(avatarUrl);
+
+  if (!formattedUrl || imgError) {
+    return (
+      <div className="h-9 w-9 rounded-full bg-red-50 text-[#E7000B] flex items-center justify-center text-xs font-bold shrink-0 border border-red-100">
+        {initial}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={formattedUrl}
+      alt={fullName}
+      onError={() => setImgError(true)}
+      className="h-9 w-9 rounded-full object-cover shrink-0 border border-slate-200"
+    />
   );
 }

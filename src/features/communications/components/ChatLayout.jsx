@@ -17,6 +17,9 @@ export default function ChatLayout({
   onArchiveThread,
   onDeleteThread,
   fetchConversation,
+  initializeConversation,
+  onEditMessage,
+  onDeleteMessage,
 }) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
@@ -45,6 +48,7 @@ export default function ChatLayout({
         onDeleteThread={onDeleteThread}
         fetchConversation={fetchConversation}
         getRoleBadgeStyles={getRoleBadgeStyles}
+        initializeConversation={initializeConversation}
       />
 
       {activeThread ? (
@@ -56,7 +60,11 @@ export default function ChatLayout({
               onToggleDrawer={() => setIsDrawerOpen((prev) => !prev)}
               isDrawerOpen={isDrawerOpen}
             />
-            <MessageList activeMessages={activeMessages} />
+            <MessageList 
+              activeMessages={activeMessages} 
+              onEditMessage={onEditMessage}
+              onDeleteMessage={onDeleteMessage}
+            />
             <MessageComposer activeThreadName={activeThread.name} onSendMessage={onSendMessage} />
           </section>
 

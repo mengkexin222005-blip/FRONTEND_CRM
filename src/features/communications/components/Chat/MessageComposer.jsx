@@ -110,7 +110,7 @@ export default function MessageComposer({ activeThreadName, onSendMessage }) {
 
       {/* Input Bar */}
       <form onSubmit={handleSend} className="flex items-center gap-2">
-        <div className="flex flex-1 items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500">
+        <div className="flex flex-1 items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5">
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
@@ -145,7 +145,7 @@ export default function MessageComposer({ activeThreadName, onSendMessage }) {
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder={`Message ${activeThreadName || "user"}...`}
-            className="w-full bg-transparent px-2 text-xs text-slate-800 placeholder-slate-400 outline-none"
+            className="rounded-lg w-full bg-transparent px-2 text-xs text-slate-800 placeholder-slate-400 outline-none"
           />
         </div>
 
