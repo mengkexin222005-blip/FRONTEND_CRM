@@ -11,14 +11,13 @@ import { getDisplayName } from '../../../utils/name';
 import { getSelectProps } from '../../../components/select/selectConfig';
 
 function MeetingFormContent({ meeting, onSubmit }) {
-  // --- Form Local State ---
-  const [title, setTitle] = useState(meeting?.title ?? '');
+  const [title, setTitle] = useState(meeting?.title ?? meeting?.meetingTitle ?? '');
   const [status, setStatus] = useState(
     meeting?.status ?? (meeting ? getAutoMeetingStatus(meeting) : 'Scheduled')
   );
   const [location, setLocation] = useState(meeting?.location ?? meeting?.link ?? meeting?.url ?? '');
   const [locationScope, setLocationScope] = useState(meeting?.locationScope ?? 'Inside the Philippines');
-  const [type, setType] = useState(meeting?.type ?? '');
+  const [type, setType] = useState(meeting?.type ?? meeting?.meetingType ?? '');
   const [client, setClient] = useState(meeting?.client ?? '');
   const [date, setDate] = useState(meeting?.date ? new Date(meeting.date).toISOString().split("T")[0] : "");
   const [startTime, setStartTime] = useState(meeting?.startTime ?? '');
@@ -52,7 +51,6 @@ function MeetingFormContent({ meeting, onSubmit }) {
     setParticipants((meeting?.participants || []).map(createParticipantOption).filter(Boolean));
   }, [meeting]);
 
-  // Automatically determine placeholder/label context based on user-chosen meeting type
   const lowerType = type.trim().toLowerCase();
   const isOnlineType = lowerType.includes("online") || lowerType.includes("virtual") || lowerType.includes("zoom") || lowerType.includes("teams") || lowerType.includes("meet");
 
@@ -93,16 +91,12 @@ function MeetingFormContent({ meeting, onSubmit }) {
     }
 
     const normalizedParticipants = participants
-      .map((participant) => {
-        if (!participant) return null;
-        if (participant.user) return participant.label || participant.value;
-        return participant.value || participant.label || null;
-      })
+      .map((participant) => participant?.label || participant?.value)
       .filter(Boolean);
 
     const participantIds = participants
       .filter((participant) => participant?.user)
-      .map((participant) => participant.value)
+      .map((participant) => participant.user._id || participant.user.id || participant.value)
       .filter(Boolean);
 
     await onSubmit({
@@ -120,13 +114,13 @@ function MeetingFormContent({ meeting, onSubmit }) {
       host,
       participants: normalizedParticipants,
       participantIds,
+      assignedTo: participantIds,
       notes,
     });
   };
 
   return (
     <form id="meeting-form" onSubmit={handleSubmit} className="space-y-6">
-      {/* Section 1: Meeting Information */}
       <FormSection title="Meeting Information">
         <div className="space-y-4">
           <div>
@@ -208,7 +202,7 @@ function MeetingFormContent({ meeting, onSubmit }) {
                     name="locationScope"
                     value="Inside the Philippines"
                     checked={locationScope === 'Inside the Philippines'}
-                    onChange={(e) => setLocationScope(e.target.value)}
+                    onChange={(e) => getLocationScope(e.target.value)}
                     className="h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                   />
                   Inside the Philippines
@@ -230,7 +224,6 @@ function MeetingFormContent({ meeting, onSubmit }) {
         </div>
       </FormSection>
 
-      {/* Section 2: Schedule */}
       <FormSection title="Schedule">
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-3">
@@ -274,7 +267,6 @@ function MeetingFormContent({ meeting, onSubmit }) {
         </div>
       </FormSection>
 
-      {/* Section 3: Participants */}
       <FormSection title="Participants">
         <div className="space-y-3">
           <CreatableSelect
@@ -327,7 +319,6 @@ function MeetingFormContent({ meeting, onSubmit }) {
         </div>
       </FormSection>
 
-      {/* Section 4: Notes */}
       <FormSection title="Notes">
         <div>
           <FormTextarea
@@ -345,7 +336,6 @@ function MeetingFormContent({ meeting, onSubmit }) {
 
 export default function MeetingForm({ isOpen, onClose, onSubmit, meeting = null }) {
   if (!isOpen) return null;
-
   const formKey = meeting?.id || meeting?._id || 'new-meeting';
 
   return (

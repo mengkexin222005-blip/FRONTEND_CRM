@@ -514,7 +514,7 @@ export default function DashboardPage() {
   const isMeetingAssignedOrHostedByCurrentUser = (meeting) => {
     const creatorId = getUserIdFromValue(meeting?.userId || meeting?.createdBy || meeting?.creator || meeting?.creator?.user || meeting?.creator);
     const hostId = getUserIdFromValue(meeting?.host || meeting?.organizer || meeting?.host?.user || meeting?.organizer?.user);
-    const assignedUsers = meeting?.assignedTo || meeting?.participants || meeting?.attendees || [];
+    const assignedUsers = meeting?.assignedTo || meeting?.participants || meeting?.attendees || meeting?.participantIds || [];
 
     if (String(creatorId) === currentUserId) return true;
     if (String(hostId) === currentUserId) return true;

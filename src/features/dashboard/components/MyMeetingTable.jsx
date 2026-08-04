@@ -52,6 +52,25 @@ const clamp = (value, minimum, maximum) =>
 const getMeetingTitle = (m) =>
   m?.title || m?.meetingTitle || m?.subject || m?.name || "Untitled Meeting";
 
+const getCreatorName = (m) => {
+  const directCreatorName =
+    m?.createdByName ||
+    m?.creatorName ||
+    m?.createdBy?.name ||
+    m?.creator?.name ||
+    m?.ownerName;
+
+  if (typeof directCreatorName === "string" && directCreatorName.trim()) {
+    return directCreatorName.trim();
+  }
+
+  const creatorRecord = m?.createdBy || m?.creator || m?.owner;
+  const creatorLabel = getObjectName(creatorRecord);
+  if (creatorLabel) return creatorLabel;
+
+  return "";
+};
+
 const getMeetingType = (m) =>
   m?.meetingType || m?.type || m?.category || m?.kind || "Meeting";
 
@@ -90,6 +109,24 @@ const getObjectName = (record) => {
     .filter(Boolean)
     .join(" ")
     .trim();
+};
+
+const getUserIdFromValue = (value) => {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return String(value);
+  if (typeof value === "object") {
+    return (
+      value._id ||
+      value.id ||
+      value.userId ||
+      value.user?.id ||
+      value.user?._id ||
+      value.uid ||
+      ""
+    );
+  }
+  return "";
 };
 
 const getClientName = (m) => {
@@ -823,6 +860,9 @@ export default function MyMeetingsTable({ meetings = [], hideFilter = false, onS
               {cards.map((meeting, itemIndex) => {
                 const meetingId = meeting?._id || meeting?.id;
                 const clientName = getClientName(meeting);
+                const creatorName = getCreatorName(meeting);
+                const creatorId = getUserIdFromValue(meeting?.createdBy || meeting?.creator || meeting?.owner);
+                const isCurrentUserCreator = Boolean(currentUserId && creatorId && String(creatorId) === String(currentUserId));
                 const meetingType = getMeetingType(meeting);
                 const meetingLink = getMeetingLink(meeting);
                 const meetingFiles = getMeetingFiles(meeting);
@@ -852,6 +892,15 @@ export default function MyMeetingsTable({ meetings = [], hideFilter = false, onS
                         <h3 className="line-clamp-2 min-w-0 font-semibold text-black/85" style={{ marginTop: `${clamp(9 * scale, 5, 9)}px`, fontSize: `${titleSize}px`, lineHeight: 1.35 }}>
                           {getMeetingTitle(meeting)}
                         </h3>
+
+                        {!isCurrentUserCreator && creatorName && (
+                          <div className="flex min-w-0 items-center text-black/50" style={{ gap: `${clamp(6 * scale, 3, 6)}px`, marginTop: `${clamp(6 * scale, 3, 6)}px`, fontSize: `${clientSize}px` }}>
+                            <UserRound size={smallIconSize} className="shrink-0 text-red-600" />
+                            <span className="truncate" title={`Created by: ${creatorName}`}>
+                              Created by {creatorName}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex min-w-0 items-center text-black/50" style={{ gap: `${clamp(6 * scale, 3, 6)}px`, marginTop: `${clamp(6 * scale, 3, 6)}px`, fontSize: `${clientSize}px` }}>
