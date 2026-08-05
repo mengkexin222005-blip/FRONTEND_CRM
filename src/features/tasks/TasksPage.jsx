@@ -399,7 +399,7 @@ export default function TasksPage() {
 
   return (
     <PageBase>
-      <div className="flex items-center justify-between mb-4">
+      <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <PageHeader
           title="Tasks"
           subtitle={
@@ -517,7 +517,7 @@ export default function TasksPage() {
               <button
                 type="button"
                 onClick={() => handleOpenCreate("Pending")}
-                className="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-md cursor-pointer"
+                className="w-full rounded-md bg-red-500 px-4 py-2 text-white hover:bg-red-600 cursor-pointer sm:w-auto"
               >
                 <span className="flex items-center gap-2 text-sm">
                   <FaPlus size={11} />

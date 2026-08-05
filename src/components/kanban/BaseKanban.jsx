@@ -46,10 +46,10 @@ export default function BaseKanban({
     <DragDropContext onDragEnd={onDragEnd}>
       <div
         ref={scrollRef}
-        className="overflow-x-auto overflow-y-auto pb-4"
+        className="overflow-x-auto overflow-y-auto pb-4 touch-pan-x"
         style={{ maxHeight }}
       >
-        <div className="flex gap-4 items-start">
+        <div className="flex min-w-max gap-3 sm:gap-4 items-start">
           {statuses.map((status) => {
             const items = columns[status] || [];
             const isSuccess = successStatus && status === successStatus;
@@ -62,7 +62,7 @@ export default function BaseKanban({
 
                   return (
                     <div
-                      className={`shrink-0 w-70 flex flex-col rounded-md border transition-all duration-150 ${
+                      className={`w-[calc(100vw-3rem)] max-w-70 shrink-0 flex flex-col rounded-md border transition-all duration-150 sm:w-70 ${
                         isDraggingOverSuccess
                           ? "bg-green-50 border-green-400"
                           : "bg-[#f5f5f5] border-gray-200"

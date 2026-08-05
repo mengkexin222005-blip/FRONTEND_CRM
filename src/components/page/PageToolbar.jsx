@@ -56,14 +56,14 @@ export default function PageToolbar({
     options.length > 0;
 
   return (
-    <div className="flex items-center gap-2.5">
+    <div className="flex w-full flex-wrap items-center gap-2.5 lg:w-auto lg:flex-nowrap">
       {/* Search */}
       <input
         type="text"
         value={searchValue}
         onChange={onSearchChange}
         placeholder={searchPlaceholder}
-        className="w-56 rounded-md border border-gray-300 px-3 py-1.5 text-sm transition-colors focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-100"
+        className="w-full min-w-0 rounded-md border border-gray-300 px-3 py-1.5 text-sm transition-colors focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-100 sm:w-56"
       />
 
       {/* Filters */}
