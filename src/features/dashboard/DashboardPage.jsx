@@ -633,7 +633,7 @@ export default function DashboardPage() {
         <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto pb-5">
           
           <section className="w-full min-w-0 shrink-0">
-            <div className="mb-4 flex w-full min-w-0 flex-wrap items-center justify-between gap-3">
+            <div className="mb-4 flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               <div className="flex min-w-0 items-center gap-2">
                 <h2 className="text-lg font-semibold text-gray-700">My Tasks</h2>
                 <span className="inline-flex h-6 min-w-8 shrink-0 items-center justify-center rounded-md border border-black/[0.07] bg-black/[0.04] px-3 text-xs font-medium text-black/45">
@@ -641,14 +641,14 @@ export default function DashboardPage() {
                 </span>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2.5">
+              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
                 <HeaderFilterDropdown
                   icon={CheckCircle2}
                   ariaLabel="Filter tasks by status"
                   value={taskStatusFilter}
                   options={taskStatusOptions}
                   onChange={setTaskStatusFilter}
-                  minimumWidth={140}
+                  minimumWidth={120}
                 />
                 <HeaderFilterDropdown
                   icon={Tag}
@@ -656,7 +656,7 @@ export default function DashboardPage() {
                   value={taskTypeFilter}
                   options={taskTypeOptions}
                   onChange={setTaskTypeFilter}
-                  minimumWidth={130}
+                  minimumWidth={115}
                 />
                 <HeaderFilterDropdown
                   icon={AlertCircle}
@@ -664,12 +664,12 @@ export default function DashboardPage() {
                   value={taskPriorityFilter}
                   options={taskPriorityOptions}
                   onChange={setTaskPriorityFilter}
-                  minimumWidth={130}
+                  minimumWidth={115}
                 />
                 <button
                   type="button"
                   onClick={handleViewTasks}
-                  className="inline-flex shrink-0 items-center gap-px whitespace-nowrap rounded-md px-1 py-1 text-[clamp(11px,0.8vw,13px)] font-medium text-black/45 hover:text-red-600 cursor-pointer"
+                  className="inline-flex shrink-0 items-center gap-px whitespace-nowrap rounded-md px-1 py-1 text-xs font-medium text-black/45 hover:text-red-600 cursor-pointer sm:text-[clamp(11px,0.8vw,13px)]"
                 >
                   <span>View more</span>
                   <ChevronRight className="h-4 w-4 text-red-600" strokeWidth={2} />
@@ -686,7 +686,7 @@ export default function DashboardPage() {
           </section>
 
           <section className="mt-[clamp(32px,5vw,48px)] w-full min-w-0 shrink-0">
-            <div className="mb-4 flex w-full min-w-0 items-center justify-between gap-3">
+            <div className="mb-4 flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               <div className="flex min-w-0 items-center gap-2">
                 <h2 className="text-lg font-semibold text-gray-700">My Meetings</h2>
                 <span className="inline-flex h-6 min-w-8 shrink-0 items-center justify-center rounded-md border border-black/[0.07] bg-black/[0.04] px-3 text-xs font-medium text-black/45">
@@ -694,26 +694,26 @@ export default function DashboardPage() {
                 </span>
               </div>
 
-              <div className="flex items-center gap-2.5">
+              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
                 <HeaderFilterDropdown
                   icon={CheckCircle2}
                   ariaLabel="Filter meetings by status"
                   value={meetingStatusFilter}
                   options={meetingStatusOptions}
                   onChange={setMeetingStatusFilter}
-                  minimumWidth={150}
+                  minimumWidth={120}
                 />
 
                 <DatePickerDropdown
                   value={meetingDateFilter}
                   onChange={setMeetingDateFilter}
-                  minimumWidth={140}
+                  minimumWidth={120}
                 />
 
                 <button
                   type="button"
                   onClick={handleViewMeetings}
-                  className="inline-flex shrink-0 items-center gap-px whitespace-nowrap rounded-md px-1 py-1 text-[clamp(11px,0.8vw,13px)] font-medium text-black/45 hover:text-red-600 cursor-pointer"
+                  className="inline-flex shrink-0 items-center gap-px whitespace-nowrap rounded-md px-1 py-1 text-xs font-medium text-black/45 hover:text-red-600 cursor-pointer sm:text-[clamp(11px,0.8vw,13px)]"
                 >
                   <span>View more</span>
                   <ChevronRight className="h-4 w-4 text-red-600" strokeWidth={2} />
