@@ -4,7 +4,7 @@ import BaseKanban from "../../../components/kanban/BaseKanban";
 import BaseDraggableCard from "../../../components/kanban/BaseDraggableCard";
 import KanbanColumnHeader from "../../../components/kanban/KanbanColumnHeader";
 
-const STATUSES = ["New", "Contacted", "Lost"];
+const STATUSES = ["New", "Lost"];
 
 const getRepresentativeName = (prospect) => {
   const representative = prospect?.representativeName || {};
@@ -22,8 +22,8 @@ const getRepresentativeName = (prospect) => {
 
 const getStatusClass = (status) => {
   switch (status) {
-    case "Contacted":
-      return "bg-amber-50 text-amber-700";
+    // case "Contacted":
+    //   return "bg-amber-50 text-amber-700";
     case "Lost":
       return "bg-red-50 text-red-700";
     default:

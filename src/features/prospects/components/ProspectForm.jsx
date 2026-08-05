@@ -517,7 +517,7 @@ export default function ProspectForm({
                   className={inputClass}
                 >
                   <option value="New">New</option>
-                  <option value="Contacted">Contacted</option>
+                  {/* <option value="Contacted">Contacted</option> */}
                   <option value="Lost">Lost</option>
                 </select>
               </div>

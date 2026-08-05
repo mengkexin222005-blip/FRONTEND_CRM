@@ -34,8 +34,8 @@ const getRepresentativeName = (prospect) => {
 
 const getStatusClass = (status) => {
   switch (status) {
-    case "Contacted":
-      return "bg-amber-50 text-amber-700";
+    // case "Contacted":
+    //   return "bg-amber-50 text-amber-700";
     case "Lost":
       return "bg-red-50 text-red-700";
     default:
