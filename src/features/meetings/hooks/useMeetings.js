@@ -210,6 +210,9 @@ export function useMeetings() {
   const handleAddMeeting = async (meetingData) => {
     try {
       const participantIds = meetingData.participantIds || [];
+      const normalizedParticipants = Array.isArray(meetingData.participants)
+        ? meetingData.participants
+        : [];
 
       const payload = {
         meetingTitle: meetingData.title,
@@ -224,10 +227,7 @@ export function useMeetings() {
         location: meetingData.location,
         locationScope: meetingData.locationScope,
         notes: meetingData.notes,
-        // Send both human-readable participants and IDs for backend compatibility
-        participants: (meetingData.participantIds && meetingData.participantIds.length)
-          ? meetingData.participantIds
-          : (meetingData.participants || []),
+        participants: normalizedParticipants,
         participantIds,
         // Also set assignedTo/attendees to help dashboards that look at these fields
         assignedTo: participantIds,
