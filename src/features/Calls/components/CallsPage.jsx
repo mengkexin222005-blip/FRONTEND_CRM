@@ -17,6 +17,7 @@ import CallsKanban from "./CallsKanban";
 import CallsModal from "./CallsModal";
 
 import useCalls from "../hooks/useCalls";
+import { useActivities } from "../../../hooks/useActivities";
 
 const initialFormData = {
   companyName: "",
@@ -83,6 +84,10 @@ export default function CallsPage() {
   const [viewingCall, setViewingCall] = useState(null);
   const [editingCall, setEditingCall] = useState(null);
   const [formData, setFormData] = useState(initialFormData);
+  const { activities, loading: activitiesLoading } = useActivities(
+    modalOpen && modalMode === "view" && viewingCall ? "Call" : null,
+    viewingCall?._id,
+  );
 
   // Close filter dropdown on outside click
   useEffect(() => {
@@ -407,8 +412,8 @@ export default function CallsPage() {
         origin={modalOrigin}
         formData={formData}
         call={viewingCall}
-        activities={[]}
-        activitiesLoading={false}
+        activities={activities}
+        activitiesLoading={activitiesLoading}
         assignableUsers={assignableUsers}
         loading={loading}
         onChange={handleChange}

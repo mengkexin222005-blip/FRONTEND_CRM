@@ -5,6 +5,19 @@ export const getUserId = (user) => {
   return user._id || user.id || user.userId || null;
 };
 
+export const canViewTask = (task, currentUser) => {
+  const currentUserId = getUserId(currentUser);
+  if (!currentUserId) return false;
+
+  const creatorId = getUserId(task?.createdBy);
+  const assigneeId = getUserId(task?.assignedTo);
+
+  return (
+    (creatorId && String(currentUserId) === String(creatorId)) ||
+    (assigneeId && String(currentUserId) === String(assigneeId))
+  );
+};
+
 export const canFullyEditTask = (task, currentUser) => {
   if (!currentUser) return false;
 

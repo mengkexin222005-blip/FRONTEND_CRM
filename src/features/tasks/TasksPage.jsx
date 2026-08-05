@@ -25,6 +25,7 @@ import { useUsers } from "../users/hooks/useUsers";
 import { useLeads } from "../leads/hooks/useLeads";
 import { useClients } from "../clients/hooks/useClients";
 import { useQuotations } from "../quotations/hooks/useQuotations";
+import { canViewTask } from "./utils/taskPermissions";
 
 import TaskKanban from "./TaskKanban";
 import TaskTable from "./TaskTable";
@@ -217,11 +218,14 @@ export default function TasksPage() {
   }, [tasks]);
 
   const filteredTasks = useMemo(() => {
-    return tasks.filter(matchesTaskFilters).map((task) => ({
-      ...task,
-      status: normalizeTaskStatus(task),
-    }));
-  }, [tasks, matchesTaskFilters]);
+    return tasks
+      .filter((task) => canViewTask(task, currentUser))
+      .filter(matchesTaskFilters)
+      .map((task) => ({
+        ...task,
+        status: normalizeTaskStatus(task),
+      }));
+  }, [tasks, currentUser, matchesTaskFilters]);
 
   const filteredColumns = useMemo(() => {
     return TASK_STATUSES.reduce((grouped, status) => {
@@ -395,7 +399,7 @@ export default function TasksPage() {
 
   return (
     <PageBase>
-      <div className="flex items-center justify-between mb-4">
+      <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <PageHeader
           title="Tasks"
           subtitle={
@@ -513,7 +517,7 @@ export default function TasksPage() {
               <button
                 type="button"
                 onClick={() => handleOpenCreate("Pending")}
-                className="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-md cursor-pointer"
+                className="w-full rounded-md bg-red-500 px-4 py-2 text-white hover:bg-red-600 cursor-pointer sm:w-auto"
               >
                 <span className="flex items-center gap-2 text-sm">
                   <FaPlus size={11} />
@@ -581,4 +585,4 @@ export default function TasksPage() {
       />
     </PageBase>
   );
-}
+}\
