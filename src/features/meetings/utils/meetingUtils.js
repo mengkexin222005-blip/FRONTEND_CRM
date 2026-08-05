@@ -11,6 +11,37 @@ export function getMeetingColorClass(type) {
   }
 }
 
+const getUserId = (user) => {
+  if (!user) return null;
+  if (typeof user === "string") return user;
+  return user._id || user.id || user.userId || null;
+};
+
+export const canViewMeeting = (meeting, currentUser) => {
+  const currentUserId = getUserId(currentUser);
+  if (!currentUserId) return false;
+
+  const isCurrentUser = (user) =>
+    String(getUserId(user)) === String(currentUserId);
+
+  const participantGroups = [
+    meeting?.participantIds,
+    meeting?.assignedTo,
+    meeting?.attendees,
+    meeting?.participants,
+  ];
+
+  return (
+    isCurrentUser(meeting?.createdBy) ||
+    isCurrentUser(meeting?.creator) ||
+    isCurrentUser(meeting?.userId) ||
+    participantGroups.some(
+      (participants) =>
+        Array.isArray(participants) && participants.some(isCurrentUser),
+    )
+  );
+};
+
 export function getAutoMeetingStatus(meeting) {
   // Preserve manual override statuses
   const manualOverrides = ["Cancelled", "Rescheduled", "No Show"];
