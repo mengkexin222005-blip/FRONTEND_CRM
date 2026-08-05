@@ -267,7 +267,12 @@ export default function ClientView({
       <AssignAgentModal
         open={open && reassignModalOpen && Boolean(client)}
         currentAssignee={client?.handlingOfficer}
-        users={users}
+        salesAgents={users.filter(
+          (user) =>
+            String(user.roleTemplate || user.role || "")
+              .trim()
+              .toLowerCase() === "sales agent",
+        )}
         title={
           hasOwner
             ? "Reassign Handling Officer"
