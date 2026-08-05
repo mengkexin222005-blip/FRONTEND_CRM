@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "2": "^3.0.0",
-    "@aivangogh/ph-address": "^2025.4.2",
+    "@aivangogh/ph-address": "^2025.4.4",
     "@hello-pangea/dnd": "^18.0.1",
     "axios": "^1.15.0",
     "chart.js": "^4.5.1",

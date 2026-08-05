@@ -21,15 +21,20 @@ export function useActivities(relatedToType, relatedToId) {
   const [loading, setLoading] = useState(false);
 
   const fetchActivities = useCallback(async () => {
-    if (!relatedToType || !relatedToId) return;
+    if (!relatedToType || !relatedToId) {
+      setActivities([]);
+      return;
+    }
+
     setLoading(true);
     try {
       const { data } = await api.get("/api/activities", {
         params: { relatedToType, relatedToId },
       });
-      setActivities(data);
+      setActivities(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error("Failed to fetch activities:", error);
+      console.warn("Failed to fetch activities:", error);
+      setActivities([]);
     } finally {
       setLoading(false);
     }

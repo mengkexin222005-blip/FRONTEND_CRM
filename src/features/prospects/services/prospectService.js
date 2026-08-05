@@ -12,7 +12,7 @@ const prospectService = {
   },
 
   updateProspect: async (id, payload) => {
-    const { data } = await api.put(`/api/prospects/${id}`, payload);
+    const { data } = await api.patch(`/api/prospects/${id}`, payload);
     return data;
   },
 
