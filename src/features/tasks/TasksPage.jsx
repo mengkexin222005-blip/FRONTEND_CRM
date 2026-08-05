@@ -25,6 +25,7 @@ import { useUsers } from "../users/hooks/useUsers";
 import { useLeads } from "../leads/hooks/useLeads";
 import { useClients } from "../clients/hooks/useClients";
 import { useQuotations } from "../quotations/hooks/useQuotations";
+import { canViewTask } from "./utils/taskPermissions";
 
 import TaskKanban from "./TaskKanban";
 import TaskTable from "./TaskTable";
@@ -217,11 +218,14 @@ export default function TasksPage() {
   }, [tasks]);
 
   const filteredTasks = useMemo(() => {
-    return tasks.filter(matchesTaskFilters).map((task) => ({
-      ...task,
-      status: normalizeTaskStatus(task),
-    }));
-  }, [tasks, matchesTaskFilters]);
+    return tasks
+      .filter((task) => canViewTask(task, currentUser))
+      .filter(matchesTaskFilters)
+      .map((task) => ({
+        ...task,
+        status: normalizeTaskStatus(task),
+      }));
+  }, [tasks, currentUser, matchesTaskFilters]);
 
   const filteredColumns = useMemo(() => {
     return TASK_STATUSES.reduce((grouped, status) => {
