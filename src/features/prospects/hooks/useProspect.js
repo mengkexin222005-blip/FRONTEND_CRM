@@ -135,29 +135,24 @@ export default function useProspect() {
 
   const editProspect = async (id, payload) => {
     try {
-      const data = await prospectService.updateProspect(id, payload);
-      const updatedProspect = data?.prospect || data;
-
-      setAllProspects((prev) =>
-        prev.map((prospect) =>
-          prospect._id === id ? updatedProspect : prospect
-        )
-      );
-
+      await prospectService.updateProspect(id, payload);
+  
+      await fetchProspects();
+  
       Toast.fire({
         icon: "success",
         title: "Prospect updated successfully",
       });
-
+  
       return true;
     } catch (error) {
       console.error("Error updating prospect:", error);
-
+  
       Toast.fire({
         icon: "error",
         title: getErrorMessage(error, "Failed to update prospect"),
       });
-
+  
       return false;
     }
   };

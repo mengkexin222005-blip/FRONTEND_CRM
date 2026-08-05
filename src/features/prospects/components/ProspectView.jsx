@@ -34,53 +34,81 @@ export default function ProspectView({
   onConvert,
 }) {
   const [activeTab, setActiveTab] = useState("Overview");
-  const { activities, loading: activitiesLoading } = useActivities(
+
+  // NOTE: If your backend registers activities under "Lead" or "prospect" instead of "Prospect", 
+  // change "Prospect" below to match your backend model name.
+  const { activities, loading: activitiesLoading, refetch } = useActivities(
     open && prospect ? "Prospect" : null,
     prospect?._id,
   );
 
+  // Reset tab when closing drawer
   useEffect(() => {
     if (!open) {
       setActiveTab("Overview");
     }
   }, [open]);
 
-  const representative = prospect?.representativeName ?? {};
-  const owner = prospect?.ownerName ?? {};
+  // Auto-refetch activities whenever prospect data updates or tab switches to Activity
+  useEffect(() => {
+    if (open && prospect?._id && activeTab === "Activity") {
+      refetch();
+    }
+  }, [open, prospect, activeTab, refetch]);
 
-  // Normalize address reading across both nested object and root-level fields
+  const representative = prospect?.representativeName || {};
+  const owner = prospect?.ownerName || {};
+
   const addr = useMemo(() => {
-    const rawAddr = prospect?.businessAddress || prospect?.address || {};
+    const a = prospect?.address || {};
+    const ba = prospect?.businessAddress || {};
+
     return {
-      houseNumber: rawAddr.houseNumber || prospect?.houseNumber || "",
-      street: rawAddr.streetAddress || rawAddr.street || prospect?.street || prospect?.streetAddress || "",
-      barangay: rawAddr.barangay || prospect?.barangay || "",
-      city: rawAddr.city || rawAddr.municipality || prospect?.city || prospect?.municipality || "",
-      province: rawAddr.province || prospect?.province || "",
-      country: rawAddr.country || prospect?.country || "",
-      zipCode: rawAddr.zipCode || prospect?.zipCode || "",
+      houseNumber: a.houseNumber || ba.houseNumber || prospect?.houseNumber || "",
+      street: a.street || ba.streetAddress || prospect?.street || "",
+      barangay: a.barangay || prospect?.barangay || "",
+      city: a.municipality || ba.city || prospect?.city || prospect?.municipality || "",
+      province: a.province || ba.province || prospect?.province || "",
+      country: a.country || ba.country || prospect?.country || "Philippines",
+      zipCode: a.zipCode || prospect?.zipCode || "",
     };
   }, [prospect]);
 
   const repFullName = useMemo(() => {
     return [
-      representative.firstName || prospect?.firstName,
-      representative.middleInitial || representative.middleName || prospect?.middleName,
-      representative.lastName || prospect?.lastName,
+      representative?.firstName || prospect?.firstName,
+      representative?.middleInitial || representative?.middleName || prospect?.middleName,
+      representative?.lastName || prospect?.lastName,
     ]
       .filter(Boolean)
       .join(" ");
-  }, [prospect?.firstName, prospect?.lastName, prospect?.middleName, representative.firstName, representative.middleInitial, representative.middleName, representative.lastName]);
+  }, [
+    prospect?.firstName,
+    prospect?.lastName,
+    prospect?.middleName,
+    representative?.firstName,
+    representative?.middleInitial,
+    representative?.middleName,
+    representative?.lastName,
+  ]);
 
   const ownerFullName = useMemo(() => {
     return [
-      owner.firstName || prospect?.ownerFirstName,
-      owner.middleInitial || owner.middleName || prospect?.ownerMiddleName,
-      owner.lastName || prospect?.ownerLastName,
+      owner?.firstName || prospect?.ownerFirstName,
+      owner?.middleInitial || owner?.middleName || prospect?.ownerMiddleName,
+      owner?.lastName || prospect?.ownerLastName,
     ]
       .filter(Boolean)
       .join(" ");
-  }, [owner.firstName, owner.middleInitial, owner.middleName, owner.lastName, prospect?.ownerFirstName, prospect?.ownerMiddleName, prospect?.ownerLastName]);
+  }, [
+    owner?.firstName,
+    owner?.middleInitial,
+    owner?.middleName,
+    owner?.lastName,
+    prospect?.ownerFirstName,
+    prospect?.ownerMiddleName,
+    prospect?.ownerLastName,
+  ]);
 
   const hasRepresentative = Boolean(repFullName);
   const hasOwner = Boolean(ownerFullName);
@@ -97,7 +125,6 @@ export default function ProspectView({
     );
   }, [prospect?.status]);
 
-  // Safely extract handling officer object or details
   const handlingOfficerUser = useMemo(() => {
     if (!prospect?.handlingOfficer) return null;
     if (typeof prospect.handlingOfficer === "object") {
@@ -115,7 +142,6 @@ export default function ProspectView({
     <ViewDrawer open={open} onClose={onClose}>
       {prospect && (
         <div className="flex flex-col h-full max-h-screen overflow-hidden bg-white">
-          {/* Header Section (Fixed at top) */}
           <div className="shrink-0 px-6 pt-4 pb-0 bg-white border-b border-gray-100 z-10">
             <div className="flex justify-between items-center gap-2 mb-3">
               <button
@@ -180,7 +206,6 @@ export default function ProspectView({
             />
           </div>
 
-          {/* Scrollable Content Body */}
           <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6 min-h-0">
             {activeTab === "Overview" && (
               <>
@@ -219,8 +244,7 @@ export default function ProspectView({
 
                 <SectionBlock title="Company Information">
                   <Field label="Company" value={prospect?.companyName} />
-                  
-                  {/* Email with text wrapping prevention */}
+
                   <div className="min-w-0">
                     <Field
                       label="Company Email"
@@ -234,7 +258,6 @@ export default function ProspectView({
                     />
                   </div>
 
-                  {/* Website with text wrapping prevention */}
                   <div className="min-w-0">
                     <Field
                       label="Website"
@@ -334,7 +357,7 @@ export default function ProspectView({
                 </SectionBlock>
               </>
             )}
-y
+
             {activeTab === "Activity" && (
               <ActivityTimeline
                 activities={activities}
