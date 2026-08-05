@@ -41,6 +41,13 @@ const STATUS_COLORS = {
   Missed: "amber",
 };
 
+const STATUS_TEXT_COLORS = {
+  Scheduled: "text-sky-600",
+  Completed: "text-emerald-600",
+  Cancelled: "text-red-600",
+  Missed: "text-orange-600",
+};
+
 const formatTimeString = (timeStr) => {
   if (!timeStr) return "—";
   try {
@@ -308,7 +315,11 @@ export default function CallsModal({
                   Scheduled Date
                 </p>
               </div>
-              <p className={`text-sm ${scheduleColorClass}`}>
+              <p
+                className={`text-sm font-medium ${
+                  STATUS_TEXT_COLORS[c.status || "Scheduled"] || "text-sky-600"
+                }`}
+              >
                 {safeFormatDate(c.scheduledAt)}
               </p>
             </div>
@@ -320,7 +331,11 @@ export default function CallsModal({
                   Scheduled Time
                 </p>
               </div>
-              <p className={`text-sm ${scheduleColorClass}`}>
+              <p
+                className={`text-sm font-medium ${
+                  STATUS_TEXT_COLORS[c.status || "Scheduled"] || "text-sky-600"
+                }`}
+              >
                 {formatTimeString(c.scheduledAt)}
               </p>
             </div>
