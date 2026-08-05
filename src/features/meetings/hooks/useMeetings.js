@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect } from "react";
 import api from '../../../services/api';
 import Swal from 'sweetalert2';
-import { getAutoMeetingStatus } from '../utils/meetingUtils';
+import { canViewMeeting, getAutoMeetingStatus } from '../utils/meetingUtils';
 import { useSocketContext } from '../../../context/SocketContext';
 import { SOCKET_EVENTS } from '../../../constants/socketEvents';
+import { useAuth } from '../../../context/AuthContext';
 
 const normalizeMeetingStatus = (value) => {
   const status = String(value || '').trim().toLowerCase();
@@ -72,8 +73,13 @@ const mapMeeting = (meeting) => {
     organizer: meeting.host || meeting.organizer || "",
     host: meeting.host || meeting.organizer || "",
     createdBy: meeting.createdBy || meeting.creator || meeting.userId || null,
+    creator: meeting.creator || null,
+    userId: meeting.userId || null,
     notes: meeting.notes || "",
     participants: meeting.participants || [],
+    participantIds: meeting.participantIds || [],
+    assignedTo: meeting.assignedTo || [],
+    attendees: meeting.attendees || [],
     color: getMeetingColor(meeting.meetingType || meeting.type),
   };
 };
@@ -85,6 +91,7 @@ const initialFilters = {
 };
 
 export function useMeetings() {
+  const { user: currentUser } = useAuth();
   const [allMeetings, setAllMeetings] = useState([]);
   const [selectedMeeting, setSelectedMeeting] = useState(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -173,6 +180,8 @@ export function useMeetings() {
     const query = (searchQuery || '').toLowerCase().trim();
 
     return (allMeetings || []).filter((meeting) => {
+      if (!canViewMeeting(meeting, currentUser)) return false;
+
       const currentStatus = meeting.status || meeting.meetingStatus || getAutoMeetingStatus(meeting);
       const normalizedStatus = normalizeMeetingStatus(currentStatus);
 
@@ -188,7 +197,7 @@ export function useMeetings() {
 
       return matchesSearch && matchesDate && matchesType && matchesStatus;
     });
-  }, [allMeetings, searchQuery, filters]);
+  }, [allMeetings, currentUser, searchQuery, filters]);
 
   const resetFilters = () => setFilters(initialFilters);
 
