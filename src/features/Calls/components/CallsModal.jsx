@@ -218,7 +218,7 @@ export default function CallsModal({
 
           <div className="flex items-center gap-3 mb-4 flex-wrap">
             <span className="text-sm font-medium text-gray-700">Activity</span>
-            <BaseBadge tone={STATUS_COLORS[c.status || "Scheduled"] || "sky"} shape="pill">
+            <BaseBadge tone={STATUS_COLORS[c.status || "Scheduled"] || "blue"} shape="pill">
               {c.status || "Scheduled"}
             </BaseBadge>
           </div>

@@ -14,6 +14,8 @@ export default function Badge({
     amber: "bg-amber-50 text-amber-700 border-amber-300",
     yellow: "bg-yellow-50 text-yellow-700 border-yellow-300",
     blue: "bg-blue-50 text-blue-600 border-blue-400",
+    sky: "bg-sky-50 text-sky-700 border-sky-300",
+    cyan: "bg-cyan-50 text-cyan-700 border-cyan-300",
     purple: "bg-purple-50 text-purple-700 border-purple-300",
     teal: "bg-teal-50 text-teal-700 border-teal-300",
     orange: "bg-orange-50 text-orange-700 border-orange-300",
