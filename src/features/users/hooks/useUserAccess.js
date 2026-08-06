@@ -3,8 +3,18 @@ import api from "../../../services/api"; // Gamit ang working axios api instance
 import Swal from "sweetalert2";
 
 const ALL_ACCESS = [
-  "Dashboard", "Leads", "Clients", "Quotations", "Tasks",
-  "Meetings", "Calls", "Settings", "Reports", "Prospects",
+  "Dashboard",
+  "Leads",
+  "Clients",
+  "Quotations",
+  "Tasks",
+  "Meetings",
+  "Calls",
+  "Settings",
+  "Reports",
+  "Prospects",
+  "Messages", // ADDED
+  "Support",  // ADDED
 ];
 
 // 🌟 Dito natin itinakda ang eksaktong specifications mo para sa defaults ng bawat role
@@ -12,19 +22,44 @@ const ROLE_ACCESS = {
   Admin: ALL_ACCESS,
   "Super Admin": ALL_ACCESS,
   "Sales Manager": [
-    "Dashboard", "Leads", "Clients", "Quotations", "Tasks",
-    "Meetings", "Calls", "Settings", "Reports", "Prospects",
+    "Dashboard",
+    "Leads",
+    "Clients",
+    "Quotations",
+    "Tasks",
+    "Meetings",
+    "Calls",
+    "Settings",
+    "Reports",
+    "Prospects",
+    "Messages", // ADDED
+    "Support",  // ADDED
   ],
   "Sales Agent": [
-    "Dashboard", "Leads", "Clients", "Quotations", "Tasks", "Meetings", "Calls",
+    "Dashboard",
+    "Leads",
+    "Clients",
+    "Quotations",
+    "Tasks",
+    "Meetings",
+    "Calls",
+    "Messages", // ADDED
   ],
-  "Support Staff": ["Dashboard", "Clients", "Tasks", "Meetings", "Calls"],
+  "Support Staff": [
+    "Dashboard",
+    "Clients",
+    "Tasks",
+    "Meetings",
+    "Calls",
+    "Messages", // ADDED
+    "Support",  // ADDED
+  ],
 };
 
 export default function useUserAccess() {
   const [users, setUsers] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState("");
-  const [selectedUser, setSelectedUserData] = useState(null); 
+  const [selectedUser, setSelectedUserData] = useState(null);
   const [roleTemplate, setRoleTemplateState] = useState("");
   const [access, setAccess] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -33,9 +68,10 @@ export default function useUserAccess() {
   useEffect(() => {
     const fetchDropdownUsers = async () => {
       try {
-        // Ginamit ang main /api/users para sigurado at iwas sa 401 routes
         const response = await api.get("/api/users");
-        const fetchedUsers = Array.isArray(response.data) ? response.data : response.data?.users || [];
+        const fetchedUsers = Array.isArray(response.data)
+          ? response.data
+          : response.data?.users || [];
         setUsers(fetchedUsers);
       } catch (error) {
         console.error("Failed to load user list for dropdown selection:", error);
@@ -45,13 +81,13 @@ export default function useUserAccess() {
   }, []);
 
   const selectedAccess = useMemo(
-    () => ALL_ACCESS.filter(item => access.includes(item)),
-    [access],
+    () => ALL_ACCESS.filter((item) => access.includes(item)),
+    [access]
   );
 
   const unselectedAccess = useMemo(
-    () => ALL_ACCESS.filter(item => !access.includes(item)),
-    [access],
+    () => ALL_ACCESS.filter((item) => !access.includes(item)),
+    [access]
   );
 
   // 🌟 Pagpili ng user sa dropdown: Automatic layout configuration base sa role at db custom updates
@@ -71,13 +107,12 @@ export default function useUserAccess() {
       const data = response.data;
 
       setSelectedUserData(data);
-      
+
       // Kunin ang kasalukuyang role ng napiling user sa db
       const currentRole = data.role || "";
       setRoleTemplateState(currentRole);
 
       // Kung may naka-save nang specific accessModules sa database para sa user na ito, gamitin yun.
-      // Kung wala pa, ibigay ang standard default ng role niya base sa requirements mo.
       if (data.accessModules && data.accessModules.length > 0) {
         setAccess(data.accessModules.filter((item) => item !== "Teams"));
       } else if (currentRole && ROLE_ACCESS[currentRole]) {
@@ -102,10 +137,10 @@ export default function useUserAccess() {
 
   // 🌟 Kapag nagki-click o nagbabawas ang Admin ng custom privileges sa screen
   const toggleAccess = (item) => {
-    setAccess(previous =>
+    setAccess((previous) =>
       previous.includes(item)
-        ? previous.filter(accessItem => accessItem !== item)
-        : [...previous, item],
+        ? previous.filter((accessItem) => accessItem !== item)
+        : [...previous, item]
     );
   };
 
@@ -118,7 +153,7 @@ export default function useUserAccess() {
   const saveAccess = async () => {
     if (!selectedUserId) return false;
     setSaving(true);
-    
+
     try {
       const payload = {
         role: roleTemplate,
@@ -128,7 +163,7 @@ export default function useUserAccess() {
       // Use the dedicated access update endpoint so the backend saves accessModules correctly
       await api.patch(`/api/users/${selectedUserId}/access`, payload);
 
-      // Refresh the selected user data from the backend so role and accessModules are persisted correctly
+      // Refresh the selected user data from the backend
       await setSelectedUser(selectedUserId);
 
       await Swal.fire({
@@ -146,7 +181,9 @@ export default function useUserAccess() {
       Swal.fire({
         icon: "error",
         title: "Save Operation Failed",
-        text: error.response?.data?.error || "Unable to save module permission variations.",
+        text:
+          error.response?.data?.error ||
+          "Unable to save module permission variations.",
       });
       return false;
     } finally {
