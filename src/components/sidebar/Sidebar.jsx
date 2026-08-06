@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { ChevronRight, ChevronDown, Folder } from "lucide-react";
 import logo from "../../assets/intellicrm_logo.svg";
 import logoOnly from "../../assets/i7logo.svg";
@@ -30,18 +30,19 @@ const isDashboardItem = (item) => item.key === "dashboard";
 const isReportsItem = (item) => item.key === "reports";
 const isSettingsItem = (item) => item.key === "settings";
 
-// Robust evaluation for plural, singular, keys, or URL segments
 const isCommunicationItem = (item) =>
   item.key === "communications" ||
   item.key === "communication" ||
   Boolean(item.to?.includes("/communication")) ||
   Boolean(item.to?.includes("/communications"));
 
-const isSupportItem = (item) => item.key === "support" || Boolean(item.to?.includes("/support"));
+const isSupportItem = (item) =>
+  item.key === "support" || Boolean(item.to?.includes("/support"));
 
 const isModuleItem = (item) => {
+  if (item.category === "module" || item.isModule) return true;
   if (!item.to) return false;
-  return MODULE_PAGES.some((page) => item.to.includes(`/${page}`));
+  return MODULE_PAGES.some((page) => item.to.toLowerCase().includes(`/${page}`));
 };
 
 export default function Sidebar() {
@@ -52,14 +53,14 @@ export default function Sidebar() {
   const [moduleOpen, setModuleOpen] = useState(false);
 
   const baseRoute = ROLE_ROUTES[user?.role] || "";
-  // const settingsPath = `${baseRoute}/users`;
 
-  // Filter and memoize nav list
-  const navItems = useMemo(
-    () => filterNavItems(getNavLinks(user?.role), user),
-    [user]
-  );
-  // Group items to manage strict layout sequence
+  // 1. Filter navigation items according to user permissions
+  const navItems = useMemo(() => {
+    const rawLinks = getNavLinks(user?.role);
+    return filterNavItems(rawLinks, user);
+  }, [user]);
+
+  // 2. Separate filtered links into functional groups
   const dashboardItems = useMemo(() => navItems.filter(isDashboardItem), [navItems]);
   const moduleItems = useMemo(() => navItems.filter(isModuleItem), [navItems]);
   const reportsItems = useMemo(() => navItems.filter(isReportsItem), [navItems]);
@@ -69,9 +70,11 @@ export default function Sidebar() {
 
   const shouldShowSettings = Boolean(baseRoute) && hasPermission(user, "Settings");
 
+  // Auto-expand module dropdown if the current location matches an active module
   useEffect(() => {
-    const insideModule = MODULE_PAGES.some((page) => location.pathname.includes(`/${page}`));
-    if (insideModule && moduleItems.length) {
+    const currentPath = location.pathname.toLowerCase();
+    const insideModule = MODULE_PAGES.some((page) => currentPath.includes(`/${page}`));
+    if (insideModule && moduleItems.length > 0) {
       setModuleOpen(true);
     }
   }, [location.pathname, moduleItems.length]);
@@ -103,85 +106,90 @@ export default function Sidebar() {
         </button>
       </div>
 
-      {/* Navigation List rendered sequentially */}
+      {/* Navigation List */}
       <nav className="flex-1 space-y-2 overflow-y-auto p-4">
         {/* Dashboard */}
         {dashboardItems.map((item) => (
-          <SidebarItem key={item.to} item={item} isCollapsed={isCollapsed} />
+          <SidebarItem key={item.to || item.key} item={item} isCollapsed={isCollapsed} />
         ))}
 
-        {/* Module Group Dropdown */}
+        {/* Module Section Handling */}
         {moduleItems.length > 0 && (
           <>
-            <button
-              type="button"
-              onClick={() => {
-                if (isCollapsed) {
-                  setIsCollapsed(false);
-                  setModuleOpen(true);
-                  return;
-                }
-                setModuleOpen((prev) => !prev);
-              }}
-              className={`group flex w-full items-center rounded-md py-3 transition-colors ${
-                isCollapsed ? "justify-center" : "justify-between px-4"
-              } ${
-                moduleOpen
-                  ? "bg-red-50 text-red-600 font-medium"
-                  : "text-gray-800 hover:bg-red-50 hover:text-red-600"
-              }`}
-            >
-              <div className="flex items-center gap-4">
-              <Folder
-                size={20}
-                strokeWidth={moduleOpen ? 2.5 : 1.5}
-                className={`shrink-0 transition-colors ${
-                  moduleOpen ? "text-red-600" : "group-hover:text-red-600"
-                }`}
-              />
-                {!isCollapsed && (
-                  <span className="text-base">
-                    Module
-                  </span>
-                )}
-              </div>
+            {/* Case A: Only 1 module item accessible - Render as direct link without folder wrapper */}
+            {moduleItems.length === 1 ? (
+              <SidebarItem item={moduleItems[0]} isCollapsed={isCollapsed} />
+            ) : (
+              /* Case B: Multiple module items accessible - Render as dropdown group */
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isCollapsed) {
+                      setIsCollapsed(false);
+                      setModuleOpen(true);
+                      return;
+                    }
+                    setModuleOpen((prev) => !prev);
+                  }}
+                  className={`group flex w-full items-center rounded-md py-3 transition-colors ${
+                    isCollapsed ? "justify-center" : "justify-between px-4"
+                  } ${
+                    moduleOpen
+                      ? "bg-red-50 text-red-600 font-medium"
+                      : "text-gray-800 hover:bg-red-50 hover:text-red-600"
+                  }`}
+                >
+                  <div className="flex items-center gap-4">
+                    <Folder
+                      size={20}
+                      strokeWidth={moduleOpen ? 2.5 : 1.5}
+                      className={`shrink-0 transition-colors ${
+                        moduleOpen ? "text-red-600" : "group-hover:text-red-600"
+                      }`}
+                    />
+                    {!isCollapsed && <span className="text-base">Modules</span>}
+                  </div>
 
-              {!isCollapsed && (
-                moduleOpen
-                  ? <ChevronDown size={18} className="text-red-600" />
-                  : <ChevronRight size={18} className="group-hover:text-red-600" />
-              )}
-            </button>
+                  {!isCollapsed &&
+                    (moduleOpen ? (
+                      <ChevronDown size={18} className="text-red-600" />
+                    ) : (
+                      <ChevronRight size={18} className="group-hover:text-red-600" />
+                    ))}
+                </button>
 
-            {moduleOpen &&
-              moduleItems.map((item) => (
-                <div key={item.to} className={isCollapsed ? "" : "ml-6"}>
-                  <SidebarItem item={item} isCollapsed={isCollapsed} />
-                </div>
-              ))}
+                {moduleOpen &&
+                  moduleItems.map((item) => (
+                    <div key={item.to || item.key} className={isCollapsed ? "" : "ml-6"}>
+                      <SidebarItem item={item} isCollapsed={isCollapsed} />
+                    </div>
+                  ))}
+              </>
+            )}
           </>
         )}
 
         {/* Reports */}
         {reportsItems.map((item) => (
-          <SidebarItem key={item.to} item={item} isCollapsed={isCollapsed} />
+          <SidebarItem key={item.to || item.key} item={item} isCollapsed={isCollapsed} />
         ))}
 
         {/* Communication */}
         {communicationItems.map((item) => (
-          <SidebarItem key={item.to} item={item} isCollapsed={isCollapsed} />
+          <SidebarItem key={item.to || item.key} item={item} isCollapsed={isCollapsed} />
         ))}
 
         {/* Support */}
         {supportItems.map((item) => (
-          <SidebarItem key={item.to} item={item} isCollapsed={isCollapsed} />
+          <SidebarItem key={item.to || item.key} item={item} isCollapsed={isCollapsed} />
         ))}
 
         {/* Settings */}
         {shouldShowSettings &&
           settingsItems.map((item) => (
             <SidebarItem
-              key={item.to}
+              key={item.to || item.key}
               item={item}
               isCollapsed={isCollapsed}
             />
