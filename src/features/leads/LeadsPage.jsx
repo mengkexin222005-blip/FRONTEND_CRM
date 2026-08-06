@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useCallback } from "react";
-import { FaPlus } from "react-icons/fa";
+import { FaPlus, FaLock } from "react-icons/fa";
 import Swal from "sweetalert2";
 import Select from "react-select";
 
@@ -45,8 +45,9 @@ const Toast = Swal.mixin({
 export default function LeadsPage() {
   const permissions = usePermissions("leads");
 
+  // Skip user fetching if the logged-in user cannot assign or lacks feature access
   const { users = [] } = useUsers({
-    skip: !permissions.canAssign,
+    skip: !permissions.hasAccess || !permissions.canAssign,
     mode: "assignable",
     resource: "lead",
   });
@@ -94,7 +95,6 @@ export default function LeadsPage() {
   const closeTimerRef = useRef(null);
 
   const [confirmAction, setConfirmAction] = useState(null);
-  // { type: "lost", lead, destinationIndex }
   const [confirmSubmitting, setConfirmSubmitting] = useState(false);
 
   const [previewColumns, setPreviewColumns] = useState(null);
@@ -477,12 +477,31 @@ export default function LeadsPage() {
     return Boolean(updated);
   };
 
+  // Guard: If the user lacks permissions/access for the "Leads" module
+  if (permissions.hasAccess === false) {
+    return (
+      <PageBase>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-6">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center text-red-500 mb-4">
+            <FaLock size={28} />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-2">
+            Access Restricted
+          </h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md mb-6">
+            You do not have permission to access the Leads module. Please contact your system administrator to request access.
+          </p>
+        </div>
+      </PageBase>
+    );
+  }
+
   return (
     <PageBase>
       <div className="flex items-center justify-between mb-4">
         <PageHeader
           title="Leads"
-          subtitle={ "Track and manage your assigned leads across different stages"}
+          subtitle="Track and manage your assigned leads across different stages"
         />
 
         <PageToolbar
