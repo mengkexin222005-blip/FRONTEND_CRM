@@ -23,24 +23,46 @@ const normalize = (value) => {
   return str.endsWith("s") && str !== "status" ? str.slice(0, -1) : str;
 };
 
-const getSavedPermissions = (user) =>
-  Array.isArray(user?.permissions)
+// Merges and extracts permission items from either permissions or accessModules array
+const getSavedPermissions = (user) => {
+  const rawList = Array.isArray(user?.permissions) && user.permissions.length > 0
     ? user.permissions
-        .map((permission) => String(permission || "").trim())
-        .filter(Boolean)
+    : Array.isArray(user?.accessModules)
+    ? user.accessModules
     : [];
+
+  return rawList
+    .map((permission) => String(permission || "").trim())
+    .filter(Boolean);
+};
 
 export const hasPermission = (user, permission) => {
   if (!user || !permission) return false;
 
-  // Users without customized access keep the normal navigation supplied by their role.
-  if (user.permissionsCustomized !== true) {
+  // Super Admin & Admin bypass all restrictions
+  if (user.role === "Super Admin" || user.role === "Admin") {
     return true;
   }
 
-  // Customized users only receive permissions that were explicitly selected in Edit Access.
+  // Dashboard is universally accessible to authenticated users
+  if (normalize(permission) === "dashboard") {
+    return true;
+  }
+
+  // If permissions are not explicitly customized or provided, default to role-based access
+  const hasCustomFlags =
+    user.permissionsCustomized === true ||
+    (Array.isArray(user.accessModules) && user.accessModules.length > 0) ||
+    (Array.isArray(user.permissions) && user.permissions.length > 0);
+
+  if (!hasCustomFlags) {
+    return true;
+  }
+
+  // Check saved permission array against normalized target permission
+  const normTarget = normalize(permission);
   return getSavedPermissions(user).some(
-    (savedPermission) => normalize(savedPermission) === normalize(permission)
+    (savedPermission) => normalize(savedPermission) === normTarget
   );
 };
 
@@ -94,7 +116,7 @@ export const filterNavItems = (items, user) => {
       return true;
     }
 
-    // Fallback chain to verify permission definitions against user clearances
+    // Check item.permission, item.label, and item.key against hasPermission
     return (
       hasPermission(user, item.permission) ||
       hasPermission(user, item.label) ||
@@ -111,6 +133,6 @@ export const filterNavItems = (items, user) => {
           candidate.to === item.to
       )
   );
-  
+
   return removeEmptyGroups(uniqueItems);
 };
