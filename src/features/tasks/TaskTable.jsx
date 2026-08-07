@@ -2,7 +2,6 @@ import {
   Pencil,
   User,
   Calendar,
-  Clock,
   ExternalLink,
   Paperclip,
 } from "lucide-react";
@@ -42,8 +41,8 @@ const TASK_STATUS_TONE = {
 };
 
 const TASK_PRIORITY_TONE = {
-  Low: "blue",
-  Medium: "yellow",
+  Low: "gray",
+  Medium: "amber",
   High: "red",
 };
 
@@ -82,41 +81,47 @@ const parseSingleAttachment = (rawAtt) => {
 };
 
 const getTaskLinkAndAttachments = (task) => {
-  let linkItem = null;
+  const linkItems = [];
   const attachmentList = [];
 
-  const rawLink = task?.link || task?.url || task?.externalLink;
-  
-  const customName = 
-    task?.linkName || 
-    task?.link_name || 
-    task?.urlName || 
-    task?.linkTitle || 
-    task?.metadata?.linkName || 
-    task?.linkMetadata?.name ||
-    (typeof task?.link === "object" ? task?.link?.name : null);
+  const addLink = (rawLink, customName = "") => {
+    if (!rawLink) return;
 
-  const trimmedCustomName = typeof customName === "string" ? customName.trim() : "";
-
-  if (rawLink) {
     if (typeof rawLink === "string" && rawLink.trim() !== "") {
       const formattedUrl = rawLink.startsWith("http") ? rawLink : `https://${rawLink}`;
-      const displayName = trimmedCustomName !== "" ? trimmedCustomName : rawLink;
-
-      linkItem = {
-        name: displayName,
-        url: formattedUrl,
-      };
+      if (!linkItems.some((item) => item.url === formattedUrl)) {
+        linkItems.push({ name: customName || rawLink, url: formattedUrl });
+      }
     } else if (typeof rawLink === "object") {
       const parsed = parseSingleAttachment(rawLink);
-      if (parsed) {
-        linkItem = { 
-          ...parsed, 
-          name: trimmedCustomName !== "" ? trimmedCustomName : (rawLink.url || rawLink.link || parsed.name) 
-        };
+      if (parsed && !linkItems.some((item) => item.url === parsed.url)) {
+        linkItems.push({ ...parsed, name: customName || parsed.name });
       }
     }
-  }
+  };
+
+  const rawLinks = typeof task?.links === "string"
+    ? (() => {
+        try {
+          return JSON.parse(task.links);
+        } catch {
+          return [];
+        }
+      })()
+    : task?.links;
+
+  (Array.isArray(rawLinks) ? rawLinks : []).forEach((link) => {
+    if (typeof link === "string") {
+      addLink(link);
+      return;
+    }
+    addLink(link?.url || link?.link || link?.href, link?.name || link?.title || "");
+  });
+
+  addLink(
+    task?.link || task?.url || task?.externalLink,
+    task?.linkName || task?.link_name || task?.urlName || task?.linkTitle || "",
+  );
 
   const rawAtts = task?.attachments || task?.files || task?.file || task?.documents || task?.docs || task?.documentFiles;
   if (rawAtts) {
@@ -126,7 +131,7 @@ const getTaskLinkAndAttachments = (task) => {
     });
   }
 
-  return { linkItem, attachmentList };
+  return { linkItems, attachmentList };
 };
 
 const normalizeTaskStatus = (status) => {
@@ -238,10 +243,11 @@ export default function TaskTable({
 
   return (
     <div className="flex flex-col h-[calc(100vh-210px)] justify-between">
-      <BaseTable 
+      <BaseTable
         columns={columns} 
         empty={paginatedItems.length === 0 ? "No tasks found." : null} 
         colSpan={columns.length}
+        tableClassName="table-fixed"
       >
         {paginatedItems.map((task) => {
           const taskStatus = normalizeTaskStatus(task.status);
@@ -251,14 +257,14 @@ export default function TaskTable({
           const responsiblePhoto = getProfileImage(responsible.user);
           const canEditCurrentTask = canFullyEditTask(task, currentUser, permissions);
           const editDisabledReason = getTaskEditDisabledReason(task, currentUser, permissions);
-          const { linkItem, attachmentList } = getTaskLinkAndAttachments(task);
-          const hasContent = linkItem || attachmentList.length > 0;
+          const { linkItems, attachmentList } = getTaskLinkAndAttachments(task);
+          const hasContent = linkItems.length > 0 || attachmentList.length > 0;
 
           return (
             <TableRow key={task._id} onClick={() => onView?.(task)}>
-              <TableCell className="max-w-72 !py-2">
-                <div className="min-w-0">
-                  <p className="font-medium truncate">
+              <TableCell className="w-[28%] !py-2 align-top">
+                <div className="min-w-0 break-words">
+                  <p className="font-medium whitespace-normal break-words">
                     {task.taskType && task.taskType !== "Other" ? `${task.taskType}: ` : ""}
                     {task.subject}
                   </p>
@@ -268,19 +274,20 @@ export default function TaskTable({
                 </div>
               </TableCell>
 
-              <TableCell className="!py-2">
+              <TableCell className="!py-2 align-top">
                 <div onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
                   <StatusDropdown
                     status={task.priority || "Medium"}
                     statuses={TASK_PRIORITIES}
                     toneMap={TASK_PRIORITY_TONE}
+                    badgeClassName="min-w-24 justify-center"
                     disabled={!canEdit}
                     onSelect={(val) => onUpdatePriority?.(task._id, val)}
                   />
                 </div>
               </TableCell>
 
-              <TableCell className="!py-2">
+              <TableCell className="!py-2 align-top">
                 <div className="flex items-center gap-2 whitespace-nowrap">
                   {responsible.user ? (
                     <img src={responsiblePhoto} alt="" className="w-7 h-7 rounded-full object-cover border border-gray-300 shrink-0" />
@@ -299,12 +306,12 @@ export default function TaskTable({
               <TableCell className="max-w-[180px] !py-2">
                 {hasContent ? (
                   <div className="flex flex-col gap-0.5 truncate" onClick={(e) => e.stopPropagation()}>
-                    {linkItem && (
-                      <a href={linkItem.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs flex items-center gap-1 truncate" title={linkItem.name}>
+                    {linkItems.map((linkItem, idx) => (
+                      <a key={`${linkItem.url}-${idx}`} href={linkItem.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs flex items-center gap-1 truncate" title={linkItem.name}>
                         <ExternalLink size={11} className="shrink-0" />
                         <span className="truncate">{linkItem.name}</span>
                       </a>
-                    )}
+                    ))}
                     {attachmentList.map((file, idx) => (
                       <a 
                         key={idx} 
@@ -332,12 +339,6 @@ export default function TaskTable({
                       <Calendar size={12} className="shrink-0" />
                       {formatDate(task.dueDate)}
                     </span>
-                    {task.dueTime && (
-                      <span className="flex items-center gap-1 text-xs text-gray-400 mt-0.5">
-                        <Clock size={11} className="shrink-0" />
-                        {task.dueTime}
-                      </span>
-                    )}
                   </div>
                 ) : (
                   <span className="text-sm text-gray-400">—</span>
@@ -350,6 +351,7 @@ export default function TaskTable({
                     status={taskStatus}
                     statuses={TASK_STATUSES}
                     toneMap={TASK_STATUS_TONE}
+                    badgeClassName="min-w-24 justify-center"
                     disabled={!canEdit}
                     onSelect={(val) => onUpdateStatus?.(task._id, val)}
                   />
