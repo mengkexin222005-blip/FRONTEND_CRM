@@ -43,7 +43,7 @@ const STATUS_STYLES = {
   "In Progress": { bg: "bg-blue-50", text: "text-blue-600", border: "border-blue-400", dot: "bg-blue-600" },
   Completed: { bg: "bg-green-50", text: "text-green-600", border: "border-green-400", dot: "bg-green-600" },
   Cancelled: { bg: "bg-red-50", text: "text-red-600", border: "border-red-400", dot: "bg-red-600" },
-  Rescheduled: { bg: "bg-purple-50", text: "text-purple-600", border: "border-purple-400", dot: "bg-purple-600" },
+  Rescheduled: { bg: "bg-[#6366F1]/10", text: "text-[#6366F1]", border: "border-[#6366F1]", dot: "bg-[#6366F1]" },
 };
 
 const clamp = (value, minimum, maximum) =>
@@ -51,25 +51,6 @@ const clamp = (value, minimum, maximum) =>
 
 const getMeetingTitle = (m) =>
   m?.title || m?.meetingTitle || m?.subject || m?.name || "Untitled Meeting";
-
-const getCreatorName = (m) => {
-  const directCreatorName =
-    m?.createdByName ||
-    m?.creatorName ||
-    m?.createdBy?.name ||
-    m?.creator?.name ||
-    m?.ownerName;
-
-  if (typeof directCreatorName === "string" && directCreatorName.trim()) {
-    return directCreatorName.trim();
-  }
-
-  const creatorRecord = m?.createdBy || m?.creator || m?.owner;
-  const creatorLabel = getObjectName(creatorRecord);
-  if (creatorLabel) return creatorLabel;
-
-  return "";
-};
 
 const getMeetingType = (m) =>
   m?.meetingType || m?.type || m?.category || m?.kind || "Meeting";
@@ -324,14 +305,15 @@ function ColorPillMeetingStatusDropdown({ currentStatus, onSelect, scale }) {
         ref={buttonRef}
         type="button"
         onClick={toggleDropdown}
-        className={`inline-flex items-center gap-1.5 rounded-full border ${currentStyle.border} ${currentStyle.bg} transition-all hover:opacity-80 focus:outline-none`}
+        className={`inline-flex items-center gap-1 rounded-md border ${currentStyle.border} ${currentStyle.bg} transition-all hover:opacity-80 focus:outline-none`}
         style={{
+          minWidth: `${clamp(94 * scale, 72, 94)}px`,
           padding: `${clamp(3 * scale, 2, 4)}px ${clamp(10 * scale, 6, 10)}px`,
         }}
       >
         <span className={`h-1.5 w-1.5 rounded-full ${currentStyle.dot}`} />
         <span
-          className={`font-normal uppercase tracking-wide ${currentStyle.text}`}
+          className={`font-medium ${currentStyle.text}`}
           style={{ fontSize: `${clamp(10 * scale, 7, 10)}px` }}
         >
           {currentStatus}
@@ -370,10 +352,10 @@ function ColorPillMeetingStatusDropdown({ currentStatus, onSelect, scale }) {
                     }`}
                   >
                     <span
-                      className={`inline-flex items-center gap-1.5 rounded-full border ${optStyle.border} ${optStyle.bg} px-2 py-0.5`}
+                      className={`inline-flex items-center gap-1 rounded-md border ${optStyle.border} ${optStyle.bg} px-2 py-0.5`}
                     >
                       <span className={`h-1.5 w-1.5 rounded-full ${optStyle.dot}`} />
-                      <span className={`text-[10px] font-normal uppercase tracking-wide ${optStyle.text}`}>
+                      <span className={`text-[10px] font-medium ${optStyle.text}`}>
                         {status}
                       </span>
                     </span>
@@ -591,7 +573,7 @@ export default function MyMeetingsTable({ meetings = [], hideFilter = false, onS
 
   const statusOptions = useMemo(() => {
     return [
-      { value: ALL_VALUES, label: "All Statuses" },
+      { value: ALL_VALUES, label: "All status" },
       ...MEETING_STATUS_OPTIONS.map((status) => ({ value: status, label: status })),
     ];
   }, []);
@@ -674,7 +656,7 @@ export default function MyMeetingsTable({ meetings = [], hideFilter = false, onS
         setAnimated(false);
         setLayout({
           cardWidth: Math.max(0, cardWidth),
-          cardHeight: clamp(225 * scale, 160, 235),
+          cardHeight: clamp(290 * scale, 225, 300),
           gap,
           scale,
         });
@@ -718,7 +700,7 @@ export default function MyMeetingsTable({ meetings = [], hideFilter = false, onS
     if (!carouselEnabled || !items.length || !layout.cardWidth || movingRef.current) return;
     movingRef.current = true;
     setAnimated(true);
-    setIndex((prev) => prev + direction);
+    setIndex((prev) => prev + direction * VISIBLE_CARDS);
   };
 
   const finishMove = () => {
@@ -860,9 +842,6 @@ export default function MyMeetingsTable({ meetings = [], hideFilter = false, onS
               {cards.map((meeting, itemIndex) => {
                 const meetingId = meeting?._id || meeting?.id;
                 const clientName = getClientName(meeting);
-                const creatorName = getCreatorName(meeting);
-                const creatorId = getUserIdFromValue(meeting?.createdBy || meeting?.creator || meeting?.owner);
-                const isCurrentUserCreator = Boolean(currentUserId && creatorId && String(creatorId) === String(currentUserId));
                 const meetingType = getMeetingType(meeting);
                 const meetingLink = getMeetingLink(meeting);
                 const meetingFiles = getMeetingFiles(meeting);
@@ -893,14 +872,6 @@ export default function MyMeetingsTable({ meetings = [], hideFilter = false, onS
                           {getMeetingTitle(meeting)}
                         </h3>
 
-                        {!isCurrentUserCreator && creatorName && (
-                          <div className="flex min-w-0 items-center text-black/50" style={{ gap: `${clamp(6 * scale, 3, 6)}px`, marginTop: `${clamp(6 * scale, 3, 6)}px`, fontSize: `${clientSize}px` }}>
-                            <UserRound size={smallIconSize} className="shrink-0 text-red-600" />
-                            <span className="truncate" title={`Created by: ${creatorName}`}>
-                              Created by {creatorName}
-                            </span>
-                          </div>
-                        )}
                       </div>
 
                       <div className="flex min-w-0 items-center text-black/50" style={{ gap: `${clamp(6 * scale, 3, 6)}px`, marginTop: `${clamp(6 * scale, 3, 6)}px`, fontSize: `${clientSize}px` }}>
@@ -908,7 +879,7 @@ export default function MyMeetingsTable({ meetings = [], hideFilter = false, onS
                         <span className="truncate" title={clientName}>{clientName}</span>
                       </div>
 
-                      <div className="mt-auto flex flex-col gap-1.5 min-w-0">
+                      <div className="mt-auto flex min-w-0 flex-col gap-1.5">
                         {/* MEETING LINK DISPLAY WITH ZOOM ICON */}
                         {meetingLink && (
                           <div className="min-w-0 flex flex-col">
@@ -918,11 +889,11 @@ export default function MyMeetingsTable({ meetings = [], hideFilter = false, onS
                                 target="_blank"
                                 rel="noreferrer"
                                 onClick={(e) => e.stopPropagation()}
-                                className="inline-flex max-w-full items-center gap-1.5 truncate rounded-lg border border-purple-500/20 bg-purple-500/[0.03] px-2.5 py-1 text-xs text-purple-600 hover:bg-purple-500/[0.08] transition"
+                                className="inline-flex max-w-full items-center gap-1.5 truncate rounded-lg border border-blue-500/20 bg-blue-500/[0.03] px-2.5 py-1 text-xs text-blue-600 transition hover:bg-blue-500/[0.08]"
                                 style={{ fontSize: `${clamp(11 * scale, 8, 11)}px` }}
                                 title={meetingLink}
                               >
-                                <ZoomIcon size={12} className="shrink-0 text-purple-600" />
+                                <ZoomIcon size={12} className="shrink-0 text-blue-600" />
                                 <span className="truncate">{meetingLink}</span>
                               </a>
                             ) : (
@@ -940,7 +911,7 @@ export default function MyMeetingsTable({ meetings = [], hideFilter = false, onS
 
                         {/* FILE ATTACHMENTS DISPLAY MATCHING TASKS */}
                         {meetingFiles.length > 0 && (
-                          <div className="flex flex-col gap-1 min-w-0">
+                          <div className="flex max-h-20 min-w-0 flex-col gap-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                             {meetingFiles.map((file, fileIdx) => {
                               const fileName = typeof file === "string" ? file.split("/").pop() || file : file?.name || "Attachment";
                               const fileUrl = typeof file === "string" ? file : file?.url || file?.link || "#";
@@ -951,7 +922,7 @@ export default function MyMeetingsTable({ meetings = [], hideFilter = false, onS
                                   target="_blank"
                                   rel="noreferrer"
                                   onClick={(e) => e.stopPropagation()}
-                                  className="inline-flex max-w-full items-center gap-1.5 truncate rounded-lg border border-black/10 bg-black/[0.02] px-2.5 py-1 text-xs text-black/70 hover:bg-black/[0.05] transition"
+                                  className="inline-flex max-w-full shrink-0 items-center gap-1.5 truncate rounded-lg border border-black/10 bg-black/[0.02] px-2.5 py-1 text-xs text-black/70 transition hover:bg-black/[0.05]"
                                   style={{ fontSize: `${clamp(11 * scale, 8, 11)}px` }}
                                   title={fileName}
                                 >
