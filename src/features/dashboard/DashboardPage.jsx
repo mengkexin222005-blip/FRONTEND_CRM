@@ -30,11 +30,9 @@ const NO_DATE = "__no_date__";
 const MEETING_STATUS_OPTIONS = [
   "Scheduled",
   "In Progress",
-  "Ongoing",
   "Rescheduled",
   "Completed",
   "Cancelled",
-  "No Show",
 ];
 
 const parseDate = (value) => {
@@ -542,7 +540,7 @@ export default function DashboardPage() {
   }, [localMeetings, currentUserId, isSuperAdmin]);
 
   const taskStatusOptions = [
-    { value: "all", label: "All Statuses" },
+    { value: "all", label: "All status" },
     { value: "Pending", label: "Pending" },
     { value: "Ongoing", label: "Ongoing" },
     { value: "Due Soon", label: "Due Soon" },
@@ -567,7 +565,7 @@ export default function DashboardPage() {
 
   const meetingStatusOptions = useMemo(() => {
     return [
-      { value: ALL_FILTERS, label: "All Statuses" },
+      { value: ALL_FILTERS, label: "All status" },
       ...MEETING_STATUS_OPTIONS.map((status) => ({ value: status, label: status })),
     ];
   }, []);
@@ -633,10 +631,10 @@ export default function DashboardPage() {
         <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto pb-5">
           
           <section className="w-full min-w-0 shrink-0">
-            <div className="mb-4 flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <div className="sticky top-0 z-20 mb-4 flex w-full min-w-0 flex-col gap-3 bg-white py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               <div className="flex min-w-0 items-center gap-2">
                 <h2 className="text-lg font-semibold text-gray-700">My Tasks</h2>
-                <span className="inline-flex h-6 min-w-8 shrink-0 items-center justify-center rounded-md border border-black/[0.07] bg-black/[0.04] px-3 text-xs font-medium text-black/45">
+                <span className="inline-flex h-6 min-w-8 shrink-0 items-center justify-center rounded-md bg-red-600 px-3 text-xs font-semibold text-white">
                   {filteredTasks.length}
                 </span>
               </div>
@@ -689,7 +687,7 @@ export default function DashboardPage() {
             <div className="mb-4 flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               <div className="flex min-w-0 items-center gap-2">
                 <h2 className="text-lg font-semibold text-gray-700">My Meetings</h2>
-                <span className="inline-flex h-6 min-w-8 shrink-0 items-center justify-center rounded-md border border-black/[0.07] bg-black/[0.04] px-3 text-xs font-medium text-black/45">
+                <span className="inline-flex h-6 min-w-8 shrink-0 items-center justify-center rounded-md bg-red-600 px-3 text-xs font-semibold text-white">
                   {filteredMeetings.length}
                 </span>
               </div>
