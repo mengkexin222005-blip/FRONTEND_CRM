@@ -25,18 +25,18 @@ const formatDate = (value) => {
 const getStatusBadge = (status = "Scheduled") => {
   switch (status) {
     case "Completed":
-      return { indicator: "🟢", bg: "bg-green-50 text-green-700 border-green-200" };
+      return { dot: "bg-green-600", bg: "bg-green-50 text-green-600 border-green-400" };
     case "In Progress":
-      return { indicator: "🔵", bg: "bg-blue-50 text-blue-700 border-blue-200" };
+      return { dot: "bg-blue-600", bg: "bg-blue-50 text-blue-600 border-blue-400" };
     case "Cancelled":
-      return { indicator: "🔴", bg: "bg-red-50 text-red-700 border-red-200" };
+      return { dot: "bg-red-600", bg: "bg-red-50 text-red-600 border-red-400" };
     case "Rescheduled":
-      return { indicator: "🟡", bg: "bg-yellow-50 text-yellow-700 border-yellow-200" };
+      return { dot: "bg-[#6366F1]", bg: "bg-[#6366F1]/10 text-[#6366F1] border-[#6366F1]" };
     case "No Show":
-      return { indicator: "⚪", bg: "bg-gray-100 text-gray-700 border-gray-200" };
+      return { dot: "bg-gray-500", bg: "bg-gray-100 text-gray-700 border-gray-300" };
     case "Scheduled":
     default:
-      return { indicator: "🟣", bg: "bg-purple-50 text-purple-700 border-purple-200" };
+      return { dot: "bg-orange-600", bg: "bg-orange-50 text-orange-600 border-orange-400" };
   }
 };
 
@@ -68,7 +68,7 @@ export default function MeetingDetails({
       label: "Status",
       value: (
         <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold ${statusBadge.bg}`}>
-          <span>{statusBadge.indicator}</span>
+          <span className={`h-1.5 w-1.5 rounded-full ${statusBadge.dot}`} />
           <span>{meeting.status || "Scheduled"}</span>
         </span>
       ),
@@ -110,12 +110,9 @@ export default function MeetingDetails({
 
   return (
     <div className="relative flex h-full min-h-0 flex-col rounded-md border border-gray-200 bg-white shadow-sm">
-      <div className="absolute top-2 right-3 z-10 rounded px-2 py-0.5 text-[10px] font-medium text-gray-400 select-none pointer-events-none">
-        Created by: {creatorLabel}
-      </div>
       {/* Header */}
       <div className="flex items-start justify-between border-b border-gray-100 px-3 py-2 shrink-0">
-        <div>
+        <div className="min-w-0 pr-2">
           <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[8px] font-semibold text-blue-600">
             {meeting.type || "Meeting"}
           </span>
@@ -123,6 +120,9 @@ export default function MeetingDetails({
           <h3 className="mt-1 text-[11px] font-semibold leading-4 text-gray-800">
             {meeting.title || "Untitled Meeting"}
           </h3>
+          <p className="mt-0.5 truncate text-[9px] font-medium text-gray-400">
+            {creatorLabel}
+          </p>
         </div>
 
         <button
@@ -134,7 +134,7 @@ export default function MeetingDetails({
       </div>
 
       {/* Scrollable Body */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2">
+      <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {/* Information */}
         <div className="overflow-hidden rounded-md border border-gray-100 bg-white">
           {details.map((item, index) => (

@@ -21,6 +21,7 @@ export const buildTaskPayload = (formData, options = {}) => {
     dueTime: getTaskFormValue(formData, "dueTime", formData?.dueTime || ""),
     link: getTaskFormValue(formData, "link", formData?.link || ""),
     linkName: getTaskFormValue(formData, "linkName", formData?.linkName || ""),
+    links: Array.isArray(formData?.links) ? formData.links : [],
     reminderAt: getTaskFormValue(formData, "reminderAt", formData?.reminderAt || null),
     repeat: getTaskFormValue(formData, "repeat", formData?.repeat || "None"),
     relatedToType: getTaskFormValue(formData, "relatedToType", formData?.relatedToType || null),

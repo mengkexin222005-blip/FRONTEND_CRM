@@ -5,12 +5,13 @@ export default function BaseTable({
   colSpan,
   minHeightClass = "min-h-[calc(100vh-300px)]",
   heightClass = "h-[450px]",
+  tableClassName = "",
 }) {
   return (
     <div
       className={`overflow-x-auto ${minHeightClass} ${heightClass} overflow-y-auto`}
     >
-      <table className="min-w-full divide-y divide-gray-200">
+      <table className={`min-w-full divide-y divide-gray-200 ${tableClassName}`}>
         <thead className="sticky top-0 z-10 bg-white text-left">
           <tr>
             {columns.map((col) => (

@@ -13,6 +13,7 @@ const EMPTY_FORM = {
   dueTime: "",
   link: "",
   linkName: "",
+  links: [],
   reminderAt: "",
   repeat: "None",
   assignedTo: "",
@@ -36,6 +37,22 @@ const getTaskAttachments = (task) => {
   return files ? [files] : [];
 };
 
+const getTaskLinks = (task) => {
+  const links = task?.links;
+
+  if (Array.isArray(links)) return links;
+  if (typeof links === "string") {
+    try {
+      const parsedLinks = JSON.parse(links);
+      return Array.isArray(parsedLinks) ? parsedLinks : [parsedLinks];
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
+};
+
 const mapTaskToForm = (task = {}) => ({
   subject: task.subject || "",
   description: task.description || "",
@@ -47,6 +64,11 @@ const mapTaskToForm = (task = {}) => ({
   dueTime: task.dueTime || task.time || "",
   link: task.link || "",
   linkName: task.linkName || task.link_name || "",
+  links: getTaskLinks(task).length
+    ? getTaskLinks(task).filter((link) => link?.url || link?.link)
+    : task.link
+      ? [{ name: task.linkName || task.link_name || "", url: task.link }]
+      : [],
   reminderAt: task.reminderAt || "",
   repeat: task.repeat || "None",
 
@@ -198,6 +220,31 @@ const mapTaskToForm = (task = {}) => ({
     }));
   }, []);
 
+  const handleAddLink = useCallback(() => {
+    setFormData((previous) => ({
+      ...previous,
+      links: [...(previous.links || []), { name: "", url: "" }],
+    }));
+  }, []);
+
+  const handleLinkChange = useCallback((index, field, value) => {
+    setFormData((previous) => ({
+      ...previous,
+      links: (previous.links || []).map((link, linkIndex) =>
+        linkIndex === index ? { ...link, [field]: value } : link,
+      ),
+    }));
+  }, []);
+
+  const handleRemoveLink = useCallback((index) => {
+    setFormData((previous) => ({
+      ...previous,
+      links: (previous.links || []).filter(
+        (_, linkIndex) => linkIndex !== index,
+      ),
+    }));
+  }, []);
+
   return {
     modalOpen,
     mode,
@@ -218,5 +265,8 @@ const mapTaskToForm = (task = {}) => ({
     handleSelectChange,
     handleFileChange,
     handleRemoveFile,
+    handleAddLink,
+    handleLinkChange,
+    handleRemoveLink,
   };
 }

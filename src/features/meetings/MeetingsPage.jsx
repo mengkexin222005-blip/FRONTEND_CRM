@@ -199,7 +199,7 @@ export default function MeetingsPage() {
       <div
         className={`grid flex-1 min-h-0 grid-cols-1 gap-4 ${
           selectedMeeting
-            ? "xl:grid-cols-[1fr_340px]"
+            ? "xl:grid-cols-[minmax(0,1fr)_minmax(280px,340px)]"
             : "xl:grid-cols-1"
         }`}
       >
@@ -288,7 +288,7 @@ export default function MeetingsPage() {
 
         {/* Details Pane Wrapper */}
         {selectedMeeting && (
-          <div className="flex flex-col min-h-0 h-full overflow-y-auto rounded-md border border-gray-200 bg-white">
+          <div className="flex min-h-0 h-full min-w-0 flex-col overflow-hidden rounded-md border border-gray-200 bg-white">
             <MeetingDetails
               meeting={selectedMeeting}
               onClose={() => setSelectedMeeting(null)}

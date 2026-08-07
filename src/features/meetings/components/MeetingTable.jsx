@@ -27,14 +27,16 @@ const MEETING_STATUSES = [
 ];
 
 const MEETING_STATUS_TONE = {
-  Scheduled: "blue",
-  "In Progress": "cyan",
-  Ongoing: "yellow",
-  Rescheduled: "purple",
+  Scheduled: "orange",
+  "In Progress": "blue",
+  Ongoing: "blue",
+  Rescheduled: "indigo",
   Completed: "green",
   Cancelled: "red",
   "No Show": "gray",
 };
+
+const isHttpUrl = (value) => /^https?:\/\//i.test(String(value || "").trim());
 
 const getHostDetails = (meeting) => {
   const host = meeting.host || meeting.organizer;
@@ -184,7 +186,22 @@ export default function MeetingTable({
               </TableCell>
 
               {/* LOCATION */}
-              <TableCell>{meeting.location || "—"}</TableCell>
+              <TableCell className="max-w-72">
+                {isHttpUrl(meeting.location) ? (
+                  <a
+                    href={meeting.location}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={(event) => event.stopPropagation()}
+                    className="block truncate text-blue-600 hover:underline"
+                    title={meeting.location}
+                  >
+                    {meeting.location}
+                  </a>
+                ) : (
+                  meeting.location || "—"
+                )}
+              </TableCell>
 
               {/* DATE & TIME */}
               <TableCell>

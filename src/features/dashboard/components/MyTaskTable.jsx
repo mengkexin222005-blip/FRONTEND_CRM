@@ -8,9 +8,7 @@ import {
 import { createPortal } from "react-dom";
 
 import {
-  CalendarDays,
   ChevronDown,
-  ChevronUp,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -43,7 +41,7 @@ const PRIORITY_ORDER = {
 };
 
 const STATUS_STYLES = {
-  Pending: { bg: "bg-[#ffdd00]/10", text: "text-[#ffdd00]", border: "border-[#ffdd00]", dot: "bg-[#ffdd00]" },
+  Pending: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-400", dot: "bg-amber-500" },
   "In Progress": { bg: "bg-blue-50", text: "text-blue-600", border: "border-blue-400", dot: "bg-blue-600" },
   Ongoing: { bg: "bg-blue-50", text: "text-blue-600", border: "border-blue-400", dot: "bg-blue-600" },
   "Due Soon": { bg: "bg-orange-500/10", text: "text-orange-500", border: "border-orange-500", dot: "bg-orange-500" },
@@ -119,23 +117,48 @@ const parseSingleAttachment = (rawAtt) => {
 };
 
 const getTaskLinkAndAttachments = (task) => {
-  let linkItem = null;
+  const linkItems = [];
   const attachmentList = [];
 
-  const rawLink = task?.link || task?.url || task?.externalLink;
-  if (rawLink) {
-    const customName = typeof task?.linkName === "string" ? task.linkName.trim() : "";
+  const getLinks = (value) => {
+    if (Array.isArray(value)) return value;
+    if (typeof value !== "string") return [];
+
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [parsed];
+    } catch {
+      return [];
+    }
+  };
+
+  const addLink = (rawLink, customName = "") => {
+    if (!rawLink) return;
+
     if (typeof rawLink === "string" && rawLink.trim() !== "") {
-      const formattedUrl = rawLink.startsWith("http") ? rawLink : `https://${rawLink}`;
-      linkItem = {
-        name: customName || rawLink,
-        url: formattedUrl,
-      };
+      const url = rawLink.startsWith("http") ? rawLink : `https://${rawLink}`;
+      if (!linkItems.some((item) => item.url === url)) {
+        linkItems.push({ name: customName || rawLink, url });
+      }
     } else if (typeof rawLink === "object") {
       const parsed = parseSingleAttachment(rawLink);
-      if (parsed) linkItem = { ...parsed, name: customName || parsed.name };
+      if (parsed && !linkItems.some((item) => item.url === parsed.url)) {
+        linkItems.push({ ...parsed, name: customName || parsed.name });
+      }
     }
-  }
+  };
+
+  getLinks(task?.links).forEach((link) => {
+    if (typeof link === "string") {
+      addLink(link);
+      return;
+    }
+    addLink(link?.url || link?.link || link?.href, link?.name || link?.title || "");
+  });
+  addLink(
+    task?.link || task?.url || task?.externalLink,
+    typeof task?.linkName === "string" ? task.linkName.trim() : "",
+  );
 
   const rawAtts = task?.attachments || task?.files || task?.file || task?.documents;
   if (rawAtts) {
@@ -145,7 +168,7 @@ const getTaskLinkAndAttachments = (task) => {
     });
   }
 
-  return { linkItem, attachmentList };
+  return { linkItems, attachmentList };
 };
 
 const getObjectName = (record) => {
@@ -317,17 +340,6 @@ const getTaskTimestamp = (task) => {
   return parsedDate.getTime();
 };
 
-const formatTaskDate = (task) => {
-  const parsedDate = parseDate(getTaskDateValue(task));
-  if (!parsedDate) return "No date";
-  const year = parsedDate.getFullYear();
-  const month = String(parsedDate.getMonth() + 1).padStart(2, "0");
-  const day = String(parsedDate.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
-const formatTaskTime = (task) => formatTimeKey(getTaskTimeKey(task));
-
 const getPriorityClasses = (priority) => {
   const p = String(priority || "medium").toLowerCase();
   if (p === "high") return "bg-red-50 text-red-600 border-red-200/60";
@@ -384,27 +396,26 @@ function ColorPillStatusDropdown({ currentStatus, onSelect, scale }) {
   };
 
   const currentStyle = STATUS_STYLES[currentStatus] || STATUS_STYLES.Pending;
-  const ChevronIcon = isOpen ? ChevronDown : ChevronUp;
-
   return (
     <>
       <button
         ref={buttonRef}
         type="button"
         onClick={toggleDropdown}
-        className={`inline-flex items-center gap-1.5 rounded-full border ${currentStyle.border} ${currentStyle.bg} transition-all hover:opacity-80 focus:outline-none`}
+        className={`inline-flex items-center gap-1 rounded-md border ${currentStyle.border} ${currentStyle.bg} transition-all hover:opacity-80 focus:outline-none`}
         style={{
-          padding: `${clamp(3 * scale, 2, 4)}px ${clamp(10 * scale, 6, 10)}px`,
+          minWidth: `${clamp(94 * scale, 72, 94)}px`,
+          padding: `${clamp(4 * scale, 2, 4)}px ${clamp(9 * scale, 6, 9)}px`,
         }}
       >
         <span className={`h-1.5 w-1.5 rounded-full ${currentStyle.dot}`} />
         <span
-          className={`font-normal uppercase tracking-wide ${currentStyle.text}`}
+          className={`font-medium ${currentStyle.text}`}
           style={{ fontSize: `${clamp(10 * scale, 7, 10)}px` }}
         >
           {currentStatus}
         </span>
-        <ChevronIcon size={clamp(12 * scale, 9, 12)} className={currentStyle.text} />
+        <ChevronDown size={clamp(12 * scale, 9, 12)} className={currentStyle.text} />
       </button>
 
       {isOpen &&
@@ -437,11 +448,9 @@ function ColorPillStatusDropdown({ currentStatus, onSelect, scale }) {
                       isSelected ? "bg-slate-100" : "hover:bg-slate-50"
                     }`}
                   >
-                    <span
-                      className={`inline-flex items-center gap-1.5 rounded-full border ${optStyle.border} ${optStyle.bg} px-2 py-0.5`}
-                    >
+                    <span className={`inline-flex items-center gap-1 rounded-md border ${optStyle.border} ${optStyle.bg} px-2 py-0.5`}>
                       <span className={`h-1.5 w-1.5 rounded-full ${optStyle.dot}`} />
-                      <span className={`text-[10px] font-normal uppercase tracking-wide ${optStyle.text}`}>
+                      <span className={`text-[10px] font-medium ${optStyle.text}`}>
                         {status}
                       </span>
                     </span>
@@ -571,7 +580,7 @@ export default function MyTasksTable({ tasks = [], hideFilter = false, onStatusC
         setAnimated(false);
         setLayout({
           cardWidth: Math.max(0, cardWidth),
-          cardHeight: clamp(225 * scale, 160, 235),
+          cardHeight: clamp(290 * scale, 225, 300),
           gap,
           scale,
         });
@@ -615,7 +624,7 @@ export default function MyTasksTable({ tasks = [], hideFilter = false, onStatusC
     if (!carouselEnabled || !items.length || !layout.cardWidth || movingRef.current) return;
     movingRef.current = true;
     setAnimated(true);
-    setIndex((prev) => prev + direction);
+    setIndex((prev) => prev + direction * VISIBLE_CARDS);
   };
 
   const finishMove = () => {
@@ -655,7 +664,6 @@ export default function MyTasksTable({ tasks = [], hideFilter = false, onStatusC
   const typeSize = clamp(10 * scale, 6, 10);
   const titleSize = clamp(14 * scale, 8, 14);
   const clientSize = clamp(11 * scale, 7, 11);
-  const metaSize = clamp(10 * scale, 6, 10);
   const smallIconSize = clamp(11 * scale, 7, 11);
   const arrowIconSize = clamp(22 * scale, 17, 22);
   const arrowButtonSize = clamp(42 * scale, 34, 42);
@@ -751,19 +759,19 @@ export default function MyTasksTable({ tasks = [], hideFilter = false, onStatusC
                 const taskType = getTaskType(task);
                 const clientInfo = getClientInfo(task);
                 const assignerInfo = getAssignerInfo(task, currentUserId);
-                const { linkItem, attachmentList } = getTaskLinkAndAttachments(task);
+                const { linkItems, attachmentList } = getTaskLinkAndAttachments(task);
                 const currentStatus = getDynamicTaskStatus(task);
                 const priority = task?.priority || "medium";
 
                 return (
                   <article
                     key={cardKey}
-                    className="group relative box-border min-w-0 shrink-0 rounded-2xl border border-black/[0.08] bg-white shadow-[0_4px_14px_rgba(0,0,0,0.05)] transition-all duration-200 hover:border-red-500/25 hover:shadow-[0_6px_18px_rgba(0,0,0,0.08)] flex flex-col justify-between"
+                    className="group relative box-border flex min-w-0 shrink-0 flex-col overflow-hidden rounded-2xl border border-black/[0.08] bg-white shadow-[0_4px_14px_rgba(0,0,0,0.05)] transition-all duration-200 hover:border-red-500/25 hover:shadow-[0_6px_18px_rgba(0,0,0,0.08)]"
                     style={{ width: `${cardWidth}px`, height: `${cardHeight}px`, padding: `${padding}px` }}
                   >
                     <span className="absolute bottom-0 left-5 right-5 h-0.5 rounded-full bg-red-500 opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
 
-                    <div className="flex flex-col min-w-0">
+                    <div className="flex min-h-0 shrink-0 flex-col overflow-hidden">
                       <div className="flex min-w-0 items-center justify-between" style={{ gap: `${clamp(7 * scale, 4, 7)}px` }}>
                         <div className="flex min-w-0 items-center gap-1.5">
                           <TaskTypeIcon size={iconSize} strokeWidth={2} className="shrink-0 text-red-600" />
@@ -772,12 +780,6 @@ export default function MyTasksTable({ tasks = [], hideFilter = false, onStatusC
                           </p>
                         </div>
 
-                        <span
-                          className={`inline-flex shrink-0 items-center rounded-md border font-bold uppercase ${getPriorityClasses(priority)}`}
-                          style={{ fontSize: `${clamp(9 * scale, 6, 9)}px`, padding: `1px ${clamp(6 * scale, 3, 6)}px` }}
-                        >
-                          {priority}
-                        </span>
                       </div>
 
                       <h3 className="line-clamp-2 min-w-0 font-semibold text-black/85" style={{ marginTop: `${clamp(8 * scale, 4, 8)}px`, fontSize: `${titleSize}px`, lineHeight: 1.35 }}>
@@ -797,67 +799,69 @@ export default function MyTasksTable({ tasks = [], hideFilter = false, onStatusC
                       )}
                     </div>
 
-                    <div className="flex flex-col gap-1 my-1 overflow-hidden">
-                      {linkItem && (
-                        <a 
-                          href={linkItem.url} 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
-                          onClick={(e) => e.stopPropagation()}
-                          className="text-blue-600 hover:underline flex items-center gap-1 truncate rounded bg-blue-50/50 border border-blue-100 px-2 py-0.5" 
-                          style={{ fontSize: `${clientSize}px` }}
-                          title={linkItem.name}
-                        >
-                          <ExternalLink size={smallIconSize} className="shrink-0" />
-                          <span className="truncate">{linkItem.name}</span>
-                        </a>
-                      )}
-                      {attachmentList.map((file, idx) => (
-                        <a 
-                          key={idx} 
-                          href={file.url} 
-                          download={file.name} 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
-                          onClick={(e) => e.stopPropagation()}
-                          className="text-gray-700 hover:text-red-500 flex items-center gap-1 truncate rounded bg-slate-50 border border-slate-200/60 px-2 py-0.5 transition-colors" 
-                          style={{ fontSize: `${clientSize}px` }}
-                          title={file.name}
-                        >
-                          <Paperclip size={smallIconSize} className="shrink-0 text-red-500" />
-                          <span className="truncate font-medium">{file.name}</span>
-                        </a>
-                      ))}
-                      {clientInfo && !linkItem && attachmentList.length === 0 && (
-                        <div 
-                          className="flex min-w-0 items-center rounded-md bg-slate-50 border border-slate-200/60 transition-colors hover:bg-slate-100 cursor-pointer" 
-                          style={{ gap: `${clamp(6 * scale, 3, 6)}px`, padding: `${clamp(2 * scale, 1, 2)}px ${clamp(6 * scale, 3, 6)}px`, fontSize: `${clientSize}px` }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (onClientClick) {
-                              onClientClick(clientInfo, task);
-                            }
-                          }}
-                        >
-                          <UserRound size={smallIconSize} className="shrink-0 text-red-600" />
-                          <span className="truncate font-medium text-slate-700" title={clientInfo?.name}>
-                            {clientInfo?.name}
-                          </span>
-                        </div>
-                      )}
+                    <div
+                      className="min-h-0 flex-1 overflow-y-scroll overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                      style={{ fontSize: `${clientSize}px`, marginTop: `${clamp(12 * scale, 6, 12)}px` }}
+                    >
+                      <div className="flex min-h-full flex-col justify-end gap-1">
+                        {linkItems.map((linkItem, idx) => (
+                          <a
+                            key={`${linkItem.url}-${idx}`}
+                            href={linkItem.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex shrink-0 items-center gap-1 truncate rounded border border-blue-100 bg-blue-50/50 px-2 py-0.5 text-blue-600 hover:underline"
+                            title={linkItem.name}
+                          >
+                            <ExternalLink size={smallIconSize} className="shrink-0" />
+                            <span className="truncate">{linkItem.name}</span>
+                          </a>
+                        ))}
+                        {attachmentList.map((file, idx) => (
+                          <a
+                            key={`${file.url}-${idx}`}
+                            href={file.url}
+                            download={file.name}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex shrink-0 items-center gap-1 truncate rounded border border-slate-200/60 bg-slate-50 px-2 py-0.5 text-gray-700 transition-colors hover:text-red-500"
+                            title={file.name}
+                          >
+                            <Paperclip size={smallIconSize} className="shrink-0 text-red-500" />
+                            <span className="truncate font-medium">{file.name}</span>
+                          </a>
+                        ))}
+                        {clientInfo && !linkItems.length && attachmentList.length === 0 && (
+                          <div
+                            className="flex min-w-0 items-center rounded-md border border-slate-200/60 bg-slate-50 transition-colors hover:bg-slate-100 cursor-pointer"
+                            style={{ gap: `${clamp(6 * scale, 3, 6)}px`, padding: `${clamp(2 * scale, 1, 2)}px ${clamp(6 * scale, 3, 6)}px`, fontSize: `${clientSize}px` }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onClientClick) {
+                                onClientClick(clientInfo, task);
+                              }
+                            }}
+                          >
+                            <UserRound size={smallIconSize} className="shrink-0 text-red-600" />
+                            <span className="truncate font-medium text-slate-700" title={clientInfo?.name}>
+                              {clientInfo?.name}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="border-t border-black/[0.08]" style={{ paddingTop: `${clamp(6 * scale, 3, 6)}px` }}>
+                    <div className="shrink-0 border-t border-black/[0.08]" style={{ paddingTop: `${clamp(6 * scale, 3, 6)}px` }}>
                       <div className="flex min-w-0 items-center justify-between gap-2">
-                        <div className="flex min-w-0 flex-1 flex-col text-black/45" style={{ gap: `${clamp(2 * scale, 1, 3)}px`, fontSize: `${metaSize}px` }}>
-                          <div className="flex min-w-0 items-center" style={{ gap: `${clamp(5 * scale, 2, 5)}px` }}>
-                            <CalendarDays size={smallIconSize} className="shrink-0" />
-                            <span className="truncate">{formatTaskDate(task)}</span>
-                          </div>
-                          <div className="flex min-w-0 items-center" style={{ gap: `${clamp(5 * scale, 2, 5)}px` }}>
-                            <Clock size={smallIconSize} className="shrink-0" />
-                            <span className="truncate">{formatTaskTime(task)}</span>
-                          </div>
+                        <div className="flex min-w-0 flex-1">
+                          <span
+                            className={`inline-flex shrink-0 items-center rounded-md border font-bold uppercase ${getPriorityClasses(priority)}`}
+                            style={{ minWidth: `${clamp(94 * scale, 72, 94)}px`, fontSize: `${clamp(10 * scale, 7, 10)}px`, padding: `${clamp(4 * scale, 2, 4)}px ${clamp(9 * scale, 6, 9)}px` }}
+                          >
+                            {priority}
+                          </span>
                         </div>
 
                         <div className="shrink-0">

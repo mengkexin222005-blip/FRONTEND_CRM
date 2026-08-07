@@ -96,6 +96,9 @@ export default function TasksPage() {
     handleSelectChange,
     handleFileChange,
     handleRemoveFile,
+    handleAddLink,
+    handleLinkChange,
+    handleRemoveLink,
   } = useTaskModal();
 
   useEffect(() => {
@@ -317,8 +320,11 @@ export default function TasksPage() {
     data.append("scope", formData.scope || "Personal");
     data.append("dueDate", formData.dueDate || "");
     data.append("dueTime", formData.dueTime || "");
-    data.append("link", formData.link || "");
-    data.append("linkName", formData.linkName || "");
+    const links = (formData.links || []).filter((link) => link?.url?.trim());
+    const primaryLink = links[0];
+    data.append("link", primaryLink?.url || formData.link || "");
+    data.append("linkName", primaryLink?.name || formData.linkName || "");
+    data.append("links", JSON.stringify(links));
     data.append("repeat", formData.repeat || "None");
 
     // During editing, send empty values too so the backend can clear old
@@ -577,6 +583,9 @@ export default function TasksPage() {
         onSelectChange={handleSelectChange}
         onFileChange={handleFileChange}
         onRemoveFile={handleRemoveFile}
+        onAddLink={handleAddLink}
+        onLinkChange={handleLinkChange}
+        onRemoveLink={handleRemoveLink}
         onSwitchToEdit={switchToEdit}
         onSwitchToView={switchToView}
         onSubmit={handleSubmit}
