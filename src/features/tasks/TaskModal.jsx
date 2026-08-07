@@ -16,6 +16,7 @@ import {
   Paperclip,
   Upload,
   X,
+  Plus,
 } from "lucide-react";
 
 import { getSelectProps } from "../../components/select/selectConfig";
@@ -133,6 +134,9 @@ export default function TaskModal({
   onSelectChange,
   onFileChange,
   onRemoveFile,
+  onAddLink,
+  onLinkChange,
+  onRemoveLink,
   onSwitchToEdit,
   onSwitchToView,
   onSubmit,
@@ -221,14 +225,18 @@ export default function TaskModal({
     const TypeIcon = TASK_TYPE_ICON[t.taskType];
     const RelatedIcon = RELATED_TYPE_ICON[t.relatedToType];
 
-    const rawLink = t.link || "";
-    const taskUrl = rawLink
-      ? rawLink.startsWith("http://") || rawLink.startsWith("https://")
-        ? rawLink
-        : `https://${rawLink}`
-      : null;
-      
-    const taskLinkName = (t.linkName && t.linkName.trim() !== "") ? t.linkName : rawLink;
+    const taskLinks = (Array.isArray(t.links) ? t.links : [])
+      .map((link) => ({
+        name: link?.name || link?.title || link?.url || link?.link || "",
+        url: link?.url || link?.link || "",
+      }))
+      .filter((link) => link.url);
+    if (!taskLinks.length && t.link) {
+      taskLinks.push({
+        name: t.linkName?.trim() || t.link,
+        url: t.link,
+      });
+    }
 
     const taskDueTime = t.dueTime || t.time || "";
     const taskFiles = t.attachments || t.files || t.documents || [];
@@ -316,18 +324,25 @@ export default function TaskModal({
                 </p>
               </div>
               <div className="flex flex-col gap-1.5">
-                {taskUrl ? (
-                  <a
-                    href={taskUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-sm text-blue-600 hover:underline truncate"
-                    title={rawLink}
-                  >
-                    <ExternalLink size={14} className="shrink-0 text-blue-500" />
-                    <span className="truncate">{taskLinkName}</span>
-                  </a>
-                ) : null}
+                {taskLinks.map((link, index) => {
+                  const taskUrl = /^https?:\/\//i.test(link.url)
+                    ? link.url
+                    : `https://${link.url}`;
+
+                  return (
+                    <a
+                      key={`${link.url}-${index}`}
+                      href={taskUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-sm text-blue-600 hover:underline truncate"
+                      title={link.url}
+                    >
+                      <ExternalLink size={14} className="shrink-0 text-blue-500" />
+                      <span className="truncate">{link.name}</span>
+                    </a>
+                  );
+                })}
 
                 {taskFiles.length > 0 ? (
                   taskFiles.map((file, index) => {
@@ -356,7 +371,7 @@ export default function TaskModal({
                   })
                 ) : null}
 
-                {!taskUrl && taskFiles.length === 0 && (
+                {!taskLinks.length && taskFiles.length === 0 && (
                   <p className="text-sm font-medium text-gray-400 italic">—</p>
                 )}
               </div>
@@ -744,26 +759,45 @@ export default function TaskModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FormLabel>Link Name</FormLabel>
-              <FormInput
-                type="text"
-                name="linkName"
-                value={formData.linkName || ""}
-                onChange={onChange}
-                placeholder="e.g. Google Doc / Proposal"
-              />
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <FormLabel>Links</FormLabel>
+              <button
+                type="button"
+                onClick={onAddLink}
+                className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700"
+              >
+                <Plus size={14} /> Add link
+              </button>
             </div>
-            <div>
-              <FormLabel>Link URL</FormLabel>
-              <FormInput
-                type="text"
-                name="link"
-                value={formData.link || ""}
-                onChange={onChange}
-                placeholder="e.g. https://example.com/document"
-              />
+            <div className="space-y-2">
+              {(formData.links || []).map((link, index) => (
+                <div key={index} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2">
+                  <FormInput
+                    type="text"
+                    value={link.name || ""}
+                    onChange={(event) => onLinkChange(index, "name", event.target.value)}
+                    placeholder="Link name"
+                  />
+                  <FormInput
+                    type="url"
+                    value={link.url || ""}
+                    onChange={(event) => onLinkChange(index, "url", event.target.value)}
+                    placeholder="https://example.com/document"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => onRemoveLink(index)}
+                    className="rounded-md p-2 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                    aria-label="Remove link"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ))}
+              {!formData.links?.length && (
+                <p className="text-xs text-gray-400">Add links for related documents or external resources.</p>
+              )}
             </div>
           </div>
 
