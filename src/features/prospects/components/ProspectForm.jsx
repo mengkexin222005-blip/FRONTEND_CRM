@@ -25,15 +25,11 @@ const initialFormData = {
   numberOfEmployees: "",
 
   businessAddress: {
-    houseNumber: "",
-    streetAddress: "",
     city: "",
     province: "",
     country: "Philippines",
   },
 
-  houseNumber: "",
-  street: "",
   city: "",
   province: "",
   barangay: "",
@@ -95,8 +91,6 @@ export default function ProspectForm({
       const province = addr.province || bAddr.province || editingProspect.province || "";
       const city = addr.municipality || bAddr.city || editingProspect.city || "";
       const barangay = addr.barangay || editingProspect.barangay || "";
-      const street = addr.street || bAddr.streetAddress || editingProspect.street || "";
-      const houseNumber = addr.houseNumber || bAddr.houseNumber || editingProspect.houseNumber || "";
       const zipCode = addr.zipCode || editingProspect.zipCode || "";
       const country = addr.country || bAddr.country || editingProspect.country || "Philippines";
 
@@ -110,15 +104,11 @@ export default function ProspectForm({
         numberOfEmployees: editingProspect.numberOfEmployees || "",
 
         businessAddress: {
-          houseNumber,
-          streetAddress: street,
           city,
           province,
           country,
         },
 
-        houseNumber,
-        street,
         city,
         province,
         barangay,
@@ -184,8 +174,6 @@ export default function ProspectForm({
         ...updated,
         businessAddress: {
           ...updated.businessAddress,
-          houseNumber: updated.houseNumber || updated.businessAddress.houseNumber,
-          streetAddress: updated.street || updated.businessAddress.streetAddress,
           city: updated.city || updated.businessAddress.city,
           province: updated.province || updated.businessAddress.province,
           country: updated.country || updated.businessAddress.country,
@@ -202,8 +190,6 @@ export default function ProspectForm({
       ...formData,
       ...addressCodesState,
       businessAddress: {
-        houseNumber: formData.houseNumber || formData.businessAddress.houseNumber || "",
-        streetAddress: formData.street || formData.businessAddress.streetAddress || "",
         city: formData.city || formData.businessAddress.city || "",
         province: formData.province || formData.businessAddress.province || "",
         country: formData.country || formData.businessAddress.country || "Philippines",
@@ -213,8 +199,6 @@ export default function ProspectForm({
         province: formData.province || "",
         municipality: formData.city || "",
         barangay: formData.barangay || "",
-        street: formData.street || "",
-        houseNumber: formData.houseNumber || "",
         zipCode: formData.zipCode || "",
         regionCode: addressCodesState.regionCode || "",
         provinceCode: addressCodesState.provinceCode || "",
@@ -243,40 +227,6 @@ export default function ProspectForm({
       onCancel={onCancel}
     >
       <form id={FORM_ID} onSubmit={handleSubmit} className="space-y-6">
-        <FormSection title="Assignment">
-          <div>
-            <FormLabel>Handling Officer</FormLabel>
-            <Select
-              {...getSelectProps({ isClearable: true })}
-              options={handlingOfficerOptions}
-              value={
-                handlingOfficerOptions.find(
-                  (o) => String(o.value) === String(formData.handlingOfficer || "")
-                ) || null
-              }
-              onChange={(option) =>
-                handleChange({
-                  target: {
-                    name: "handlingOfficer",
-                    value: option?.value || "",
-                  },
-                })
-              }
-              isDisabled={loading}
-              placeholder="Select handling officer..."
-              formatOptionLabel={({ user }) => (
-                <div className="flex items-center gap-2">
-                  <img
-                    src={getProfileImage(user)}
-                    alt=""
-                    className="w-6 h-6 rounded-full border object-cover"
-                  />
-                  <span>{getDisplayName(user, { includeSuffix: true })}</span>
-                </div>
-              )}
-            />
-          </div>
-        </FormSection>
 
         <FormSection title="Company Profile">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -346,6 +296,7 @@ export default function ProspectForm({
             addressCodes={addressCodesState}
             onAddressSelect={handleAddressSelect}
             onChange={handleChange}
+            hideStreetFields={true}
           />
         </FormSection>
 
@@ -503,6 +454,41 @@ export default function ProspectForm({
           </div>
         </FormSection>
 
+        <FormSection title="Assignment">
+          <div>
+            <FormLabel>Handling Officer</FormLabel>
+            <Select
+              {...getSelectProps({ isClearable: true })}
+              options={handlingOfficerOptions}
+              value={
+                handlingOfficerOptions.find(
+                  (o) => String(o.value) === String(formData.handlingOfficer || "")
+                ) || null
+              }
+              onChange={(option) =>
+                handleChange({
+                  target: {
+                    name: "handlingOfficer",
+                    value: option?.value || "",
+                  },
+                })
+              }
+              isDisabled={loading}
+              placeholder="Select handling officer..."
+              formatOptionLabel={({ user }) => (
+                <div className="flex items-center gap-2">
+                  <img
+                    src={getProfileImage(user)}
+                    alt=""
+                    className="w-6 h-6 rounded-full border object-cover"
+                  />
+                  <span>{getDisplayName(user, { includeSuffix: true })}</span>
+                </div>
+              )}
+            />
+          </div>
+        </FormSection>
+
         <FormSection title="CRM Details">
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -517,7 +503,7 @@ export default function ProspectForm({
                   className={inputClass}
                 >
                   <option value="New">New</option>
-                  {/* <option value="Contacted">Contacted</option> */}
+                  <option value="Contacted">Contacted</option>
                   <option value="Lost">Lost</option>
                 </select>
               </div>
@@ -533,12 +519,9 @@ export default function ProspectForm({
                 >
                   <option value="Website">Website</option>
                   <option value="Referral">Referral</option>
-                  <option value="Facebook">Facebook</option>
-                  <option value="Email">Email</option>
-                  <option value="Walk-in">Walk-in</option>
-                  <option value="Phone Call">Phone Call</option>
+                  <option value="Facebook">Social Media</option>
                   <option value="Event">Event</option>
-                  <option value="Other">Other</option>
+                  <option value="Other">Others</option>
                 </select>
               </div>
             </div>

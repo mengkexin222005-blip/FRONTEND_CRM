@@ -16,7 +16,7 @@ import { formatDate } from "../../../utils/date";
 const TABS = ["Overview", "Activity"];
 
 const statusConfig = {
-  New: { text: "New", className: "bg-gray-100 text-gray-700 border-blue-200" },
+  New: { text: "New", className: "bg-sky-100 text-sky-700 border-sky-200" },
   // Contacted: { text: "Contacted", className: "bg-blue-50 text-blue-700 border-blue-200" },
   Lost: { text: "Lost", className: "bg-red-50 text-red-700 border-red-200" },
 };

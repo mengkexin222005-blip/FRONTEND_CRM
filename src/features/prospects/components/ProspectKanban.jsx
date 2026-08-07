@@ -1,10 +1,10 @@
-import { Edit2, Phone, Trash2 } from "lucide-react";
+import { Edit2, Trash2 } from "lucide-react";
 
 import BaseKanban from "../../../components/kanban/BaseKanban";
 import BaseDraggableCard from "../../../components/kanban/BaseDraggableCard";
 import KanbanColumnHeader from "../../../components/kanban/KanbanColumnHeader";
 
-const STATUSES = ["New", "Lost"];
+const STATUSES = ["New", "Contacted", "Lost"];
 
 const getRepresentativeName = (prospect) => {
   const representative = prospect?.representativeName || {};
@@ -22,8 +22,8 @@ const getRepresentativeName = (prospect) => {
 
 const getStatusClass = (status) => {
   switch (status) {
-    // case "Contacted":
-    //   return "bg-amber-50 text-amber-700";
+    case "Contacted":
+      return "bg-amber-50 text-amber-700";
     case "Lost":
       return "bg-red-50 text-red-700";
     default:
@@ -47,7 +47,6 @@ export default function ProspectKanban({
   onView,
   onEdit,
   onDelete,
-  onContact,
   onStatusChange,
 }) {
   const columns = groupProspectsByStatus(prospects);
@@ -62,7 +61,8 @@ export default function ProspectKanban({
 
     if (currentStatus === nextStatus) return;
 
-    await onStatusChange?.(draggableId, nextStatus);
+    const prospect = prospects.find((p) => p._id === draggableId);
+    await onStatusChange?.(prospect || draggableId, nextStatus);
   };
 
   if (loading) {
@@ -148,18 +148,6 @@ export default function ProspectKanban({
           </div>
 
           <div className="mt-4 flex items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                onContact?.(prospect._id);
-              }}
-              className="p-1.5 rounded-md text-gray-400 hover:text-emerald-600 hover:bg-white cursor-pointer"
-              title="Move to leads"
-            >
-              <Phone size={15} />
-            </button>
-
             <button
               type="button"
               onClick={(event) => {

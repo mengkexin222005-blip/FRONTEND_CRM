@@ -1,10 +1,8 @@
 import { Pencil } from "lucide-react";
-import { getProfileImage } from "../../utils/avatar";
 import { getDisplayName } from "../../utils/name";
 import { formatPhone } from "../../utils/format";
 
 import StatusDropdown from "../../components/select/StatusDropdown";
-import UserDisplayName from "../../components/UserDisplayName";
 
 import {
   BaseTable,
@@ -20,6 +18,23 @@ const CLIENT_STATUS_TONE = {
   Active: "green",
   Inactive: "gray",
   Lost: "red",
+};
+
+const EMPTY_VALUE = (
+  <span className="text-gray-300 tracking-widest">
+    ─────────
+  </span>
+);
+
+const getInitials = (person) => {
+  if (!person) return "?";
+  const first = person.firstName || person.name?.split(" ")[0] || "";
+  const last = person.lastName || person.name?.split(" ").slice(-1)[0] || "";
+
+  if (first && last && first !== last) {
+    return `${first[0]}${last[0]}`.toUpperCase();
+  }
+  return (first[0] || "?").toUpperCase();
 };
 
 export default function ClientTable({
@@ -55,6 +70,26 @@ export default function ClientTable({
 
   const HEADERS = columns.map((col) => col.label);
 
+  const renderUserCell = (person, size = "w-9 h-9", textClass = "text-sm") => {
+    if (!person) return EMPTY_VALUE;
+
+    const name = getDisplayName(person, {
+      includeMiddleInitial: true,
+      includeSuffix: true,
+    });
+
+    return (
+      <div className="flex items-center gap-2">
+        <span
+          className={`flex ${size} shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-600 text-xs font-semibold border border-gray-200 uppercase`}
+        >
+          {getInitials(person)}
+        </span>
+        <span className={`font-medium text-gray-700 ${textClass}`}>{name}</span>
+      </div>
+    );
+  };
+
   if (isLoading) {
     return (
       <LoaderTables
@@ -73,46 +108,18 @@ export default function ClientTable({
         onRowsPerPageChange={setRowsPerPage}
         renderRow={(client) => (
           <TableRow key={client._id} onClick={() => onView(client)}>
+            <TableCell>{renderUserCell(client)}</TableCell>
+            <TableCell>{client.company || EMPTY_VALUE}</TableCell>
             <TableCell>
-              <div className="flex items-center gap-2">
-                <img
-                  src={getProfileImage(client)}
-                  alt="avatar"
-                  className="w-9 h-9 rounded-full object-cover border border-gray-300"
-                />
-                <span>
-                  {getDisplayName(client, {
-                    includeMiddleInitial: true,
-                    includeSuffix: true,
-                  })}
-                </span>
+              {renderUserCell(client.assignedTo, "w-7 h-7", "text-sm")}
+            </TableCell>
+            <TableCell>
+              <div className="text-sm">
+                {client.phone ? formatPhone(client.phone) : EMPTY_VALUE}
               </div>
             </TableCell>
-            <TableCell>{client.company}</TableCell>
-            {client.assignedTo ? (
-              <TableCell>
-                <div className="flex items-center gap-2">
-                  <img
-                    src={getProfileImage(client.assignedTo)}
-                    alt="avatar"
-                    className="w-7 h-7 rounded-full border object-cover border-gray-300"
-                  />
-                  <UserDisplayName user={client.assignedTo}>
-                    {getDisplayName(client.assignedTo, {
-                      includeMiddleInitial: true,
-                      includeSuffix: true,
-                    })}
-                  </UserDisplayName>
-                </div>
-              </TableCell>
-            ) : (
-              <TableCell>
-                <span className="text-sm text-gray-400 italic">Unassigned</span>
-              </TableCell>
-            )}
             <TableCell>
-              <div className="text-sm">{formatPhone(client.phone)}</div>
-              <div className="text-xs">{client.email}</div>
+              <div className="text-sm">{client.email || EMPTY_VALUE}</div>
             </TableCell>
             <TableCell>
               <StatusDropdown
@@ -154,50 +161,20 @@ export default function ClientTable({
       >
         {paginatedItems.map((client) => (
           <TableRow key={client._id} onClick={() => onView(client)}>
+            <TableCell>{renderUserCell(client)}</TableCell>
+            <TableCell>{client.company || EMPTY_VALUE}</TableCell>
             <TableCell>
-              <div className="flex items-center gap-2">
-                <img
-                  src={getProfileImage(client)}
-                  alt="avatar"
-                  className="w-9 h-9 rounded-full object-cover border border-gray-300"
-                />
-                <span>
-                  {getDisplayName(client, {
-                    includeMiddleInitial: true,
-                    includeSuffix: true,
-                  })}
-                </span>
+              {renderUserCell(client.assignedTo, "w-7 h-7", "text-sm")}
+            </TableCell>
+
+            <TableCell>
+              <div className="text-sm">
+                {client.phone ? formatPhone(client.phone) : EMPTY_VALUE}
               </div>
             </TableCell>
-            <TableCell>{client.company}</TableCell>
-            {client.assignedTo ? (
-              <TableCell>
-                <div className="flex items-center gap-2">
-                  <img
-                    src={getProfileImage(client.assignedTo)}
-                    alt="avatar"
-                    className="w-7 h-7 rounded-full border object-cover border-gray-300"
-                  />
-                  <UserDisplayName user={client.assignedTo}>
-                    {getDisplayName(client.assignedTo, {
-                      includeMiddleInitial: true,
-                      includeSuffix: true,
-                    })}
-                  </UserDisplayName>
-                </div>
-              </TableCell>
-            ) : (
-              <TableCell>
-                <span className="text-sm text-gray-400 italic">Unassigned</span>
-              </TableCell>
-            )}
 
             <TableCell>
-              <div className="text-sm">{formatPhone(client.phone)}</div>
-            </TableCell>
-
-            <TableCell>
-              <div className="text-sm">{client.email}</div>
+              <div className="text-sm">{client.email || EMPTY_VALUE}</div>
             </TableCell>
 
             <TableCell>

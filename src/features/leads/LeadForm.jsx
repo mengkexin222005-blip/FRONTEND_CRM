@@ -5,19 +5,18 @@ import { Info, UserRound } from "lucide-react";
 import { getSelectProps } from "../../components/select/selectConfig";
 import FormDrawer from "../../components/form/FormDrawer";
 import FormSection from "../../components/form/FormSection";
-import AvatarUploader from "../../components/form/AvatarUploader";
 import PhAddressFields from "../../components/form/PhAddressFields";
 import {
   FormLabel,
   FormInput,
   FormTextarea,
+  inputClass,
 } from "../../components/form/FormField";
 
 import { getProfileImage } from "../../utils/avatar";
 import { getDisplayName } from "../../utils/name";
 
 import {
-  LEAD_SOURCE_OPTIONS,
   TASK_TYPE_OPTIONS,
   TASK_PRIORITY_OPTIONS,
 } from "../../constants/options";
@@ -29,12 +28,9 @@ export default function LeadForm({
   addressCodes,
   users = [],
   permissions = {},
-  preview,
   loading,
   onChange,
   onAddressSelect,
-  onAvatarChange,
-  onClearAvatar,
   onSubmit,
   onClose,
   onCancel,
@@ -43,12 +39,59 @@ export default function LeadForm({
 }) {
   const handlingOfficerOptions = users.map((u) => ({
     label: `${getDisplayName(u, { includeSuffix: true })} — ${u.role}`,
-    value: u._id,
+    value: String(u._id || u.id),
     user: u,
   }));
 
-  const leadName = [formData.firstName].filter(Boolean).join(" ") || "Lead";
+  const leadName =
+    [formData.firstName, formData.lastName].filter(Boolean).join(" ") ||
+    formData.representativeName?.firstName ||
+    "Lead";
   const today = new Date().toISOString().split("T")[0];
+
+  const handleNestedChange = (group, field, value) => {
+    onChange({
+      target: {
+        name: group,
+        value: {
+          ...(formData[group] || {}),
+          [field]: value,
+        },
+      },
+    });
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+
+    // Standardize object payload structure prior to submission
+    const payload = {
+      ...formData,
+      companyName: formData.companyName || formData.company || "",
+      natureOfBusiness: formData.natureOfBusiness || formData.industry || "",
+      ownerName: {
+        firstName: formData.ownerName?.firstName || "",
+        middleInitial: formData.ownerName?.middleInitial || "",
+        lastName: formData.ownerName?.lastName || "",
+      },
+      representativeName: {
+        firstName: formData.representativeName?.firstName || formData.firstName || "",
+        middleInitial: formData.representativeName?.middleInitial || formData.middleName || "",
+        lastName: formData.representativeName?.lastName || formData.lastName || "",
+      },
+      address: formData.address || {
+        houseNumber: formData.houseNumber || "",
+        street: formData.street || "",
+        barangay: formData.barangay || "",
+        municipality: formData.city || formData.municipality || "",
+        province: formData.province || "",
+        zipCode: formData.zipCode || "",
+        country: formData.country || "Philippines",
+      },
+    };
+
+    onSubmit(e, payload);
+  };
 
   return (
     <FormDrawer
@@ -59,216 +102,360 @@ export default function LeadForm({
       onClose={onClose}
       onCancel={onCancel}
     >
-      <form id="lead-form" onSubmit={onSubmit} className="space-y-5">
-        {/* Avatar */}
-        <AvatarUploader
-          preview={preview}
-          onAvatarChange={onAvatarChange}
-          onClearAvatar={onClearAvatar}
-        />
+      <form id="lead-form" onSubmit={handleSubmit} className="space-y-6">
+        {/* Company Profile */}
+        <FormSection title="Company Profile">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <FormLabel required>Company Name</FormLabel>
+              <FormInput
+                name="companyName"
+                value={formData.companyName || formData.company || ""}
+                onChange={onChange}
+                required
+                disabled={loading}
+                placeholder="Enter company name"
+              />
+            </div>
 
-        {/* Handling Officer */}
-        {!editingLead && permissions.canAssign && (
-          <FormSection title="Assignment">
             <div>
-              <FormLabel>Handling Officer</FormLabel>
-
-              <Select
-                {...getSelectProps({ isClearable: true })}
-                options={handlingOfficerOptions}
+              <FormLabel required>Company Email Address</FormLabel>
+              <FormInput
+                type="email"
+                name="companyEmailAddress"
                 value={
-                  handlingOfficerOptions.find(
-                    (o) =>
-                      String(o.value) ===
-                      String(formData.handlingOfficer || "")
-                  ) || null
+                  formData.companyEmailAddress ||
+                  formData.emailAddress ||
+                  formData.email ||
+                  ""
                 }
-                onChange={(opt) =>
-                  onChange({
-                    target: {
-                      name: "handlingOfficer",
-                      value: opt?.value || "",
-                    },
-                  })
-                }
-                placeholder="Select handling officer..."
-                formatOptionLabel={({ user }) => (
-                  <div className="flex items-center gap-2">
-                    <img
-                      src={getProfileImage(user)}
-                      alt="avatar"
-                      className="w-6 h-6 rounded-full object-cover border"
-                    />
-
-                    <div className="flex flex-col">
-                      <span className="font-medium">
-                        {getDisplayName(user, { includeSuffix: true })}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {user.role}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              />
-            </div>
-          </FormSection>
-        )}
-
-        {/* Personal Information */}
-        <FormSection title="Personal Information">
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              ["firstName", "First Name", true, "e.g. Juan"],
-              ["middleName", "Middle Name", false, "e.g. Dela"],
-              ["lastName", "Last Name", true, "e.g. Cruz"],
-            ].map(([name, label, req, placeholder]) => (
-              <div key={name}>
-                <FormLabel required={req}>{label}</FormLabel>
-                <FormInput
-                  name={name}
-                  value={formData[name] || ""}
-                  onChange={onChange}
-                  required={req}
-                  placeholder={placeholder}
-                  disabled={loading}
-                />
-              </div>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            {/* Suffix converted to a standard FormInput */}
-            <div>
-              <FormLabel>Suffix (Optional)</FormLabel>
-              <FormInput
-                name="suffixName"
-                value={formData.suffixName || ""}
                 onChange={onChange}
-                placeholder="e.g. Jr., Sr., III"
-                disabled={loading}
-              />
-            </div>
-
-            <div>
-              <FormLabel>Date of Birth</FormLabel>
-              <FormInput
-                name="birthday"
-                value={formData.birthday || ""}
-                onChange={onChange}
-                type="date"
-                disabled={loading}
-              />
-            </div>
-
-            {/* Gender converted to a standard FormInput */}
-            <div>
-              <FormLabel required>Gender</FormLabel>
-              <FormInput
-                name="gender"
-                value={formData.gender || ""}
-                onChange={onChange}
-                placeholder="e.g. Male, Female, Others"
                 required
                 disabled={loading}
+                placeholder="company@email.com"
               />
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 gap-3">
             <div>
-              <FormLabel required>Company</FormLabel>
+              <FormLabel>Company Website</FormLabel>
               <FormInput
-                name="company"
-                value={formData.company || ""}
+                name="companyWebsite"
+                value={formData.companyWebsite || ""}
                 onChange={onChange}
-                placeholder="e.g. ABC Corporation"
-                required
                 disabled={loading}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FormLabel required>Lead Source</FormLabel>
-              <Select
-                {...getSelectProps({ isSearchable: false })}
-                options={LEAD_SOURCE_OPTIONS}
-                value={
-                  formData.leadSource
-                    ? { label: formData.leadSource, value: formData.leadSource }
-                    : null
-                }
-                onChange={(opt) =>
-                  onChange({
-                    target: { name: "leadSource", value: opt?.value ?? "" },
-                  })
-                }
-                placeholder="Select lead source"
-                isDisabled={loading}
+                placeholder="https://example.com"
               />
             </div>
 
             <div>
-              <FormLabel required>Industry</FormLabel>
+              <FormLabel>Nature of Business</FormLabel>
               <FormInput
-                name="industry"
-                value={formData.industry || ""}
+                name="natureOfBusiness"
+                value={formData.natureOfBusiness || formData.industry || ""}
                 onChange={onChange}
-                placeholder="e.g. Technology, Marketing, etc."
-                required
                 disabled={loading}
+                placeholder="e.g. Construction, Retail, IT"
+              />
+            </div>
+
+            <div>
+              <FormLabel>Number of Employees</FormLabel>
+              <FormInput
+                name="numberOfEmployees"
+                value={formData.numberOfEmployees || ""}
+                onChange={onChange}
+                disabled={loading}
+                placeholder="e.g. 1-10, 50+, 100+"
               />
             </div>
           </div>
         </FormSection>
 
-        {/* Address Information */}
-        <FormSection title="Address Information">
+        {/* Business Address */}
+        <FormSection title="Business Address">
           <PhAddressFields
             formData={formData}
             addressCodes={addressCodes}
             onAddressSelect={onAddressSelect}
             onChange={onChange}
             disabled={loading}
+            hideStreetFields={true}
           />
         </FormSection>
 
-        {/* Account Creation */}
-        <FormSection title="Account Creation">
-          <div className="grid grid-cols-2 gap-3">
+        {/* Owner Information */}
+        <FormSection title="Owner Information">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
-              <FormLabel required>Email</FormLabel>
+              <FormLabel>First Name</FormLabel>
               <FormInput
-                name="email"
-                value={formData.email || ""}
-                onChange={onChange}
-                type="email"
-                placeholder="e.g. juan@email.com"
-                required
+                value={formData.ownerName?.firstName || ""}
+                onChange={(e) =>
+                  handleNestedChange("ownerName", "firstName", e.target.value)
+                }
                 disabled={loading}
+                placeholder="First name"
               />
             </div>
+
             <div>
-              <FormLabel required>Contact Number</FormLabel>
+              <FormLabel>Middle Initial</FormLabel>
               <FormInput
-                name="phone"
-                value={formData.phone || ""}
-                onChange={onChange}
-                type="tel"
-                placeholder="e.g. 09123456789"
-                required
+                value={formData.ownerName?.middleInitial || ""}
+                onChange={(e) =>
+                  handleNestedChange(
+                    "ownerName",
+                    "middleInitial",
+                    e.target.value
+                  )
+                }
                 disabled={loading}
+                placeholder="M.I."
+              />
+            </div>
+
+            <div>
+              <FormLabel>Last Name</FormLabel>
+              <FormInput
+                value={formData.ownerName?.lastName || ""}
+                onChange={(e) =>
+                  handleNestedChange("ownerName", "lastName", e.target.value)
+                }
+                disabled={loading}
+                placeholder="Last name"
               />
             </div>
           </div>
         </FormSection>
 
-        {/* Follow-up Task — only shown when creating */}
-        {!editingLead && (
+        {/* Representative Information */}
+        <FormSection title="Representative Information">
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <FormLabel>First Name</FormLabel>
+                <FormInput
+                  value={
+                    formData.representativeName?.firstName ||
+                    formData.firstName ||
+                    ""
+                  }
+                  onChange={(e) => {
+                    handleNestedChange(
+                      "representativeName",
+                      "firstName",
+                      e.target.value
+                    );
+                    onChange({
+                      target: { name: "firstName", value: e.target.value },
+                    });
+                  }}
+                  disabled={loading}
+                  placeholder="First name"
+                />
+              </div>
+
+              <div>
+                <FormLabel>Middle Initial</FormLabel>
+                <FormInput
+                  value={
+                    formData.representativeName?.middleInitial ||
+                    formData.middleName ||
+                    ""
+                  }
+                  onChange={(e) => {
+                    handleNestedChange(
+                      "representativeName",
+                      "middleInitial",
+                      e.target.value
+                    );
+                    onChange({
+                      target: { name: "middleName", value: e.target.value },
+                    });
+                  }}
+                  disabled={loading}
+                  placeholder="M.I."
+                />
+              </div>
+
+              <div>
+                <FormLabel>Last Name</FormLabel>
+                <FormInput
+                  value={
+                    formData.representativeName?.lastName ||
+                    formData.lastName ||
+                    ""
+                  }
+                  onChange={(e) => {
+                    handleNestedChange(
+                      "representativeName",
+                      "lastName",
+                      e.target.value
+                    );
+                    onChange({
+                      target: { name: "lastName", value: e.target.value },
+                    });
+                  }}
+                  disabled={loading}
+                  placeholder="Last name"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <FormLabel>Title / Position</FormLabel>
+                <FormInput
+                  name="title"
+                  value={formData.title || ""}
+                  onChange={onChange}
+                  disabled={loading}
+                  placeholder="e.g. Manager, CEO, Owner"
+                />
+              </div>
+
+              <div>
+                <FormLabel>Contact Email</FormLabel>
+                <FormInput
+                  type="email"
+                  name="emailAddress"
+                  value={
+                    formData.emailAddress ||
+                    formData.email ||
+                    ""
+                  }
+                  onChange={(e) => {
+                    onChange(e);
+                    onChange({
+                      target: { name: "email", value: e.target.value },
+                    });
+                  }}
+                  disabled={loading}
+                  placeholder="representative@email.com"
+                />
+              </div>
+
+              <div>
+                <FormLabel required>Phone</FormLabel>
+                <FormInput
+                  name="phone"
+                  value={formData.phone || ""}
+                  onChange={onChange}
+                  required
+                  disabled={loading}
+                  placeholder="Contact phone number"
+                />
+              </div>
+
+              <div>
+                <FormLabel>Viber</FormLabel>
+                <FormInput
+                  name="viber"
+                  value={formData.viber || ""}
+                  onChange={onChange}
+                  disabled={loading}
+                  placeholder="Viber number"
+                />
+              </div>
+            </div>
+          </div>
+        </FormSection>
+
+        {/* Assignment */}
+        <FormSection title="Assignment">
+          <div>
+            <FormLabel>Handling Officer</FormLabel>
+            <Select
+              {...getSelectProps({ isClearable: true })}
+              options={handlingOfficerOptions}
+              value={
+                handlingOfficerOptions.find(
+                  (o) =>
+                    String(o.value) ===
+                    String(formData.handlingOfficer || formData.leadAssignee || "")
+                ) || null
+              }
+              onChange={(option) => {
+                const value = option?.value || "";
+                onChange({
+                  target: { name: "handlingOfficer", value },
+                });
+                onChange({
+                  target: { name: "leadAssignee", value },
+                });
+              }}
+              isDisabled={loading || (editingLead && !permissions.canAssign)}
+              placeholder="Select handling officer..."
+              formatOptionLabel={({ user }) => (
+                <div className="flex items-center gap-2">
+                  <img
+                    src={getProfileImage(user)}
+                    alt=""
+                    className="w-6 h-6 rounded-full border object-cover"
+                  />
+                  <span>{getDisplayName(user, { includeSuffix: true })}</span>
+                </div>
+              )}
+            />
+          </div>
+        </FormSection>
+
+        {/* CRM Details */}
+        <FormSection title="CRM Details">
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <FormLabel required>Status</FormLabel>
+                <select
+                  name="status"
+                  value={formData.status || "Contacted"}
+                  onChange={onChange}
+                  required
+                  disabled={loading}
+                  className={inputClass}
+                >
+                  <option value="Contacted">Contacted</option>
+                  <option value="Qualified">Qualified</option>
+                  <option value="Converted">Converted</option>
+                  <option value="Lost">Lost</option>
+                </select>
+              </div>
+
+              <div>
+                <FormLabel>Lead Source</FormLabel>
+                <select
+                  name="leadSource"
+                  value={formData.leadSource || "Website"}
+                  onChange={onChange}
+                  disabled={loading}
+                  className={inputClass}
+                >
+                  <option value="Website">Website</option>
+                  <option value="Referral">Referral</option>
+                  <option value="Social Media">Social Media</option>
+                  <option value="Event">Event</option>
+                  <option value="Other">Others</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <FormLabel>Notes</FormLabel>
+              <FormTextarea
+                name="notes"
+                value={formData.notes || ""}
+                onChange={onChange}
+                rows={4}
+                disabled={loading}
+                placeholder="Add notes about this lead"
+              />
+            </div>
+          </div>
+        </FormSection>
+
+        {/* Follow-up Task */}
+        {!editingLead && followUpTask && (
           <FormSection title="Follow-up Task">
-            {/* Checkbox toggle */}
             <label className="flex items-center gap-2 cursor-pointer select-none">
               <input
                 type="checkbox"
@@ -281,13 +468,16 @@ export default function LeadForm({
                 Create a follow-up task for this lead (recommended)
               </span>
             </label>
+
             {followUpTask.enabled && (
               <div className="mt-3 space-y-3 pl-1">
                 <div>
                   <FormLabel required>Subject</FormLabel>
                   <FormInput
                     name="subject"
-                    value={followUpTask.subject || `Follow up with ${leadName}`}
+                    value={
+                      followUpTask.subject || `Follow up with ${leadName}`
+                    }
                     onChange={(e) =>
                       onFollowUpChange("subject", e.target.value)
                     }
@@ -368,32 +558,38 @@ export default function LeadForm({
                   <FormLabel>
                     <span className="flex items-center gap-1">
                       Assign Task To
-                      {permissions.canAssign && !formData.handlingOfficer && (
-                        <span className="relative group">
-                          <Info className="w-3.5 h-3.5 text-gray-400 cursor-help" />
-                          <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-52 text-xs text-white bg-gray-700 rounded-md px-2.5 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 text-center leading-snug">
-                            Assign a handling officer to this lead above to delegate this
-                            task
+                      {permissions.canAssign &&
+                        !formData.handlingOfficer &&
+                        !formData.leadAssignee && (
+                          <span className="relative group">
+                            <Info className="w-3.5 h-3.5 text-gray-400 cursor-help" />
+                            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-52 text-xs text-white bg-gray-700 rounded-md px-2.5 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 text-center leading-snug">
+                              Assign a handling officer to this lead above to
+                              delegate this task
+                            </span>
                           </span>
-                        </span>
-                      )}
+                        )}
                     </span>
                   </FormLabel>
 
                   <div
                     className={`flex items-center gap-2 px-3 py-2 border rounded-md min-h-9.5 ${
-                      permissions.canAssign && !formData.handlingOfficer
+                      permissions.canAssign &&
+                      !formData.handlingOfficer &&
+                      !formData.leadAssignee
                         ? "bg-amber-50 border-amber-200"
                         : "bg-gray-50 border-gray-200"
                     }`}
                   >
                     {permissions.canAssign ? (
-                      // Admin/Manager — show assigned agent or warning
-                      formData.handlingOfficer ? (
+                      formData.handlingOfficer || formData.leadAssignee ? (
                         (() => {
                           const agent = handlingOfficerOptions.find(
                             (o) =>
-                              String(o.value) === String(formData.handlingOfficer),
+                              String(o.value) ===
+                              String(
+                                formData.handlingOfficer || formData.leadAssignee
+                              )
                           );
                           return agent ? (
                             <>
@@ -414,12 +610,12 @@ export default function LeadForm({
                         <div className="flex items-center gap-1.5">
                           <UserRound className="w-4 h-4 text-amber-400 shrink-0" />
                           <span className="text-sm text-amber-600">
-                            Personal task — assign an handling officer above to delegate
+                            Personal task — assign a handling officer above to
+                            delegate
                           </span>
                         </div>
                       )
                     ) : (
-                      // Agent — always personal, always theirs
                       <div className="flex items-center gap-1.5">
                         <UserRound className="w-4 h-4 text-gray-400 shrink-0" />
                         <span className="text-sm text-gray-500">
@@ -431,7 +627,7 @@ export default function LeadForm({
 
                   <p className="text-xs text-gray-400 mt-1">
                     {permissions.canAssign
-                      ? formData.handlingOfficer
+                      ? formData.handlingOfficer || formData.leadAssignee
                         ? "Automatically assigned to the selected lead handling officer."
                         : "This task will be saved under your personal tasks."
                       : "This task will be assigned to you."}

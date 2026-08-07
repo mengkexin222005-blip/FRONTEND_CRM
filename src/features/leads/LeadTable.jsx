@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Pencil } from "lucide-react";
-import { getProfileImage } from "../../utils/avatar";
 import { getDisplayName } from "../../utils/name";
 import { formatPhone } from "../../utils/format";
 
@@ -13,7 +12,6 @@ import {
 } from "../../components/table";
 import LoaderTables from "../../components/loader/TablesLazyLoader";
 
-import UserDisplayName from "../../components/UserDisplayName";
 import StatusDropdown from "../../components/select/StatusDropdown";
 import LeadActionConfirmModal from "./LeadActionConfirmModal";
 
@@ -26,6 +24,34 @@ const STATUS_TONE = {
 };
 
 const CONFIRM_STATUSES = new Set(["Lost", "Converted"]);
+
+// Helper to get initials for the Avatar
+const getInitials = (person) => {
+  if (!person) return "?";
+  const firstName = person.firstName || person.first_name || "";
+  const lastName = person.lastName || person.last_name || "";
+
+  if (!firstName && !lastName && person.name) {
+    const parts = person.name.split(" ");
+    return parts.map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+  }
+
+  const fInitial = firstName ? firstName[0] : "";
+  const lInitial = lastName ? lastName[0] : "";
+  return `${fInitial}${lInitial}`.toUpperCase() || "?";
+};
+
+// Avatar component rendering user initials
+function InitialsAvatar({ person, size = "w-9 h-9 text-xs" }) {
+  const initials = getInitials(person);
+  return (
+    <div
+      className={`${size} rounded-full bg-gray-200 border border-gray-300 flex items-center justify-center font-bold text-gray-600 shrink-0 select-none`}
+    >
+      {initials}
+    </div>
+  );
+}
 
 export default function LeadTable({
   leads,
@@ -45,8 +71,8 @@ export default function LeadTable({
     { label: "Lead Owner" },
     { label: "Company" },
     { label: "Assigned Agent" },
-    { label: "Contact Details" },
-    { label: "Lead Source" },
+    { label: "Mobile" },
+    { label: "Email" },
     { label: "Status" },
     ...(permissions.canEdit ? [{ label: "", align: "text-right" }] : []),
   ];
@@ -76,7 +102,7 @@ export default function LeadTable({
           if (!lead.conversionRequested) {
             onShowWarning(
               "Approval required",
-              "Please request conversion approval from your manager first.",
+              "Please request conversion approval from your manager first."
             );
             return;
           }
@@ -84,7 +110,7 @@ export default function LeadTable({
           if (!lead.conversionApproved) {
             onShowWarning(
               "Pending approval",
-              "Your conversion request is still awaiting manager approval.",
+              "Your conversion request is still awaiting manager approval."
             );
             return;
           }
@@ -96,7 +122,7 @@ export default function LeadTable({
         ) {
           onShowWarning(
             "Cannot convert",
-            "Conversion process has already started. The assigned agent must complete the conversion.",
+            "Conversion process has already started. The assigned agent must complete the conversion."
           );
           return;
         }
@@ -148,11 +174,7 @@ export default function LeadTable({
           <TableRow key={lead._id} onClick={() => onView(lead)}>
             <TableCell>
               <div className="flex items-center gap-2">
-                <img
-                  src={getProfileImage(lead)}
-                  alt="avatar"
-                  className="w-9 h-9 rounded-full object-cover border border-gray-300"
-                />
+                <InitialsAvatar person={lead} />
                 <span>
                   {getDisplayName(lead, {
                     includeMiddleInitial: true,
@@ -165,16 +187,13 @@ export default function LeadTable({
             {lead.leadAssignee ? (
               <TableCell>
                 <div className="flex items-center gap-2">
-                  <img
-                    src={getProfileImage(lead.leadAssignee)}
-                    className="w-7 h-7 rounded-full border border-gray-300"
-                  />
-                  <UserDisplayName user={lead.leadAssignee}>
+                  <InitialsAvatar person={lead.leadAssignee} size="w-7 h-7 text-[10px]" />
+                  <span>
                     {getDisplayName(lead.leadAssignee, {
                       includeMiddleInitial: true,
                       includeSuffix: true,
                     })}
-                  </UserDisplayName>
+                  </span>
                 </div>
               </TableCell>
             ) : (
@@ -184,26 +203,25 @@ export default function LeadTable({
                 </span>
               </TableCell>
             )}
+            <TableCell>{formatPhone(lead.phone) || "-"}</TableCell>
+            <TableCell>{lead.email || "-"}</TableCell>
             <TableCell>
-              <div className="text-sm">{formatPhone(lead.phone)}</div>
-              <div className="text-xs">{lead.email}</div>
-            </TableCell>
-            <TableCell>{lead.leadSource || "-"}</TableCell>
-            <TableCell>
-              <StatusDropdown
-                status={lead.status}
-                statuses={STATUSES}
-                toneMap={STATUS_TONE}
-                disabled={
-                  !permissions.canEdit ||
-                  lead.convertedToClient ||
-                  lead.status === "Lost"
-                }
-                onBeforeSelect={(newStatus) =>
-                  handleBeforeSelect(lead, newStatus)
-                }
-                onSelect={(newStatus) => onUpdateStatus(lead._id, newStatus)}
-              />
+              <div className="w-[110px]">
+                <StatusDropdown
+                  status={lead.status}
+                  statuses={STATUSES}
+                  toneMap={STATUS_TONE}
+                  disabled={
+                    !permissions.canEdit ||
+                    lead.convertedToClient ||
+                    lead.status === "Lost"
+                  }
+                  onBeforeSelect={(newStatus) =>
+                    handleBeforeSelect(lead, newStatus)
+                  }
+                  onSelect={(newStatus) => onUpdateStatus(lead._id, newStatus)}
+                />
+              </div>
             </TableCell>
             {permissions.canEdit && (
               <TableCell>
@@ -245,11 +263,7 @@ export default function LeadTable({
           <TableRow key={lead._id} onClick={() => onView(lead)}>
             <TableCell>
               <div className="flex items-center gap-2">
-                <img
-                  src={getProfileImage(lead)}
-                  alt="avatar"
-                  className="w-9 h-9 rounded-full object-cover border border-gray-300"
-                />
+                <InitialsAvatar person={lead} />
                 <span>
                   {getDisplayName(lead, {
                     includeMiddleInitial: true,
@@ -262,16 +276,13 @@ export default function LeadTable({
             {lead.leadAssignee ? (
               <TableCell>
                 <div className="flex items-center gap-2">
-                  <img
-                    src={getProfileImage(lead.leadAssignee)}
-                    className="w-7 h-7 rounded-full border border-gray-300"
-                  />
-                  <UserDisplayName user={lead.leadAssignee}>
+                  <InitialsAvatar person={lead.leadAssignee} size="w-7 h-7 text-[10px]" />
+                  <span>
                     {getDisplayName(lead.leadAssignee, {
                       includeMiddleInitial: true,
                       includeSuffix: true,
                     })}
-                  </UserDisplayName>
+                  </span>
                 </div>
               </TableCell>
             ) : (
@@ -281,26 +292,25 @@ export default function LeadTable({
                 </span>
               </TableCell>
             )}
+            <TableCell>{formatPhone(lead.phone) || "-"}</TableCell>
+            <TableCell>{lead.email || "-"}</TableCell>
             <TableCell>
-              <div className="text-sm">{formatPhone(lead.phone)}</div>
-              <div className="text-xs">{lead.email}</div>
-            </TableCell>
-            <TableCell>{lead.leadSource || "-"}</TableCell>
-            <TableCell>
-              <StatusDropdown
-                status={lead.status}
-                statuses={STATUSES}
-                toneMap={STATUS_TONE}
-                disabled={
-                  !permissions.canEdit ||
-                  lead.convertedToClient ||
-                  lead.status === "Lost"
-                }
-                onBeforeSelect={(newStatus) =>
-                  handleBeforeSelect(lead, newStatus)
-                }
-                onSelect={(newStatus) => onUpdateStatus(lead._id, newStatus)}
-              />
+              <div className="w-[110px]">
+                <StatusDropdown
+                  status={lead.status}
+                  statuses={STATUSES}
+                  toneMap={STATUS_TONE}
+                  disabled={
+                    !permissions.canEdit ||
+                    lead.convertedToClient ||
+                    lead.status === "Lost"
+                  }
+                  onBeforeSelect={(newStatus) =>
+                    handleBeforeSelect(lead, newStatus)
+                  }
+                  onSelect={(newStatus) => onUpdateStatus(lead._id, newStatus)}
+                />
+              </div>
             </TableCell>
             {permissions.canEdit && (
               <TableCell>

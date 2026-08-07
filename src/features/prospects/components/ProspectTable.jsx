@@ -1,4 +1,4 @@
-import { Edit2, Phone, FileX } from "lucide-react";
+import { Edit2, Trash2 } from "lucide-react";
 
 import {
   BaseTable,
@@ -7,18 +7,44 @@ import {
   TablePagination,
   useTablePagination,
 } from "../../../components/table";
+import StatusDropdown from "../../../components/select/StatusDropdown";
 
 const columns = [
+  { key: "number", label: "No." },
   { key: "companyName", label: "Company" },
   { key: "representative", label: "Representative" },
   { key: "companyEmailAddress", label: "Company Email" },
   { key: "phone", label: "Phone" },
-  { key: "leadSource", label: "Lead Source" },
   { key: "status", label: "Status" },
   { key: "actions", label: "", align: "text-right" },
 ];
 
-const getRepresentativeName = (prospect) => {
+const PROSPECT_STATUSES = ["New", "Contacted", "Lost"];
+
+const PROSPECT_STATUS_TONE = {
+  New: "blue",
+  Contacted: "green",
+  Lost: "red",
+};
+
+const EMPTY_VALUE = (
+  <span className="text-gray-300 tracking-widest">
+    ──────────
+  </span>
+);
+
+const getInitials = (rep) => {
+  if (!rep) return "?";
+  const first = rep.firstName || "";
+  const last = rep.lastName || "";
+
+  if (first && last) {
+    return `${first[0]}${last[0]}`.toUpperCase();
+  }
+  return (first[0] || "?").toUpperCase();
+};
+
+const renderRepresentative = (prospect) => {
   const representative = prospect?.representativeName || {};
 
   const name = [
@@ -29,18 +55,16 @@ const getRepresentativeName = (prospect) => {
     .filter(Boolean)
     .join(" ");
 
-  return name || "-";
-};
+  if (!name) return EMPTY_VALUE;
 
-const getStatusClass = (status) => {
-  switch (status) {
-    // case "Contacted":
-    //   return "bg-amber-50 text-amber-700";
-    case "Lost":
-      return "bg-red-50 text-red-700";
-    default:
-      return "bg-sky-50 text-sky-700";
-  }
+  return (
+    <div className="flex items-center gap-2">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-600 text-xs font-semibold border border-gray-200 uppercase">
+        {getInitials(representative)}
+      </span>
+      <span className="text-sm font-medium text-gray-700">{name}</span>
+    </div>
+  );
 };
 
 export default function ProspectTable({
@@ -49,7 +73,7 @@ export default function ProspectTable({
   onView,
   onEdit,
   onDelete,
-  onContact,
+  onStatusChange,
 }) {
   const {
     currentPage,
@@ -79,7 +103,7 @@ export default function ProspectTable({
         minHeightClass="min-h-[calc(100vh-345px)]"
         heightClass="h-[540px]"
       >
-        {paginatedItems.map((prospect) => (
+        {paginatedItems.map((prospect, index) => (
           <TableRow
             key={prospect._id}
             title="Prospect record"
@@ -87,27 +111,39 @@ export default function ProspectTable({
             className="cursor-pointer"
           >
             <TableCell>
-              <span className="font-medium text-gray-700">
-                {prospect.companyName || "-"}
+              <span className="text-gray-500">
+                {(currentPage - 1) * rowsPerPage + index + 1}
               </span>
             </TableCell>
 
-            <TableCell>{getRepresentativeName(prospect)}</TableCell>
+            <TableCell>
+              <span className="font-medium text-gray-700">
+                {prospect.companyName || EMPTY_VALUE}
+              </span>
+            </TableCell>
 
-            <TableCell>{prospect.companyEmailAddress || "-"}</TableCell>
-
-            <TableCell>{prospect.phone || "-"}</TableCell>
-
-            <TableCell>{prospect.leadSource || "-"}</TableCell>
+            <TableCell>{renderRepresentative(prospect)}</TableCell>
 
             <TableCell>
-              <span
-                className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${getStatusClass(
-                  prospect.status,
-                )}`}
+              {prospect.companyEmailAddress || EMPTY_VALUE}
+            </TableCell>
+
+            <TableCell>
+              {prospect.phone || EMPTY_VALUE}
+            </TableCell>
+
+            <TableCell>
+              <div
+                className="w-[110px] [&_button]:w-full [&_button]:justify-center"
+                onClick={(e) => e.stopPropagation()}
               >
-                {prospect.status || "New"}
-              </span>
+                <StatusDropdown
+                  status={prospect.status || "New"}
+                  statuses={PROSPECT_STATUSES}
+                  toneMap={PROSPECT_STATUS_TONE}
+                  onSelect={(newStatus) => onStatusChange?.(prospect, newStatus)}
+                />
+              </div>
             </TableCell>
 
             <TableCell align="text-right">
@@ -115,15 +151,6 @@ export default function ProspectTable({
                 className="flex items-center justify-end gap-2"
                 onClick={(event) => event.stopPropagation()}
               >
-                <button
-                  type="button"
-                  onClick={() => onContact?.(prospect._id)}
-                  className="text-gray-400 hover:text-emerald-600 cursor-pointer"
-                  title="Move to leads"
-                >
-                  <Phone size={16} />
-                </button>
-
                 <button
                   type="button"
                   onClick={() => onEdit?.(prospect)}
@@ -139,7 +166,7 @@ export default function ProspectTable({
                   className="text-gray-400 hover:text-red-600 cursor-pointer"
                   title="Delete prospect"
                 >
-                  <FileX size={16} />
+                  <Trash2 size={16} />
                 </button>
               </div>
             </TableCell>

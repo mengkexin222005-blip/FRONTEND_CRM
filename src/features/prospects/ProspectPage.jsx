@@ -46,6 +46,7 @@ export default function ProspectPage() {
     editProspect,
     removeProspect,
     markAsContacted,
+    updateProspectStatus,
   } = useProspect();
 
   const { users = [] } = useUsers({
@@ -145,10 +146,6 @@ export default function ProspectPage() {
     return success;
   };
 
-  const handleStatusChange = async (id, status) => {
-    return editProspect(id, { status });
-  };
-
   return (
     <PageBase>
       <div className="flex items-center justify-between mb-4">
@@ -225,7 +222,7 @@ export default function ProspectPage() {
             onView={handleOpenView}
             onEdit={handleEdit}
             onDelete={removeProspect}
-            onContact={markAsContacted}
+            onStatusChange={updateProspectStatus}
           />
         ) : (
           <ProspectKanban
@@ -234,8 +231,7 @@ export default function ProspectPage() {
             onView={handleOpenView}
             onEdit={handleEdit}
             onDelete={removeProspect}
-            onContact={markAsContacted}
-            onStatusChange={handleStatusChange}
+            onStatusChange={updateProspectStatus}
           />
         )}
       </PageContentState>

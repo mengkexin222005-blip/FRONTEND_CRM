@@ -1,16 +1,12 @@
 import { useEffect, useState } from "react";
 import {
-  FiCheckCircle,
   FiEdit2,
   FiUserPlus,
   FiUserCheck,
   FiX,
-  FiSend,
-  FiClock,
 } from "react-icons/fi";
 import Swal from "sweetalert2";
 
-import LeadConversionTimeline from "./LeadConversionTimeline";
 import LeadActionConfirmModal from "./LeadActionConfirmModal";
 
 import ViewDrawer from "../../components/view/ViewDrawer";
@@ -25,7 +21,6 @@ import ActivityTimeline from "../../components/activity/ActivityTimeline";
 
 import AssignAgentModal from "../../components/modal/AssignAgentModal";
 
-import { getDisplayName } from "../../utils/name";
 import { formatDate, formatDateTime } from "../../utils/date";
 import { formatPhone } from "../../utils/format";
 import { buildFullAddress } from "../../utils/buildFullAddress";
@@ -39,90 +34,6 @@ const statusConfig = {
   Qualified: { text: "Qualified", tone: "amber" },
   Lost: { text: "Lost", tone: "red" },
   Converted: { text: "Converted", tone: "green" },
-};
-
-const AgentConversionPendingBanner = () => (
-  <div className="mb-5 rounded-md border border-sky-200 bg-sky-50 px-4 py-3">
-    <p className="text-sm text-sky-700 font-medium">
-      Conversion request pending approval
-    </p>
-    <p className="text-xs text-sky-500 mt-0.5">
-      Waiting for your manager to approve before you can convert.
-    </p>
-  </div>
-);
-
-const ManagerConversionBanner = ({ lead }) => {
-  const isPending = lead.conversionRequested && !lead.conversionApproved;
-  const isApproved = lead.conversionApproved && !lead.convertedToClient;
-  if (!isPending && !isApproved) return null;
-
-  if (isPending) {
-    return (
-      <div className="mb-5 rounded-md border border-yellow-300 bg-yellow-50 px-4 py-3 flex gap-3">
-        <FiClock className="text-yellow-500 mt-0.5 shrink-0" size={16} />
-        <div>
-          <p className="text-sm text-yellow-800 font-medium">
-            Conversion requested — awaiting your approval
-          </p>
-          {lead.conversionRequestedBy && (
-            <p className="text-xs text-yellow-700 mt-0.5">
-              Requested by{" "}
-              <span className="font-semibold">
-                {getDisplayName(lead.conversionRequestedBy, {
-                  includeSuffix: true,
-                })}
-              </span>
-              {lead.conversionRequestedBy.role
-                ? ` (${lead.conversionRequestedBy.role})`
-                : ""}
-              {lead.conversionRequestedAt
-                ? ` · ${formatDateTime(lead.conversionRequestedAt)}`
-                : ""}
-            </p>
-          )}
-          <p className="text-xs text-yellow-600 mt-1">
-            Click <span className="font-medium">Approve Conversion</span> above
-            to unlock conversion for the agent.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="mb-5 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 flex gap-3">
-      <FiCheckCircle className="text-emerald-500 mt-0.5 shrink-0" size={16} />
-      <div>
-        <p className="text-sm text-emerald-800 font-medium">
-          Conversion approved — agent can now convert this lead
-        </p>
-        {lead.conversionApprovedBy && (
-          <p className="text-xs text-emerald-700 mt-0.5">
-            Approved by{" "}
-            <span className="font-semibold">
-              {getDisplayName(lead.conversionApprovedBy, {
-                includeSuffix: true,
-              })}
-            </span>
-            {lead.conversionApprovedAt
-              ? ` · ${formatDateTime(lead.conversionApprovedAt)}`
-              : ""}
-          </p>
-        )}
-        {lead.conversionRequestedBy && (
-          <p className="text-xs text-emerald-600 mt-0.5">
-            Originally requested by{" "}
-            <span className="font-semibold">
-              {getDisplayName(lead.conversionRequestedBy, {
-                includeSuffix: true,
-              })}
-            </span>
-          </p>
-        )}
-      </div>
-    </div>
-  );
 };
 
 const btnOutlineBase =
@@ -159,17 +70,13 @@ export default function LeadView({
   permissions = {},
   onClose,
   onEdit,
-  onApproveLeadConversion,
   onConvertLead,
   onAssignLead,
-  onRequestLeadConversion,
   onUpdateStatus,
 }) {
   const {
     canAssign,
     canConvert,
-    canApproveConvert,
-    canRequestConvert,
     canUpdateStatus,
   } = permissions;
 
@@ -199,30 +106,13 @@ export default function LeadView({
     tone: "gray",
   };
 
-  const isConverted = lead?.convertedToClient;
-  const conversionRequested = lead?.conversionRequested;
-  const conversionApproved = lead?.conversionApproved;
+  const isConverted = lead?.convertedToCustomer;
   const hasAssignee = Boolean(lead?.leadAssignee);
-  const conversionStarted = conversionRequested || conversionApproved;
 
-  const canConvertDirectly =
-    canConvert && canApproveConvert && !isConverted && !conversionStarted;
-  const canApproveLeadConversion =
-    canApproveConvert &&
-    Boolean(lead) &&
-    conversionRequested &&
-    !conversionApproved;
-  const canRequestConversion =
-    canRequestConvert && Boolean(lead) && !isConverted && !conversionRequested;
-  const agentCanConvert =
-    canRequestConvert && Boolean(lead) && !isConverted && conversionApproved;
-
-  const isReadyToConvert =
-    lead?.status === "Qualified" &&
+  const canConvertLead =
+    canConvert &&
     !isConverted &&
-    (canApproveConvert
-      ? !conversionRequested && !conversionApproved
-      : canRequestConvert && conversionApproved);
+    lead?.status === "Qualified";
 
   const handleConfirmLeadAction = async () => {
     if (!confirmAction || confirmSubmitting) return;
@@ -253,7 +143,7 @@ export default function LeadView({
     if (lead.status === "Lost")
       return "Lost leads are final and can no longer be moved.";
     if (newStatus === "Converted")
-      return "Use the Convert Lead action instead of changing status manually.";
+      return "Use the Convert to Client action instead of changing status manually.";
     if (newStatus === "Lost") return null;
 
     const currentIndex = LEAD_STAGE_ORDER.indexOf(lead.status);
@@ -336,98 +226,38 @@ export default function LeadView({
               </button>
 
               <div className="flex items-center gap-2 flex-wrap justify-end">
-                {canConvert && canApproveConvert && canAssign && (
-                  <>
-                    <ActionButton
-                      label="Convert Lead"
-                      icon={FiUserPlus}
-                      onClick={() =>
-                        setConfirmAction({ type: "convert", lead })
-                      }
-                      disabled={!canConvertDirectly}
-                      tooltip={
-                        isConverted
-                          ? "Lead is already converted"
-                          : conversionRequested && !conversionApproved
-                            ? "Waiting for approval"
-                            : conversionApproved
-                              ? "Assigned agent must complete conversion"
-                              : undefined
-                      }
-                      className={`border-emerald-500 text-emerald-700 hover:bg-emerald-50 ${
-                        isReadyToConvert ? "ready-to-convert-btn" : ""
-                      }`}
-                    />
-                    <ActionButton
-                      label="Approve Conversion"
-                      icon={FiCheckCircle}
-                      onClick={() => onApproveLeadConversion?.(lead._id)}
-                      disabled={!canApproveLeadConversion}
-                      tooltip={
-                        !conversionRequested
-                          ? "No conversion has been requested"
-                          : conversionApproved
-                            ? "Conversion is already approved"
-                            : undefined
-                      }
-                      className="border-amber-500 text-amber-800 hover:bg-amber-50"
-                    />
-                    <ActionButton
-                      label={hasAssignee ? "Reassign" : "Assign"}
-                      icon={FiUserCheck}
-                      onClick={() => setAssignModalOpen(true)}
-                      disabled={isConverted || conversionStarted}
-                      tooltip={
-                        isConverted
-                          ? "Cannot reassign a converted lead"
-                          : conversionStarted
-                            ? "Conversion in progress"
-                            : undefined
-                      }
-                      className="border-sky-600 text-sky-800 hover:bg-sky-50"
-                    />
-                  </>
+                <ActionButton
+                  label="Convert to Client"
+                  icon={FiUserPlus}
+                  onClick={() =>
+                    setConfirmAction({ type: "convert", lead })
+                  }
+                  disabled={!canConvertLead}
+                  tooltip={
+                    isConverted
+                      ? "Lead is already converted"
+                      : lead?.status !== "Qualified"
+                        ? "Lead status must be Qualified to convert"
+                        : undefined
+                  }
+                  className="border-emerald-500 text-emerald-700 hover:bg-emerald-50"
+                />
+
+                {canAssign && (
+                  <ActionButton
+                    label={hasAssignee ? "Reassign" : "Assign"}
+                    icon={FiUserCheck}
+                    onClick={() => setAssignModalOpen(true)}
+                    disabled={isConverted}
+                    tooltip={
+                      isConverted
+                        ? "Cannot reassign a converted lead"
+                        : undefined
+                    }
+                    className="border-sky-600 text-sky-800 hover:bg-sky-50"
+                  />
                 )}
-                {canRequestConvert && (
-                  <>
-                    <ActionButton
-                      label="Request Conversion"
-                      icon={FiSend}
-                      onClick={() => onRequestLeadConversion?.(lead._id)}
-                      disabled={!canRequestConversion}
-                      tooltip={
-                        isConverted
-                          ? "Lead is already converted"
-                          : conversionRequested
-                            ? conversionApproved
-                              ? "Conversion already approved"
-                              : "Conversion already requested"
-                            : undefined
-                      }
-                      className="border-sky-500 text-sky-700 hover:bg-sky-50"
-                    />
-                    <ActionButton
-                      label="Convert to Client"
-                      icon={FiUserPlus}
-                      onClick={() =>
-                        setConfirmAction({ type: "convert", lead })
-                      }
-                      disabled={!agentCanConvert}
-                      tooltip={
-                        isConverted
-                          ? "Lead is already converted"
-                          : !conversionRequested
-                            ? "No conversion requested"
-                            : !conversionApproved
-                              ? "Awaiting manager approval"
-                              : undefined
-                      }
-                      className={`border-emerald-500 text-emerald-700 hover:bg-emerald-50 ${
-                        isReadyToConvert ? "ready-to-convert-btn" : ""
-                      }`}
-                    />
-                  </>
-                )}
+
                 <ActionButton
                   label="Edit"
                   icon={FiEdit2}
@@ -486,16 +316,6 @@ export default function LeadView({
                     </div>
                   )}
                 </SectionBlock>
-
-                {canApproveConvert && conversionRequested && !isConverted && (
-                  <ManagerConversionBanner lead={lead} />
-                )}
-                {canRequestConvert &&
-                  conversionRequested &&
-                  !conversionApproved &&
-                  !isConverted && <AgentConversionPendingBanner />}
-
-                <LeadConversionTimeline lead={lead} />
 
                 <SectionBlock title="Personal Information">
                   <Field label="First Name" value={lead.firstName} />
@@ -569,15 +389,17 @@ export default function LeadView({
         </>
       )}
 
-      <LeadActionConfirmModal
-        open={Boolean(confirmAction)}
-        action={confirmAction?.type}
-        lead={confirmAction?.lead}
-        submitting={confirmSubmitting}
-        canConvert={canConvert}
-        onClose={() => setConfirmAction(null)}
-        onConfirm={handleConfirmLeadAction}
-      />
+      {confirmAction && (
+        <LeadActionConfirmModal
+          open={Boolean(confirmAction)}
+          action={confirmAction?.type}
+          lead={confirmAction?.lead}
+          submitting={confirmSubmitting}
+          canConvert={canConvert}
+          onClose={() => setConfirmAction(null)}
+          onConfirm={handleConfirmLeadAction}
+        />
+      )}
 
       <AssignAgentModal
         open={assignModalOpen && Boolean(lead)}

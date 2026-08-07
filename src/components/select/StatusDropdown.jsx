@@ -68,7 +68,11 @@ export default function StatusDropdown({
   };
 
   if (disabled) {
-    return <BaseBadge tone={toneMap[status] ?? "gray"}>{status}</BaseBadge>;
+    return (
+      <BaseBadge tone={toneMap[status] ?? "gray"} className="w-[105px] justify-center">
+        {status}
+      </BaseBadge>
+    );
   }
 
   return (
@@ -78,11 +82,16 @@ export default function StatusDropdown({
         onClick={handleToggle}
         className="flex items-center gap-1 cursor-pointer focus:outline-none"
       >
-        <BaseBadge tone={toneMap[status] ?? "gray"}>
-          {status}
+        <BaseBadge
+          tone={toneMap[status] ?? "gray"}
+          className="w-[105px] justify-center flex items-center gap-1"
+        >
+          <span>{status}</span>
           <ChevronDown
             size={11}
-            className={`transition-transform duration-150 ${open ? "rotate-180" : ""}`}
+            className={`transition-transform duration-150 shrink-0 ${
+              open ? "rotate-180" : ""
+            }`}
           />
         </BaseBadge>
       </button>
@@ -98,18 +107,22 @@ export default function StatusDropdown({
               <button
                 key={s}
                 onClick={(e) => handleSelect(e, s)}
-                className={`w-full text-left px-3 py-1.5 flex items-center gap-2.5 transition-colors duration-100 border-l-3
-                ${
+                className={`w-full text-left px-3 py-1.5 flex items-center gap-2.5 transition-colors duration-100 border-l-3 ${
                   s === status
                     ? "bg-gray-200 border-[#E7000B]"
                     : "border-transparent hover:bg-gray-100"
                 }`}
               >
-                <BaseBadge tone={toneMap[s] ?? "gray"}>{s}</BaseBadge>
+                <BaseBadge
+                  tone={toneMap[s] ?? "gray"}
+                  className="w-[105px] justify-center"
+                >
+                  {s}
+                </BaseBadge>
               </button>
             ))}
           </div>,
-          document.body,
+          document.body
         )}
     </>
   );

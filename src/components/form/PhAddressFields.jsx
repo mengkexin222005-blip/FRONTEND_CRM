@@ -11,64 +11,37 @@ import { FormLabel, FormInput } from "./FormField";
 import { COUNTRY_OPTIONS } from "../../constants/options";
 import {
   PHILIPPINES,
-  PROVINCE_OPTIONS,
   ALL_PROVINCE_OPTIONS,
   toOption,
 } from "../../constants/phAddress";
 
-/**
- * Full PH-aware address field group: Country → Province/NCR → City → Barangay
- * → Street / House Number / Zip Code.
- *
- * Owns its own cascading memos, controlled values, and change handlers so the
- * parent form only needs to forward `formData`, `addressCodes`, and the two
- * callbacks.
- *
- * @param {{
- *   formData: object,
- *   addressCodes: { provinceCode: string, municipalityCode: string, isNCRCity: boolean },
- *   onAddressSelect: (fields: object, codes?: object) => void,
- *   onChange: (e: React.ChangeEvent) => void,
- * }} props
- */
 export default function PhAddressFields({
   formData,
   addressCodes,
   onAddressSelect,
   onChange,
+  disabled = false,
 }) {
   const isPhilippines = formData.country === PHILIPPINES;
 
-  // ── Cascading options ──────────────────────────────────────────────────────
+  // ── Cascading options ─
   const municipalityOptions = useMemo(() => {
     if (!addressCodes.provinceCode || addressCodes.isNCRCity) return [];
     return getMunicipalitiesByProvince(addressCodes.provinceCode).map(toOption);
   }, [addressCodes.provinceCode, addressCodes.isNCRCity]);
 
-  const barangayOptions = useMemo(
-    () =>
-      addressCodes.municipalityCode
-        ? getBarangaysByMunicipality(addressCodes.municipalityCode).map(
-            toOption,
-          )
-        : [],
-    [addressCodes.municipalityCode],
-  );
+  const barangayOptions = useMemo(() => {
+    if (!addressCodes.municipalityCode) return [];
+    return getBarangaysByMunicipality(addressCodes.municipalityCode).map(toOption);
+  }, [addressCodes.municipalityCode]);
 
-  // ── Controlled values ──────────────────────────────────────────────────────
-  const currentCountry =
-    COUNTRY_OPTIONS.find((o) => o.value === formData.country) || null;
-  const currentProvince =
-    ALL_PROVINCE_OPTIONS.find((o) => o.value === addressCodes.provinceCode) ||
-    null;
-  const currentCity =
-    municipalityOptions.find(
-      (o) => o.value === addressCodes.municipalityCode,
-    ) || null;
-  const currentBarangay =
-    barangayOptions.find((o) => o.label === formData.barangay) || null;
+  // ── Controlled values ────
+  const currentCountry = COUNTRY_OPTIONS.find((o) => o.value === formData.country) || null;
+  const currentProvince = ALL_PROVINCE_OPTIONS.find((o) => o.value === addressCodes.provinceCode) || null;
+  const currentCity = municipalityOptions.find((o) => o.value === addressCodes.municipalityCode) || null;
+  const currentBarangay = barangayOptions.find((o) => o.label === formData.barangay) || null;
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
+  // ── Handlers ───
   const handleCountryChange = (opt) => {
     const newCountry = opt?.value ?? "";
     if (newCountry === formData.country) return;
@@ -86,15 +59,12 @@ export default function PhAddressFields({
       );
       return;
     }
+
     if (opt.isNCRCity) {
-      // NCR city doubles as both province AND city
+      // NCR city serves as both province and city
       onAddressSelect(
         { province: opt.label, city: opt.label, barangay: "" },
-        {
-          provinceCode: opt.value,
-          municipalityCode: opt.value,
-          isNCRCity: true,
-        },
+        { provinceCode: opt.value, municipalityCode: opt.value, isNCRCity: true },
       );
     } else {
       onAddressSelect(
@@ -104,137 +74,116 @@ export default function PhAddressFields({
     }
   };
 
-  const handleCityChange = (opt) =>
+  const handleCityChange = (opt) => {
     onAddressSelect(
       { city: opt?.label ?? "", barangay: "" },
       { municipalityCode: opt?.value ?? "" },
     );
+  };
 
-  const handleBarangayChange = (opt) =>
+  const handleBarangayChange = (opt) => {
     onAddressSelect({ barangay: opt?.label ?? "" });
+  };
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Render ──
   return (
-    <>
+    <div className="space-y-4">
       {/* Country */}
       <div>
         <FormLabel required>Country</FormLabel>
         <Select
-          {...getSelectProps({ isClearable: true })}
+          {...getSelectProps()}
           options={COUNTRY_OPTIONS}
           value={currentCountry}
           onChange={handleCountryChange}
+          isDisabled={disabled}
           placeholder="Select country"
-          required
         />
       </div>
 
-      {isPhilippines ? (
+
+      {isPhilippines && (
         <>
-          {/* Province + City (2-col; city hidden for NCR) */}
-          <div
-            className={`grid gap-3 ${addressCodes.isNCRCity ? "grid-cols-1" : "grid-cols-2"}`}
-          >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <FormLabel required>Province</FormLabel>
               <Select
-                {...getSelectProps({ isClearable: true })}
-                options={PROVINCE_OPTIONS}
+                {...getSelectProps()}
+                options={ALL_PROVINCE_OPTIONS}
                 value={currentProvince}
                 onChange={handleProvinceChange}
+                isDisabled={disabled}
                 placeholder="Select province"
-                required
+                isClearable
               />
             </div>
+
             {!addressCodes.isNCRCity && (
               <div>
                 <FormLabel required>City / Municipality</FormLabel>
                 <Select
-                  {...getSelectProps({ isClearable: true })}
+                  {...getSelectProps()}
                   options={municipalityOptions}
                   value={currentCity}
                   onChange={handleCityChange}
+                  isDisabled={disabled || municipalityOptions.length === 0}
                   placeholder={
-                    addressCodes.provinceCode
-                      ? "Select city"
-                      : "Select province first"
+                    municipalityOptions.length === 0
+                      ? "Select a province first"
+                      : "Select city/municipality"
                   }
-                  isDisabled={!addressCodes.provinceCode}
-                  required
+                  isClearable
                 />
               </div>
             )}
           </div>
 
-          {/* Barangay */}
-          <div>
-            <FormLabel>Barangay</FormLabel>
-            <Select
-              {...getSelectProps({ isClearable: true })}
-              options={barangayOptions}
-              value={currentBarangay}
-              onChange={handleBarangayChange}
-              placeholder={
-                addressCodes.municipalityCode
-                  ? "Select barangay"
-                  : "Select city first"
-              }
-              isDisabled={!addressCodes.municipalityCode}
-            />
-          </div>
-        </>
-      ) : (
-        /* Non-PH: plain text inputs */
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            ["province", "Province", true],
-            ["city", "City / Municipality", true],
-            ["barangay", "Barangay / District", false],
-          ].map(([name, label, req]) => (
-            <div key={name}>
-              <FormLabel required={req}>{label}</FormLabel>
-              <FormInput
-                name={name}
-                value={formData[name]}
-                onChange={onChange}
-                required={req}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <FormLabel>Barangay</FormLabel>
+              <Select
+                {...getSelectProps()}
+                options={barangayOptions}
+                value={currentBarangay}
+                onChange={handleBarangayChange}
+                isDisabled={disabled || barangayOptions.length === 0}
+                placeholder={
+                  barangayOptions.length === 0
+                    ? "Select a city first"
+                    : "Select barangay"
+                }
+                isClearable
               />
             </div>
-          ))}
-        </div>
+
+            <div>
+              <FormLabel required>Zip Code</FormLabel>
+              <FormInput
+                name="zipCode"
+                value={formData.zipCode || ""}
+                onChange={onChange}
+                disabled={disabled}
+                placeholder="e.g. 4400"
+                required
+              />
+            </div>
+          </div>
+        </>
       )}
 
-      {/* Street / House Number / Zip Code */}
-      <div className="grid grid-cols-3 gap-3">
-        <div>
-          <FormLabel>Street</FormLabel>
-          <FormInput
-            name="street"
-            value={formData.street}
-            onChange={onChange}
-            placeholder="e.g. Rizal St"
-          />
-        </div>
-        <div>
-          <FormLabel>House Number</FormLabel>
-          <FormInput
-            name="houseNumber"
-            value={formData.houseNumber}
-            onChange={onChange}
-            placeholder="e.g. 123"
-          />
-        </div>
+      {!isPhilippines && (
         <div>
           <FormLabel required>Zip Code</FormLabel>
           <FormInput
             name="zipCode"
-            value={formData.zipCode}
+            value={formData.zipCode || ""}
             onChange={onChange}
-            placeholder="e.g. 4400"
+            disabled={disabled}
+            placeholder="Enter postal / zip code"
             required
           />
         </div>
-      </div>
-    </>
+      )}
+    </div>
   );
 }

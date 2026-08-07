@@ -61,7 +61,7 @@ export default function CallsPage() {
     addCall,
     editCall,
     removeCall,
-    completeCall,
+    updateCallStatus,
     assignableUsers = [],
   } = useCalls();
 
@@ -392,7 +392,7 @@ export default function CallsPage() {
             onView={handleView}
             onEdit={handleEdit}
             onDelete={removeCall}
-            onComplete={completeCall}
+            onStatusChange={updateCallStatus}
           />
         ) : (
           <CallsKanban

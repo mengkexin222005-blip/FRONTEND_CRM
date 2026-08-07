@@ -12,14 +12,9 @@ const Toast = Swal.mixin({
 });
 
 const normalizeCall = (call) => {
-
   const contactMethod =
     call.contactMethod ||
-    (call.WhatsApp
-      ? "WhatsApp"
-      : call.Viber
-      ? "Viber"
-      : "Mobile");
+    (call.WhatsApp ? "WhatsApp" : call.Viber ? "Viber" : "Mobile");
 
   const contactValue =
     call.contactValue ||
@@ -167,30 +162,28 @@ export default function useCalls() {
     }
   }, []);
 
-  const completeCall = useCallback(async (id) => {
+  const updateCallStatus = useCallback(async (call, status) => {
     try {
-      const data = await callService.updateCall(id, {
-        status: "Completed",
-      });
+      const data = await callService.updateCall(call._id, { status });
 
       setCalls((previous) =>
-        previous.map((call) =>
-          call._id === id ? normalizeCall(data) : call
+        previous.map((item) =>
+          item._id === call._id ? normalizeCall(data) : item
         )
       );
 
       Toast.fire({
         icon: "success",
-        title: "Call completed",
+        title: `Call status set to ${status}`,
       });
 
       return true;
     } catch (error) {
-      console.error("COMPLETE CALL ERROR:", error);
+      console.error("UPDATE CALL STATUS ERROR:", error);
 
       Toast.fire({
         icon: "error",
-        title: "Failed to complete call",
+        title: "Failed to update call status",
       });
 
       return false;
@@ -204,6 +197,6 @@ export default function useCalls() {
     addCall,
     editCall,
     removeCall,
-    completeCall,
+    updateCallStatus,
   };
 }

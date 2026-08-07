@@ -76,20 +76,6 @@ export function useLeads() {
   );
 
   useSocket(
-    SOCKET_EVENTS.LEAD_CONVERSION_REQUESTED,
-    useCallback(() => {
-      fetchLeads();
-    }, [fetchLeads]),
-  );
-
-  useSocket(
-    SOCKET_EVENTS.LEAD_CONVERSION_APPROVED,
-    useCallback(() => {
-      fetchLeads();
-    }, [fetchLeads]),
-  );
-
-  useSocket(
     SOCKET_EVENTS.LEAD_CONVERTED,
     useCallback(() => {
       fetchLeads();
@@ -108,7 +94,6 @@ export function useLeads() {
   );
 
   const createLead = async (formData, avatar, options = {}) => {
-    //Validate before hitting the API
     const phoneErr = validatePhone(formData.phone);
     if (phoneErr) {
       Swal.fire({ icon: "error", title: "Invalid Phone", text: phoneErr });
@@ -127,21 +112,24 @@ export function useLeads() {
         sex: formData.gender,
         email: formData.email,
         phone: formData.phone,
-        company: formData.company,
-        industry: formData.industry,
+        company: formData.companyName || formData.company,
+        industry: formData.natureOfBusiness || formData.industry,
         leadSource: formData.leadSource,
         notes: formData.notes,
-        "address.country": formData.country,
-        "address.province": formData.province,
-        "address.municipality": formData.city,
-        "address.barangay": formData.barangay,
-        "address.street": formData.street,
-        "address.houseNumber": formData.houseNumber,
-        "address.zipCode": formData.zipCode,
+        "ownerName.firstName": formData.ownerName?.firstName,
+        "ownerName.middleInitial": formData.ownerName?.middleInitial,
+        "ownerName.lastName": formData.ownerName?.lastName,
+        "address.country": formData.country || formData.address?.country,
+        "address.province": formData.province || formData.address?.province,
+        "address.municipality": formData.city || formData.address?.municipality,
+        "address.barangay": formData.barangay || formData.address?.barangay,
+        "address.street": formData.street || formData.address?.street,
+        "address.houseNumber": formData.houseNumber || formData.address?.houseNumber,
+        "address.zipCode": formData.zipCode || formData.address?.zipCode,
       };
 
-      if (formData.leadAssignee) {
-        mapped.leadAssignee = formData.leadAssignee;
+      if (formData.leadAssignee || formData.handlingOfficer) {
+        mapped.leadAssignee = formData.leadAssignee || formData.handlingOfficer;
       }
 
       Object.keys(mapped).forEach((key) => data.append(key, mapped[key] ?? ""));
@@ -169,7 +157,6 @@ export function useLeads() {
   };
 
   const updateLead = async (_id, formData, avatar) => {
-    //Validate before hitting the API
     const phoneErr = validatePhone(formData.phone);
     if (phoneErr) {
       Swal.fire({ icon: "error", title: "Invalid Phone", text: phoneErr });
@@ -188,17 +175,20 @@ export function useLeads() {
         sex: formData.gender,
         email: formData.email,
         phone: formData.phone,
-        company: formData.company,
-        industry: formData.industry,
+        company: formData.companyName || formData.company,
+        industry: formData.natureOfBusiness || formData.industry,
         leadSource: formData.leadSource,
         notes: formData.notes,
-        "address.country": formData.country,
-        "address.province": formData.province,
-        "address.municipality": formData.city,
-        "address.barangay": formData.barangay,
-        "address.street": formData.street,
-        "address.houseNumber": formData.houseNumber,
-        "address.zipCode": formData.zipCode,
+        "ownerName.firstName": formData.ownerName?.firstName,
+        "ownerName.middleInitial": formData.ownerName?.middleInitial,
+        "ownerName.lastName": formData.ownerName?.lastName,
+        "address.country": formData.country || formData.address?.country,
+        "address.province": formData.province || formData.address?.province,
+        "address.municipality": formData.city || formData.address?.municipality,
+        "address.barangay": formData.barangay || formData.address?.barangay,
+        "address.street": formData.street || formData.address?.street,
+        "address.houseNumber": formData.houseNumber || formData.address?.houseNumber,
+        "address.zipCode": formData.zipCode || formData.address?.zipCode,
       };
 
       Object.keys(mapped).forEach((key) => data.append(key, mapped[key] ?? ""));
@@ -248,17 +238,20 @@ export function useLeads() {
         sex: formData.gender,
         email: formData.email,
         phone: formData.phone,
-        company: formData.company,
-        industry: formData.industry,
+        company: formData.companyName || formData.company,
+        industry: formData.natureOfBusiness || formData.industry,
         leadSource: formData.leadSource,
         notes: formData.notes,
-        "address.country": formData.country,
-        "address.province": formData.province,
-        "address.municipality": formData.city,
-        "address.barangay": formData.barangay,
-        "address.street": formData.street,
-        "address.houseNumber": formData.houseNumber,
-        "address.zipCode": formData.zipCode,
+        "ownerName.firstName": formData.ownerName?.firstName,
+        "ownerName.middleInitial": formData.ownerName?.middleInitial,
+        "ownerName.lastName": formData.ownerName?.lastName,
+        "address.country": formData.country || formData.address?.country,
+        "address.province": formData.province || formData.address?.province,
+        "address.municipality": formData.city || formData.address?.municipality,
+        "address.barangay": formData.barangay || formData.address?.barangay,
+        "address.street": formData.street || formData.address?.street,
+        "address.houseNumber": formData.houseNumber || formData.address?.houseNumber,
+        "address.zipCode": formData.zipCode || formData.address?.zipCode,
       };
 
       Object.keys(mapped).forEach((key) => data.append(key, mapped[key] ?? ""));
@@ -390,82 +383,6 @@ export function useLeads() {
     }
   };
 
-  const requestLeadConversion = async (_id) => {
-    const result = await Swal.fire({
-      title: "Request conversion?",
-      text: "This will notify your manager to review and approve.",
-      icon: "question",
-      showCancelButton: true,
-      confirmButtonColor: "#0284c7",
-      confirmButtonText: "Yes, request",
-    });
-
-    if (!result.isConfirmed) return false;
-
-    try {
-      const { data } = await api.patch(`/api/leads/${_id}/request-conversion`);
-      setLeads((prev) =>
-        prev.map((l) =>
-          l._id === _id
-            ? {
-                ...l,
-                conversionRequested: true,
-                conversionRequestedAt: data.lead.conversionRequestedAt,
-                conversionRequestedBy: data.lead.conversionRequestedBy,
-              }
-            : l,
-        ),
-      );
-      Toast.fire({ icon: "success", title: "Conversion requested" });
-      return data.lead;
-    } catch (error) {
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: error.response?.data?.error || "Failed to request conversion",
-      });
-      return false;
-    }
-  };
-
-  const approveLeadConversion = async (_id) => {
-    const result = await Swal.fire({
-      title: "Approve conversion?",
-      text: "The agent will be able to convert this lead to a client.",
-      icon: "question",
-      showCancelButton: true,
-      confirmButtonColor: "#d97706",
-      confirmButtonText: "Approve",
-    });
-
-    if (!result.isConfirmed) return false;
-
-    try {
-      const { data } = await api.patch(`/api/leads/${_id}/approve-conversion`);
-      setLeads((prev) =>
-        prev.map((l) =>
-          l._id === _id
-            ? {
-                ...l,
-                conversionApproved: true,
-                conversionApprovedAt: data.lead.conversionApprovedAt,
-                conversionApprovedBy: data.lead.conversionApprovedBy,
-              }
-            : l,
-        ),
-      );
-      Toast.fire({ icon: "success", title: "Conversion approved" });
-      return data.lead;
-    } catch (error) {
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: error.response?.data?.error || "Failed to approve conversion",
-      });
-      return false;
-    }
-  };
-
   const convertLead = async (_id) => {
     try {
       const { data } = await api.post(`/api/leads/${_id}/convert`);
@@ -475,7 +392,7 @@ export function useLeads() {
             ? {
                 ...l,
                 status: "Converted",
-                convertedToClient: true,
+                convertedToCustomer: true,
                 convertedAt: data.lead.convertedAt,
                 convertedBy: data.lead.convertedBy,
               }
@@ -531,8 +448,6 @@ export function useLeads() {
     updateLeadStatus,
     assignLead,
     deleteLead,
-    requestLeadConversion,
-    approveLeadConversion,
     convertLead,
     reorderLeads,
     KANBAN_STATUSES,
